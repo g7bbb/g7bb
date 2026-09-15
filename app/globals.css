@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(-2px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(4px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-8px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(8px, 0, 0);
+  }
+}
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.3) rotate(-8deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.animate-pop {
+  animation: pop-in 0.4s ease-out both;
+}
