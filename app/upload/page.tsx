@@ -45,7 +45,7 @@ export default function UploadPage() {
   useEffect(() => {
     getCurrentPlayer().then((p) => {
       if (!p) {
-        router.push('/signup');
+        router.push('/start');
         return;
       }
       setPlayer(p);

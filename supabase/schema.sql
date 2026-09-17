@@ -92,3 +92,32 @@ create policy "battles_insert_own" on battles for insert with check (auth.uid() 
 
 -- 행사 종료 후에는 아래 명령으로 테이블을 비워서 아이들 데이터를 정리해주세요.
 -- truncate table battles, insects, players cascade;
+
+-- =====================================================================
+-- 종이 참가 번호 방식 도입에 따른 마이그레이션 (2026-09-17)
+--
+-- 부스에서는 구글/이메일 로그인 대신 "종이에 인쇄된 참가 번호"로 본인을 확인합니다.
+-- 로그인이 없어졌으므로 auth.uid() 를 쓰는 RLS 정책은 모든 저장을 막아버립니다.
+-- 아래 구문을 SQL Editor 에 붙여넣고 Run 해주세요. (여러 번 실행해도 안전합니다.)
+-- =====================================================================
+
+alter table players add column if not exists ticket_code text;
+alter table players add column if not exists prize_choice text;
+alter table players add column if not exists survey jsonb;
+
+-- 같은 번호가 두 명에게 발급되는 사고를 막습니다.
+create unique index if not exists players_ticket_code_key on players (ticket_code);
+
+-- 로그인 기반 정책을 모두 제거하고 RLS를 다시 끕니다.
+drop policy if exists "players_select_own" on players;
+drop policy if exists "players_insert_own" on players;
+drop policy if exists "players_update_own" on players;
+drop policy if exists "insects_select_all" on insects;
+drop policy if exists "insects_insert_own" on insects;
+drop policy if exists "insects_update_own" on insects;
+drop policy if exists "battles_select_all" on battles;
+drop policy if exists "battles_insert_own" on battles;
+
+alter table players disable row level security;
+alter table insects disable row level security;
+alter table battles disable row level security;

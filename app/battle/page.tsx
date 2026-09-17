@@ -34,7 +34,7 @@ export default function BattlePage() {
   useEffect(() => {
     getCurrentPlayer().then((p) => {
       if (!p) {
-        router.push('/signup');
+        router.push('/start');
         return;
       }
       setPlayer(p);

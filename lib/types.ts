@@ -44,8 +44,20 @@ export interface Insect {
 
 export interface Player {
   id: string;
+  // 종이에 인쇄된 참가 번호(예: A-014). 부스에서는 이 값이 신분증 역할을 합니다.
+  ticket_code: string;
   display_name: string;
+  // 받고 싶은 선물 (lib/survey.ts 의 PRIZES 키)
+  prize_choice: string | null;
+  // 설문 답변 3개를 통째로 담습니다. 문항이 늘어도 컬럼을 추가할 필요가 없습니다.
+  survey: SurveyAnswersRecord | null;
   email: string | null;
   marketing_consent: boolean;
   created_at: string;
+}
+
+export interface SurveyAnswersRecord {
+  favoriteInsect?: string;
+  wantsCollecting?: string;
+  wantsGame?: string;
 }
