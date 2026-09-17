@@ -121,3 +121,10 @@ drop policy if exists "battles_insert_own" on battles;
 alter table players disable row level security;
 alter table insects disable row level security;
 alter table battles disable row level security;
+
+-- =====================================================================
+-- 특별 진화(상상으로 더 그린 부위) 도입에 따른 마이그레이션 (2026-09-17)
+-- 아이가 턱 4개, 다리 8개처럼 실제와 다르게 그린 개수를 저장합니다.
+-- SQL Editor에서 실행해주세요. (여러 번 실행해도 안전합니다.)
+-- =====================================================================
+alter table insects add column if not exists mutations jsonb;

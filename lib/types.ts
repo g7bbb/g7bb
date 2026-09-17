@@ -33,6 +33,8 @@ export interface Insect {
   origin: EnvironmentKey;
   age_stage: AgeStageKey;
   body_parts: BodyPartScores;
+  // 아이가 상상으로 더 그린 부위의 개수 (lib/mutations.ts)
+  mutations: MutationCountsRecord | null;
   image_base64: string;
   mime_type: string;
   stats: CoreStats;
@@ -60,4 +62,12 @@ export interface SurveyAnswersRecord {
   favoriteInsect?: string;
   wantsCollecting?: string;
   wantsGame?: string;
+}
+
+// 특별 진화 개수. lib/mutations.ts 와 순환 참조가 생기지 않도록 여기에 형태만 적어둡니다.
+export interface MutationCountsRecord {
+  mandibles?: number;
+  wings?: number;
+  legs?: number;
+  antennae?: number;
 }

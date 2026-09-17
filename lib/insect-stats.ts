@@ -1,4 +1,5 @@
 import { AgeStageKey, BodyPart, BodyPartScores, CoreStats, StatKey } from './types';
+import { MutationCounts, applyMutations } from './mutations';
 
 export const BODY_PARTS: { key: BodyPart; label: string; hint: string }[] = [
   { key: 'head', label: '머리 (턱)', hint: '공격력 · 지능' },
@@ -39,7 +40,12 @@ const clamp = (v: number) => Math.max(10, Math.min(100, Math.round(v)));
 
 // 7개 신체부위 점수(1~5)를 5개 핵심 능력치로 변환합니다.
 // 각 부위가 연결된 능력치들에 점수를 더한 뒤, 그 능력치에 기여하는 부위 개수만큼 나눠서 0~100 범위로 맞춥니다.
-export function calculateStats(parts: BodyPartScores, ageStage: AgeStageKey): CoreStats {
+// mutations(아이가 상상으로 더 그린 부위)를 넘기면 마지막에 보너스/페널티까지 반영합니다.
+export function calculateStats(
+  parts: BodyPartScores,
+  ageStage: AgeStageKey,
+  mutations?: MutationCounts
+): CoreStats {
   const contributions: Record<StatKey, number[]> = { atk: [], def: [], hp: [], surv: [], int: [] };
   (Object.keys(parts) as BodyPart[]).forEach((part) => {
     const score = parts[part];
@@ -54,13 +60,15 @@ export function calculateStats(parts: BodyPartScores, ageStage: AgeStageKey): Co
 
   const stage = AGE_STAGES.find((s) => s.key === ageStage) ?? AGE_STAGES[1];
 
-  return {
+  const base: CoreStats = {
     atk: clamp(normalize(contributions.atk) * stage.statMultiplier),
     def: clamp(normalize(contributions.def)),
     hp: clamp(normalize(contributions.hp) * stage.statMultiplier),
     surv: clamp(normalize(contributions.surv) * stage.statMultiplier),
     int: clamp(normalize(contributions.int) * stage.statMultiplier),
   };
+
+  return mutations ? applyMutations(base, mutations) : base;
 }
 
 export function levelFromXp(xp: number): number {

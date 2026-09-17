@@ -8,6 +8,7 @@ import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { SPECIES, speciesLabel } from '@/lib/species';
+import { MUTATIONS, MutationKey, defaultMutations, describeMutations, hasAnyMutation } from '@/lib/mutations';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
 
@@ -32,6 +33,7 @@ export default function UploadPage() {
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
+  const [mutations, setMutations] = useState(defaultMutations());
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function UploadPage() {
     });
   }, [router]);
 
-  const stats = calculateStats(bodyParts, ageStage);
+  const stats = calculateStats(bodyParts, ageStage, mutations);
 
   function updatePart(part: BodyPart, value: number) {
     setBodyParts((prev) => ({ ...prev, [part]: value }));
@@ -84,7 +86,7 @@ export default function UploadPage() {
       const res = await fetch('/api/convert-insect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mimeType, species, bodyParts }),
+        body: JSON.stringify({ imageBase64: base64, mimeType, species, bodyParts, mutations }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '변환에 실패했어요.');
@@ -109,6 +111,7 @@ export default function UploadPage() {
         origin,
         age_stage: ageStage,
         body_parts: bodyParts,
+        mutations,
         image_base64: resultImage,
         mime_type: resultMime,
         stats,
@@ -192,6 +195,44 @@ export default function UploadPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            {/* 아이가 상상으로 더 그린 부위를 그대로 살리되, 얻는 만큼 잃게 합니다. */}
+            <p className="text-sm text-slate-400 mb-1">✨ 특별 진화</p>
+            <p className="text-xs text-slate-500 mb-2">그린 대로 골라줘! 세지는 대신 약해지는 것도 있어</p>
+            <div className="flex flex-col gap-3">
+              {MUTATIONS.map((option) => (
+                <div key={option.key} className="bg-slate-800 rounded-xl px-4 py-3">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-semibold">{option.label}</span>
+                    <span className="text-slate-400 text-xs">{option.hint}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {option.choices.map((choice) => (
+                      <button
+                        key={choice.value}
+                        onClick={() =>
+                          setMutations((prev) => ({ ...prev, [option.key as MutationKey]: choice.value }))
+                        }
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold ${
+                          mutations[option.key] === choice.value
+                            ? 'bg-amber-400 text-slate-900'
+                            : 'bg-slate-700'
+                        }`}
+                      >
+                        {choice.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {hasAnyMutation(mutations) && (
+              <p className="mt-2 text-xs text-amber-300">
+                🧬 {describeMutations(mutations)} — 그대로 그려질 거야!
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">
