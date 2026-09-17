@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getSession, PlayerSession } from '@/lib/session';
+import { getCurrentPlayer } from '@/lib/session';
+import { Player } from '@/lib/types';
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
 export default function HomePage() {
-  const [session, setSessionState] = useState<PlayerSession | null>(null);
+  const [session, setSessionState] = useState<Player | null>(null);
 
   useEffect(() => {
-    setSessionState(getSession());
+    getCurrentPlayer().then(setSessionState);
   }, []);
 
   return (
@@ -18,7 +19,7 @@ export default function HomePage() {
       <div className="text-center">
         <h1 className="text-3xl font-bold">🐛 곤충 배틀 베타</h1>
         {session ? (
-          <p className="mt-2 text-slate-300">{session.displayName}님, 환영해요!</p>
+          <p className="mt-2 text-slate-300">{session.display_name}님, 환영해요!</p>
         ) : (
           <p className="mt-2 text-slate-400">먼저 아이디를 만들어주세요</p>
         )}

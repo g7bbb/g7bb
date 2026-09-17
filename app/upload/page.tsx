@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSession } from '@/lib/session';
+import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
+import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
+import HowTo from './how-to';
 
 function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
@@ -37,8 +39,17 @@ export default function UploadPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [showHowTo, setShowHowTo] = useState(true);
+
   useEffect(() => {
-    if (!getSession()) router.push('/signup');
+    getCurrentPlayer().then((p) => {
+      if (!p) {
+        router.push('/signup');
+        return;
+      }
+      setPlayer(p);
+    });
   }, [router]);
 
   const stats = calculateStats(bodyParts, ageStage);
@@ -86,14 +97,13 @@ export default function UploadPage() {
   }
 
   async function handleSave() {
-    const session = getSession();
-    if (!session || !resultImage) return;
+    if (!player || !resultImage) return;
     setSaving(true);
     setError('');
     try {
       const { error: insertError } = await supabase.from('insects').insert({
-        player_id: session.id,
-        nickname: session.displayName,
+        player_id: player.id,
+        nickname: player.display_name,
         species,
         origin,
         age_stage: ageStage,
@@ -116,7 +126,17 @@ export default function UploadPage() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
-      <h1 className="text-2xl font-bold text-center">📸 내 곤충 만들기</h1>
+      {showHowTo && <HowTo onClose={() => setShowHowTo(false)} />}
+
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">📸 내 곤충 만들기</h1>
+        <button
+          onClick={() => setShowHowTo(true)}
+          className="text-sm border border-slate-600 text-slate-300 rounded-full px-3 py-1"
+        >
+          ❓ 설명 보기
+        </button>
+      </div>
 
       {!resultImage && (
         <>

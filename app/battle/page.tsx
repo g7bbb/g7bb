@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSession } from '@/lib/session';
+import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
+import { Player } from '@/lib/types';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { calculateBattle, BattleResult } from '@/lib/battle-engine';
 import { levelFromXp, xpGainForBattle } from '@/lib/insect-stats';
@@ -18,6 +19,7 @@ interface ResultState {
 
 export default function BattlePage() {
   const router = useRouter();
+  const [player, setPlayer] = useState<Player | null>(null);
   const [myInsect, setMyInsect] = useState<Insect | null>(null);
   const [env, setEnv] = useState<EnvironmentKey>('meteor');
   const [loading, setLoading] = useState(true);
@@ -30,12 +32,14 @@ export default function BattlePage() {
   const [barB, setBarB] = useState(100);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.push('/signup');
-      return;
-    }
-    loadMyInsect(session.id);
+    getCurrentPlayer().then((p) => {
+      if (!p) {
+        router.push('/signup');
+        return;
+      }
+      setPlayer(p);
+      loadMyInsect(p.id);
+    });
   }, [router]);
 
   async function loadMyInsect(playerId: string) {
@@ -84,8 +88,7 @@ export default function BattlePage() {
   }
 
   async function handleBattle() {
-    const session = getSession();
-    if (!session || !myInsect) return;
+    if (!player || !myInsect) return;
     setBattling(true);
     setError('');
     setResult(null);
@@ -93,7 +96,7 @@ export default function BattlePage() {
       const { data: opponents, error: oppError } = await supabase
         .from('insects')
         .select('*')
-        .neq('player_id', session.id)
+        .neq('player_id', player.id)
         .limit(50);
 
       if (oppError) throw oppError;
@@ -111,7 +114,7 @@ export default function BattlePage() {
       const leveledUp = newLevel > myInsect.level;
 
       const { error: insertError } = await supabase.from('battles').insert({
-        player_id: session.id,
+        player_id: player.id,
         insect_id: myInsect.id,
         opponent_insect_id: opponent.id,
         environment: env,

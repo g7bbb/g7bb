@@ -55,8 +55,40 @@ alter table insects add column if not exists xp int not null default 0;
 alter table insects add column if not exists battle_count int not null default 0;
 -- =====================================================================
 
--- 베타 테스트 기간에는 RLS(행 단위 보안)를 켜지 않은 상태로 둡니다.
--- 즉 anon key만 있으면 누구나 읽고 쓸 수 있어요. 3일짜리 현장 이벤트 베타에는 충분하지만,
--- 이후 정식 운영으로 넘어간다면 RLS 정책을 추가하는 것을 권장합니다.
--- 또한 행사 종료 후에는 아래 명령으로 테이블을 비워서 아이들 데이터를 정리해주세요.
+-- =====================================================================
+-- Google/이메일(매직링크) 로그인 도입에 따른 마이그레이션
+-- 상품 지급을 위해 "본인 계정으로만 자기 기록을 쓸 수 있게" RLS를 켭니다.
+-- players.id는 더 이상 무작위 생성이 아니라, 가입 시 Supabase Auth의
+-- auth.users.id 값을 그대로 사용합니다 (앱 코드에서 upsert할 때 지정).
+-- =====================================================================
+alter table players drop column if exists login_id;
+alter table players add column if not exists email text;
+alter table players add column if not exists marketing_consent boolean not null default false;
+
+alter table players enable row level security;
+alter table insects enable row level security;
+alter table battles enable row level security;
+
+drop policy if exists "players_select_own" on players;
+drop policy if exists "players_insert_own" on players;
+drop policy if exists "players_update_own" on players;
+create policy "players_select_own" on players for select using (auth.uid() = id);
+create policy "players_insert_own" on players for insert with check (auth.uid() = id);
+create policy "players_update_own" on players for update using (auth.uid() = id);
+
+-- insects/battles는 배틀 상대 선택과 랭킹 집계를 위해 전체 읽기는 열어두고,
+-- 쓰기(생성/수정)는 본인 player_id 소유 데이터만 가능하게 합니다.
+drop policy if exists "insects_select_all" on insects;
+drop policy if exists "insects_insert_own" on insects;
+drop policy if exists "insects_update_own" on insects;
+create policy "insects_select_all" on insects for select using (true);
+create policy "insects_insert_own" on insects for insert with check (auth.uid() = player_id);
+create policy "insects_update_own" on insects for update using (auth.uid() = player_id);
+
+drop policy if exists "battles_select_all" on battles;
+drop policy if exists "battles_insert_own" on battles;
+create policy "battles_select_all" on battles for select using (true);
+create policy "battles_insert_own" on battles for insert with check (auth.uid() = player_id);
+
+-- 행사 종료 후에는 아래 명령으로 테이블을 비워서 아이들 데이터를 정리해주세요.
 -- truncate table battles, insects, players cascade;

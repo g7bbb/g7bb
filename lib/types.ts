@@ -44,7 +44,8 @@ export interface Insect {
 
 export interface Player {
   id: string;
-  login_id: string;
   display_name: string;
+  email: string | null;
+  marketing_consent: boolean;
   created_at: string;
 }

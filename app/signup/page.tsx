@@ -1,85 +1,135 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
-import { setSession } from '@/lib/session';
+import { sendMagicLink, signInWithGoogle } from '@/lib/auth';
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [loginId, setLoginId] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [nickname, setNickname] = useState('');
+  const [email, setEmail] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [loading, setLoading] = useState<'google' | 'email' | null>(null);
   const [error, setError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function validate() {
+    if (!nickname.trim()) {
+      setError('닉네임을 입력해주세요.');
+      return false;
+    }
+    if (!consent) {
+      setError('마케팅 정보 수신에 동의해야 참여할 수 있어요.');
+      return false;
+    }
     setError('');
+    return true;
+  }
 
-    const cleanId = loginId.trim();
-    const cleanName = displayName.trim();
-    if (!cleanId || !cleanName) {
-      setError('아이디와 이름(닉네임)을 모두 입력해주세요.');
+  async function handleGoogle() {
+    if (!validate()) return;
+    setLoading('google');
+    const { error: authError } = await signInWithGoogle({ nickname: nickname.trim(), marketingConsent: consent });
+    if (authError) {
+      setError(authError.message);
+      setLoading(null);
+    }
+    // 성공 시 구글 로그인 화면으로 이동하므로 여기서 별도 처리는 없습니다.
+  }
+
+  async function handleEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) return;
+    if (!email.trim()) {
+      setError('이메일을 입력해주세요.');
       return;
     }
-
-    setLoading(true);
-    try {
-      const { data: existing } = await supabase
-        .from('players')
-        .select('id, login_id, display_name')
-        .eq('login_id', cleanId)
-        .maybeSingle();
-
-      if (existing) {
-        setSession({ id: existing.id, loginId: existing.login_id, displayName: existing.display_name });
-        router.push('/');
-        return;
-      }
-
-      const { data: created, error: insertError } = await supabase
-        .from('players')
-        .insert({ login_id: cleanId, display_name: cleanName })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      setSession({ id: created.id, loginId: created.login_id, displayName: created.display_name });
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message || '오류가 발생했어요. 다시 시도해주세요.');
-    } finally {
-      setLoading(false);
+    setLoading('email');
+    const { error: authError } = await sendMagicLink(email.trim(), {
+      nickname: nickname.trim(),
+      marketingConsent: consent,
+    });
+    setLoading(null);
+    if (authError) {
+      setError(authError.message);
+      return;
     }
+    setEmailSent(true);
+  }
+
+  if (emailSent) {
+    return (
+      <main className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-2xl">📬</p>
+        <h1 className="text-xl font-bold">메일함을 확인해주세요!</h1>
+        <p className="text-slate-400">
+          <span className="text-slate-200">{email}</span> 주소로 로그인 링크를 보냈어요.
+          <br />
+          메일에서 링크를 눌러야 가입이 완료됩니다.
+        </p>
+      </main>
+    );
   }
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col justify-center gap-6 px-6 py-10">
-      <h1 className="text-2xl font-bold text-center">🙋 아이디 만들기</h1>
-      <p className="text-sm text-slate-400 text-center">
-        이미 만든 아이디를 입력하면 그대로 이어서 사용할 수 있어요.
-      </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">🙋 아이디 만들기</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          상품 지급을 위해 본인 확인용 계정(구글 또는 이메일)으로 로그인해주세요.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label className="text-sm text-slate-400">닉네임 (배틀·랭킹에 표시돼요)</label>
         <input
           className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
-          placeholder="아이디 (예: bug_master)"
-          value={loginId}
-          onChange={(e) => setLoginId(e.target.value)}
+          placeholder="예: 장수풍뎅이왕"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
         />
+      </div>
+
+      <label className="flex items-start gap-3 bg-slate-800 rounded-xl px-4 py-3 text-sm">
         <input
-          className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
-          placeholder="이름 또는 별명"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
+          type="checkbox"
+          className="mt-1 w-5 h-5"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
         />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <span>
+          (필수) 랭킹 상품 안내 및 행사 소식 전달을 위해 마케팅 정보 수신에 동의합니다.
+        </span>
+      </label>
+
+      {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+
+      <button
+        onClick={handleGoogle}
+        disabled={loading !== null}
+        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+      >
+        {loading === 'google' ? '이동 중...' : '🔵 구글 계정으로 시작하기'}
+      </button>
+
+      <div className="flex items-center gap-3 text-slate-500 text-xs">
+        <div className="flex-1 h-px bg-slate-700" />
+        또는
+        <div className="flex-1 h-px bg-slate-700" />
+      </div>
+
+      <form onSubmit={handleEmail} className="flex flex-col gap-3">
+        <input
+          type="email"
+          className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
+          placeholder="이메일 주소"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
         <button
           type="submit"
-          disabled={loading}
-          className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          disabled={loading !== null}
+          className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
         >
-          {loading ? '처리 중...' : '시작하기'}
+          {loading === 'email' ? '전송 중...' : '📧 이메일로 로그인 링크 받기'}
         </button>
       </form>
     </main>
