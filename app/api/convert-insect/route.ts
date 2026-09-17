@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { INSECT_ANATOMY_RULES, findSpecies } from '@/lib/species';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
@@ -36,13 +37,24 @@ export async function POST(req: NextRequest) {
       if (top.length) emphasis = `특히 ${top.join(', ')} 부분이 크고 강하게 강조되도록 그려줘. `;
     }
 
-    const speciesText = species ? `${species} 종류를 기반으로, ` : '';
+    // 종류를 알면 그 종의 실제 생김새 규칙까지 함께 알려줍니다.
+    // 이게 없으면 AI가 "멋있게"를 우선해서 사슴벌레 턱을 4개 그리는 식의 오류를 냅니다.
+    const matchedSpecies = findSpecies(species);
+    const speciesName = matchedSpecies?.label || species;
+    const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
+    const speciesAnatomy = matchedSpecies?.anatomy
+      ? `${speciesName}의 실제 생김새는 이렇다: ${matchedSpecies.anatomy} `
+      : '';
 
     const prompt =
       `이 아이가 종이에 그린 곤충 그림을 참고해서, ${speciesText}실제 곤충 사진처럼 사실적인 질감과 디테일을 가진 ` +
       '박진감 넘치는 곤충 일러스트로 다시 그려줘. 빛나는 효과, 역동적인 포즈, 강렬한 배경 이펙트(스피드라인, 빛 입자 등)를 더해서 ' +
       `게임 카드 일러스트처럼 멋있게 만들어줘. ${emphasis}배경은 분위기 있는 색감으로 채워줘. ` +
-      '사람 얼굴이 아니라, 어디까지나 곤충 캐릭터 자체만 화면 중앙에 크게 그려줘.';
+      '사람 얼굴이 아니라, 어디까지나 곤충 캐릭터 자체만 화면 중앙에 크게 그려줘.\n\n' +
+      // 아래 규칙은 연출보다 우선합니다. 곤충 행사에 오는 아이들은 실제 곤충을 잘 알기 때문에
+      // 턱이나 다리 개수가 틀리면 바로 알아챕니다.
+      `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${speciesAnatomy}${INSECT_ANATOMY_RULES} ` +
+      '강조하고 싶은 부위는 개수를 늘리지 말고 크기와 두께로만 표현해라.';
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`,

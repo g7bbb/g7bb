@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
+import { SPECIES, speciesLabel } from '@/lib/species';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
 
@@ -73,7 +74,7 @@ export default function UploadPage() {
       return;
     }
     if (!species.trim()) {
-      setError('곤충종류를 입력해주세요.');
+      setError('곤충종류를 골라주세요.');
       return;
     }
     setLoading(true);
@@ -104,7 +105,7 @@ export default function UploadPage() {
       const { error: insertError } = await supabase.from('insects').insert({
         player_id: player.id,
         nickname: player.display_name,
-        species,
+        species: speciesLabel(species),
         origin,
         age_stage: ageStage,
         body_parts: bodyParts,
@@ -140,14 +141,23 @@ export default function UploadPage() {
 
       {!resultImage && (
         <>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm text-slate-400">곤충종류</label>
-            <input
-              className="bg-slate-800 rounded-xl px-4 py-3"
-              placeholder="예: 장수풍뎅이"
-              value={species}
-              onChange={(e) => setSpecies(e.target.value)}
-            />
+          <div>
+            {/* 자유 입력이면 AI가 어떤 종인지 몰라 생김새를 틀리게 그립니다.
+                목록에서 고르게 해야 그 종의 실제 생김새 규칙을 함께 넘길 수 있습니다. */}
+            <p className="text-sm text-slate-400 mb-2">곤충종류</p>
+            <div className="grid grid-cols-2 gap-2">
+              {SPECIES.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => setSpecies(item.key)}
+                  className={`rounded-xl py-2.5 text-sm font-semibold ${
+                    species === item.key ? 'bg-sky-500 text-slate-900' : 'bg-slate-800'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
