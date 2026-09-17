@@ -8,8 +8,9 @@ export interface PrizeOption {
   emoji: string;
 }
 
-// 배틀 랭킹 / 예쁜 곤충 랭킹 시상에 쓰이는 선물 5종.
+// 배틀 랭킹 / 예쁜 곤충 랭킹 시상에 쓰이는 선물 6종. 위에서부터 높은 등수의 상품입니다.
 export const PRIZES: PrizeOption[] = [
+  { key: 'poster_figure', label: '내 곤충 포스터 + 소형 피규어 제작', emoji: '🏆' },
   { key: 'stag_kit', label: '왕사슴벌레 사육세트', emoji: '🪲' },
   { key: 'rhino_kit', label: '장수풍뎅이 사육세트', emoji: '🦏' },
   { key: 'collect_ticket', label: '사슴벌레 & 장수풍뎅이 채집 체험권', emoji: '🎟️' },
