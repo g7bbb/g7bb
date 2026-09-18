@@ -41,10 +41,13 @@ const clamp = (v: number) => Math.max(10, Math.min(100, Math.round(v)));
 // 7개 신체부위 점수(1~5)를 5개 핵심 능력치로 변환합니다.
 // 각 부위가 연결된 능력치들에 점수를 더한 뒤, 그 능력치에 기여하는 부위 개수만큼 나눠서 0~100 범위로 맞춥니다.
 // mutations(아이가 상상으로 더 그린 부위)를 넘기면 마지막에 보너스/페널티까지 반영합니다.
+// species 를 넘기면 그 종의 "정상 개수"를 기준으로 특별 진화를 계산합니다.
+// (나비·벌·사마귀는 날개 4장이 정상이라, 안 넘기면 4장을 그린 것만으로 보너스를 받아버립니다.)
 export function calculateStats(
   parts: BodyPartScores,
   ageStage: AgeStageKey,
-  mutations?: MutationCounts
+  mutations?: MutationCounts,
+  species?: string | null
 ): CoreStats {
   const contributions: Record<StatKey, number[]> = { atk: [], def: [], hp: [], surv: [], int: [] };
   (Object.keys(parts) as BodyPart[]).forEach((part) => {
@@ -68,7 +71,7 @@ export function calculateStats(
     int: clamp(normalize(contributions.int) * stage.statMultiplier),
   };
 
-  return mutations ? applyMutations(base, mutations) : base;
+  return mutations ? applyMutations(base, mutations, species) : base;
 }
 
 export function levelFromXp(xp: number): number {

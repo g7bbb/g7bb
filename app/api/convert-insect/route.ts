@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     // 아이가 상상으로 개수를 더 그린 부위는 실제 곤충과 달라도 그대로 살립니다.
     // 이 체험의 핵심은 "내가 그린 곤충이 살아나는 것"이라, 여기서 고쳐버리면 안 됩니다.
-    const mutationDescription = mutations ? describeMutations(mutations) : '';
+    const mutationDescription = mutations ? describeMutations(mutations, species) : '';
     const mutationRule = mutationDescription
       ? `이 아이는 상상으로 ${mutationDescription}인 곤충을 만들었다. ` +
         '실제 곤충과 다르더라도 이 개수는 반드시 그대로 그려라. 아이의 상상이므로 절대 실제 개수로 고치지 마라. ' +

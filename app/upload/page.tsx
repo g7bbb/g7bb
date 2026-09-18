@@ -8,7 +8,14 @@ import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { SPECIES, speciesLabel } from '@/lib/species';
-import { MUTATIONS, MutationKey, defaultMutations, describeMutations, hasAnyMutation } from '@/lib/mutations';
+import {
+  MUTATIONS,
+  MutationKey,
+  defaultMutations,
+  describeMutations,
+  hasAnyMutation,
+  normalCountsFor,
+} from '@/lib/mutations';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
 
@@ -34,7 +41,7 @@ export default function UploadPage() {
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
-  const [mutations, setMutations] = useState(defaultMutations());
+  const [mutations, setMutations] = useState(defaultMutations(''));
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -57,7 +64,15 @@ export default function UploadPage() {
     });
   }, [router]);
 
-  const stats = calculateStats(bodyParts, ageStage, mutations);
+  const stats = calculateStats(bodyParts, ageStage, mutations, species);
+  const normals = normalCountsFor(species);
+
+  // 종을 바꾸면 "정상 개수"가 달라지므로 특별 진화 선택을 그 종 기준으로 되돌립니다.
+  // (나비를 골랐는데 날개가 2장으로 남아 있으면 아이 그림과 어긋납니다.)
+  function chooseSpecies(key: string) {
+    setSpecies(key);
+    setMutations(defaultMutations(key));
+  }
 
   function updatePart(part: BodyPart, value: number) {
     setBodyParts((prev) => ({ ...prev, [part]: value }));
@@ -154,7 +169,7 @@ export default function UploadPage() {
               {SPECIES.map((item) => (
                 <button
                   key={item.key}
-                  onClick={() => setSpecies(item.key)}
+                  onClick={() => chooseSpecies(item.key)}
                   className={`rounded-xl py-2.5 text-sm font-semibold ${
                     species === item.key ? 'bg-sky-500 text-slate-900' : 'bg-slate-800'
                   }`}
@@ -207,7 +222,13 @@ export default function UploadPage() {
               {MUTATIONS.map((option) => (
                 <div key={option.key} className="bg-slate-800 rounded-xl px-4 py-3">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="font-semibold">{option.label}</span>
+                    <span className="font-semibold">
+                      {option.label}
+                      {/* 종마다 정상 개수가 달라서(나비는 날개 4장), 어디부터가 진화인지 보여줍니다. */}
+                      <span className="ml-1 text-xs font-normal text-slate-500">
+                        원래 {normals[option.key]}
+                      </span>
+                    </span>
                     <span className="text-slate-400 text-xs">{option.hint}</span>
                   </div>
                   <div className="flex gap-2">
@@ -230,9 +251,9 @@ export default function UploadPage() {
                 </div>
               ))}
             </div>
-            {hasAnyMutation(mutations) && (
+            {hasAnyMutation(mutations, species) && (
               <p className="mt-2 text-xs text-amber-300">
-                🧬 {describeMutations(mutations)} — 그대로 그려질 거야!
+                🧬 {describeMutations(mutations, species)} — 그대로 그려질 거야!
               </p>
             )}
           </div>
