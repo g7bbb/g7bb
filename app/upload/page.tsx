@@ -27,7 +27,8 @@ function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }>
 
 export default function UploadPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [species, setSpecies] = useState('');
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
@@ -35,6 +36,7 @@ export default function UploadPage() {
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
   const [mutations, setMutations] = useState(defaultMutations());
 
+  const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string>('image/png');
@@ -62,17 +64,17 @@ export default function UploadPage() {
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
     setResultImage(null);
     setError('');
-    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewUrl(URL.createObjectURL(selected));
   }
 
   async function handleConvert() {
-    const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setError('먼저 곤충 그림 사진을 선택해주세요.');
+      setError('먼저 곤충 그림 사진을 골라주세요.');
       return;
     }
     if (!species.trim()) {
@@ -262,14 +264,41 @@ export default function UploadPage() {
 
           <div className="flex flex-col gap-2">
             <p className="text-sm text-slate-400">곤충 그림 사진</p>
+
+            {/* capture 속성이 있으면 폰에서 카메라만 열립니다.
+                미리 찍어둔 사진도 쓸 수 있도록 카메라용/앨범용 버튼을 따로 둡니다. */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex-1 bg-slate-800 py-3 rounded-xl font-semibold"
+              >
+                📷 사진 찍기
+              </button>
+              <button
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex-1 bg-slate-800 py-3 rounded-xl font-semibold"
+              >
+                🖼️ 앨범에서 고르기
+              </button>
+            </div>
+
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFileChange}
-              className="text-sm"
+              className="hidden"
             />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {file && <p className="text-xs text-emerald-400">✓ {file.name}</p>}
           </div>
 
           {previewUrl && (
