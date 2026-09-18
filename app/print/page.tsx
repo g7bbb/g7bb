@@ -6,6 +6,7 @@ import { SPECIES } from '@/lib/species';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { AGE_STAGES, BODY_PARTS } from '@/lib/insect-stats';
 import { MUTATIONS } from '@/lib/mutations';
+import { COLORS, MOODS } from '@/lib/appearance';
 import { ticketAt } from '@/lib/ticket';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
@@ -113,6 +114,12 @@ function PrintInner() {
               <MarkRow label="성장 단계" items={AGE_STAGES.map((item) => item.label)} />
               <MarkRow label="출신지" items={ENVIRONMENTS.map((item) => item.label)} />
 
+              {/* 색깔·느낌은 능력치와 무관하고, 안 골라도 됩니다.
+                  표시가 없으면 AI가 아이 그림에 있는 색을 그대로 씁니다. */}
+              <div className="section-label">✏️ 그림 꾸미기 — 안 골라도 돼!</div>
+              <MarkRow label="색깔" items={COLORS.map((item) => item.label)} compact />
+              <MarkRow label="느낌" items={MOODS.map((item) => item.label)} compact />
+
               <div className="section-label">부위 점수 (1~5점)</div>
               {BODY_PARTS.map((part) => (
                 <MarkRow key={part.key} label={part.label} items={['1', '2', '3', '4', '5']} compact />
@@ -141,11 +148,20 @@ function PrintInner() {
           size: A4 portrait;
           margin: 0;
         }
-        body {
+        /* 앱 전체는 어두운 테마(layout.tsx 의 body className="bg-slate-950 text-slate-100")입니다.
+           그 클래스가 우선순위에서 이겨서 종이까지 까맣게 인쇄되므로, 이 화면에서만 강제로 되돌립니다.
+           !important 없이 body 선택자만 쓰면 Tailwind 클래스에 집니다. */
+        html body {
+          background: #fff !important;
+          color: #000 !important;
+        }
+        .print-root {
           background: #fff;
           color: #000;
         }
         .controls {
+          background: #fff;
+          color: #000;
           padding: 24px;
           font-family: system-ui, sans-serif;
           border-bottom: 1px solid #ddd;
@@ -190,6 +206,7 @@ function PrintInner() {
         }
 
         .sheet {
+          background: #fff;
           width: 210mm;
           height: 297mm;
           padding: 10mm 12mm;

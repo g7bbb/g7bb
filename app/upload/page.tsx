@@ -8,6 +8,7 @@ import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { SPECIES, speciesLabel } from '@/lib/species';
+import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import {
   MUTATIONS,
   MutationKey,
@@ -42,6 +43,9 @@ export default function UploadPage() {
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
   const [mutations, setMutations] = useState(defaultMutations(''));
+  // 색깔·느낌은 안 골라도 됩니다. 안 고르면 AI가 아이 그림의 색을 그대로 따릅니다.
+  const [color, setColor] = useState('');
+  const [mood, setMood] = useState('');
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -195,6 +199,45 @@ export default function UploadPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            {/* 아이가 금색으로 그렸는데 AI가 검정으로 그려버리면 "내 거랑 다른데?"가 됩니다.
+                연필로만 그린 그림은 AI가 색을 알 수 없어서, 표시해주면 그대로 칠해집니다. */}
+            <p className="text-sm text-slate-400 mb-1">✏️ 그림 꾸미기</p>
+            <p className="text-xs text-slate-500 mb-2">안 골라도 돼! 안 고르면 그림에 있는 색 그대로 그려줄게</p>
+
+            <p className="text-xs text-slate-500 mb-1">색깔</p>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <PickButton label="그림대로" active={color === ''} onClick={() => setColor('')} />
+              {COLORS.map((item) => (
+                <PickButton
+                  key={item.key}
+                  label={item.label}
+                  active={color === item.key}
+                  onClick={() => setColor(item.key)}
+                />
+              ))}
+            </div>
+
+            <p className="text-xs text-slate-500 mb-1">느낌</p>
+            <div className="grid grid-cols-4 gap-2">
+              <PickButton label="그냥" active={mood === ''} onClick={() => setMood('')} />
+              {MOODS.map((item) => (
+                <PickButton
+                  key={item.key}
+                  label={item.label}
+                  active={mood === item.key}
+                  onClick={() => setMood(item.key)}
+                />
+              ))}
+            </div>
+
+            {describeAppearance(color, mood) && (
+              <p className="mt-2 text-xs text-fuchsia-300">
+                🎨 {describeAppearance(color, mood)} — 그렇게 그려줄게!
+              </p>
+            )}
           </div>
 
           <div>
@@ -364,6 +407,27 @@ export default function UploadPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function PickButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl py-2 text-sm font-semibold ${
+        active ? 'bg-fuchsia-500 text-slate-900' : 'bg-slate-800'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
