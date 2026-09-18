@@ -70,6 +70,12 @@ function HomeInner() {
             ⚔️ 곤충 배틀
           </Link>
           <Link
+            href="/gallery"
+            className="block text-center bg-pink-500 hover:bg-pink-400 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          >
+            🎨 친구들 곤충 구경하기
+          </Link>
+          <Link
             href="/ranking"
             className="block text-center bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold py-4 rounded-2xl text-lg"
           >

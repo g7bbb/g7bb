@@ -128,3 +128,23 @@ alter table battles disable row level security;
 -- SQL Editor에서 실행해주세요. (여러 번 실행해도 안전합니다.)
 -- =====================================================================
 alter table insects add column if not exists mutations jsonb;
+
+-- =====================================================================
+-- 예쁜 곤충 랭킹 (2026-09-18)
+-- 아이들은 하트를 눌러 마음에 드는 곤충을 고르고, 최종 순위는 운영자가 정합니다.
+-- 하트 수는 운영자 심사 화면에 참고용으로만 표시됩니다.
+-- SQL Editor에서 실행해주세요. (여러 번 실행해도 안전합니다.)
+-- =====================================================================
+
+create table if not exists hearts (
+  insect_id uuid not null references insects(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  -- 한 아이가 같은 곤충에 하트를 여러 번 누를 수 없게 막습니다.
+  primary key (insect_id, player_id)
+);
+
+alter table hearts disable row level security;
+
+-- 운영자가 정한 예쁜 곤충 순위 (1~4위). 정하지 않았으면 비어 있습니다.
+alter table insects add column if not exists judge_rank int;
