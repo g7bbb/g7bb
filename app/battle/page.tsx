@@ -19,6 +19,15 @@ const CHANCE_MS = 4000;
 const PROBE_DAMAGE_A = 7;
 const PROBE_DAMAGE_B = 8;
 
+// ── 랭킹 도전 (2026-09-18) ──────────────────────────────────────
+// 랭킹 3위 → 2위 → 1위를 차례로 올라가는 방식입니다.
+// 이기면 위로 올라가고, 지면 같은 상대에게 다시 붙습니다. 기회는 총 3번.
+//
+// 부스에서 이 방식이 좋은 이유: 아이마다 도전 횟수가 똑같아서 공평하고,
+// "몇 위까지 올라갔나"라는 목표가 생겨서 무한정 붙는 것보다 이야깃거리가 됩니다.
+const LADDER_SIZE = 3;
+const LADDER_BATTLES = 3;
+
 /** 상대 고르기 목록에 쓰는 가벼운 정보. 이미지(base64)는 무거워서 여기선 안 받아옵니다. */
 interface OpponentSummary {
   id: string;
@@ -28,6 +37,22 @@ interface OpponentSummary {
   level: number;
   stats: CoreStats;
   bestScore: number;
+  rank: number;
+}
+
+/** 랭킹 도전 진행 상황. 자유 대결일 때는 null 입니다. */
+interface LadderState {
+  /** 도전할 상대들. 낮은 순위부터 = [3위, 2위, 1위] */
+  targets: OpponentSummary[];
+  /** 지금 도전 중인 targets 인덱스 */
+  index: number;
+  /** 지금까지 치른 배틀 수 */
+  used: number;
+  log: { rank: number; nickname: string; won: boolean }[];
+}
+
+function ladderFinished(ladder: LadderState): boolean {
+  return ladder.used >= LADDER_BATTLES || ladder.index >= ladder.targets.length;
 }
 
 type FightPhase = 'intro' | 'round' | 'chance' | 'final' | 'done';
@@ -60,6 +85,10 @@ export default function BattlePage() {
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(20);
   const [pickedId, setPickedId] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
+  // ─── 랭킹 도전 ───
+  const [ladder, setLadder] = useState<LadderState | null>(null);
 
   // ─── 배틀 진행 ───
   const [opponent, setOpponent] = useState<Insect | null>(null);
@@ -112,13 +141,15 @@ export default function BattlePage() {
 
   // 상대 목록은 "랭킹 순"으로 보여줍니다.
   // 이미지가 빠져 있어 300명이 있어도 목록 자체는 가볍습니다. 고른 상대의 그림만 나중에 따로 받아옵니다.
+  //
+  // 내 곤충까지 **같이 불러와서 순위를 매긴 뒤에** 나만 빼냅니다.
+  // 처음부터 나를 빼고 순위를 매기면, 내가 1등일 때 2등이 "1위"로 표시돼 버립니다.
   const loadOpponents = useCallback(async (playerId: string) => {
     setListLoading(true);
     const [{ data: rows }, { data: scores }] = await Promise.all([
       supabase
         .from('insects')
         .select('id, player_id, nickname, species, level, stats')
-        .neq('player_id', playerId)
         .limit(400),
       supabase.from('battles').select('insect_id, score').order('score', { ascending: false }).limit(1000),
     ]);
@@ -137,10 +168,15 @@ export default function BattlePage() {
       level: row.level ?? 1,
       stats: row.stats,
       bestScore: best.get(row.id) ?? 0,
+      rank: 0, // 정렬 직후에 채웁니다.
     }));
 
     list.sort((a, b) => b.bestScore - a.bestScore || b.level - a.level);
-    setOpponents(list);
+    list.forEach((item, i) => {
+      item.rank = i + 1;
+    });
+    // 순위를 다 매긴 다음에 내 곤충을 뺍니다. 남은 순위 번호는 전체 기준 그대로입니다.
+    setOpponents(list.filter((item) => item.player_id !== playerId));
     setListLoading(false);
   }, []);
 
@@ -309,6 +345,21 @@ export default function BattlePage() {
     setXpGained(saved.xpGained);
     setLeveledUp(saved.leveledUp);
     setBattle(final);
+
+    // 랭킹 도전 중이면 한 칸 올라가거나 제자리에 남습니다.
+    // 자유 대결(ladder === null)일 때는 아무 일도 일어나지 않습니다.
+    const won = final.winner === 'A';
+    setLadder((prev) => {
+      if (!prev) return prev;
+      const target = prev.targets[prev.index];
+      return {
+        ...prev,
+        index: won ? prev.index + 1 : prev.index,
+        used: prev.used + 1,
+        log: [...prev.log, { rank: target.rank, nickname: target.nickname, won }],
+      };
+    });
+
     setPhase('done');
   }
 
@@ -342,7 +393,26 @@ export default function BattlePage() {
     return { xpGained: gained, leveledUp: didLevelUp };
   }
 
-  function backToSetup() {
+  // 랭킹 도전 시작: 지금 순위표의 위쪽 3명을 뽑아 **고정**합니다.
+  // 도중에 다른 아이가 점수를 올려 순위가 바뀌어도 사다리는 흔들리지 않습니다.
+  function startLadder() {
+    if (opponents.length === 0) return;
+    // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전하도록 뒤집습니다.
+    // 상대가 3명보다 적으면 있는 만큼만 도전합니다. (행사 초반에는 참가자가 몇 명 없습니다.)
+    const targets = opponents.slice(0, LADDER_SIZE).reverse();
+    const run: LadderState = { targets, index: 0, used: 0, log: [] };
+    setLadder(run);
+    startBattle(targets[0]);
+  }
+
+  function nextLadderBattle() {
+    if (!ladder || ladderFinished(ladder)) return;
+    // 여기서 화면을 비우면 상대 그림을 받아오는 동안 준비 화면이 한 번 번쩍입니다.
+    // 결과 카드를 띄워둔 채로 다음 상대를 불러오고, 연출은 runFight 가 알아서 초기화합니다.
+    startBattle(ladder.targets[ladder.index]);
+  }
+
+  function resetStage() {
     setPhase(null);
     setBattle(null);
     setOpponent(null);
@@ -350,6 +420,11 @@ export default function BattlePage() {
     setSpecialFx(null);
     setBarA(100);
     setBarB(100);
+  }
+
+  function backToSetup() {
+    resetStage();
+    setLadder(null);
     if (player) loadOpponents(player.id);
   }
 
@@ -407,6 +482,20 @@ export default function BattlePage() {
                 {specialFx.side === 'A' ? '내 곤충의 필살기!' : '상대의 필살기!'}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* 랭킹 도전 중이면 지금 몇 번째 도전인지, 누구와 붙는지 위에 띄웁니다. */}
+        {ladder && opponent && (
+          <div className="flex items-center justify-between text-xs bg-slate-800 rounded-xl px-3 py-2">
+            <span className="font-bold text-amber-300">
+              🏆 랭킹 도전 {Math.min(phase === 'done' ? ladder.used : ladder.used + 1, LADDER_BATTLES)}/
+              {LADDER_BATTLES}
+            </span>
+            <span className="text-slate-300">
+              {rankMedal(ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)].rank)}{' '}
+              {ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)].nickname}
+            </span>
           </div>
         )}
 
@@ -492,13 +581,55 @@ export default function BattlePage() {
                 이번엔 필살기({myMove.name})를 못 썼어요. 다음엔 ⚡버튼이 뜨면 바로 눌러봐!
               </p>
             )}
+            {/* 랭킹 도전 중이면 다음 상대를, 끝났으면 성적표를 보여줍니다. */}
+            {ladder && (
+              <div className="bg-slate-900 rounded-xl px-3 py-3 flex flex-col gap-2">
+                <ol className="flex flex-col gap-1 text-sm">
+                  {ladder.log.map((item, i) => (
+                    <li key={i} className="flex justify-between">
+                      <span className="text-slate-300">
+                        {rankMedal(item.rank)} {item.nickname}
+                      </span>
+                      <span className={item.won ? 'text-emerald-400' : 'text-rose-400'}>
+                        {item.won ? '이김' : '짐'}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+
+                {ladderFinished(ladder) ? (
+                  <p className="text-sm font-bold text-amber-300 mt-1">
+                    {ladder.index >= ladder.targets.length
+                      ? '👑 전부 이겼다! 최고 기록이야'
+                      : `도전 끝! ${LADDER_BATTLES}번 다 썼어`}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-300 mt-1">
+                    {battle.winner === 'A'
+                      ? `다음 상대는 ${rankMedal(ladder.targets[ladder.index].rank)} ${ladder.targets[ladder.index].nickname}!`
+                      : `한 번 더! ${rankMedal(ladder.targets[ladder.index].rank)} ${ladder.targets[ladder.index].nickname}에게 다시 도전`}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <button
-                onClick={backToSetup}
-                className="flex-1 bg-sky-500 text-slate-900 font-bold py-3 rounded-xl"
-              >
-                다른 상대와 배틀
-              </button>
+              {ladder && !ladderFinished(ladder) ? (
+                <button
+                  onClick={nextLadderBattle}
+                  disabled={starting}
+                  className="flex-1 bg-emerald-500 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-xl"
+                >
+                  {battle.winner === 'A' ? '⬆️ 다음 도전' : '🔁 다시 도전'}
+                </button>
+              ) : (
+                <button
+                  onClick={backToSetup}
+                  className="flex-1 bg-sky-500 text-slate-900 font-bold py-3 rounded-xl"
+                >
+                  {ladder ? '처음부터 다시' : '다른 상대와 배틀'}
+                </button>
+              )}
               <button
                 onClick={() => router.push('/ranking')}
                 className="flex-1 bg-amber-400 text-slate-900 font-bold py-3 rounded-xl"
@@ -517,6 +648,8 @@ export default function BattlePage() {
     search.trim() ? o.nickname.toLowerCase().includes(search.trim().toLowerCase()) : true
   );
   const picked = opponents.find((o) => o.id === pickedId) ?? null;
+  // 도전 순서대로(3위 → 2위 → 1위) 미리 보여줍니다.
+  const ladderTargets = opponents.slice(0, LADDER_SIZE).reverse();
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
@@ -557,6 +690,60 @@ export default function BattlePage() {
         </div>
       </div>
 
+      {/* 기본 방식: 랭킹 3위 → 2위 → 1위 사다리 */}
+      <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3 border border-emerald-500/40">
+        <div>
+          <p className="font-bold text-emerald-300">🏆 랭킹 도전</p>
+          <p className="text-xs text-slate-400 mt-1">
+            3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
+            기회는 <b className="text-slate-200">{LADDER_BATTLES}번</b>이야.
+          </p>
+        </div>
+
+        {listLoading ? (
+          <p className="text-sm text-slate-400">순위 불러오는 중...</p>
+        ) : ladderTargets.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            아직 상대할 다른 곤충이 없어요. 친구가 곤충을 만들면 도전할 수 있어!
+          </p>
+        ) : (
+          <>
+            <ol className="flex flex-col gap-1.5">
+              {ladderTargets.map((o, i) => (
+                <li key={o.id} className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-500 w-4 text-xs">{i + 1}</span>
+                  <span className="w-7 text-center">{rankMedal(o.rank)}</span>
+                  <span className="flex-1 truncate font-semibold">{o.nickname}</span>
+                  <span className="text-xs text-slate-400 shrink-0">Lv.{o.level}</span>
+                  <span className="text-xs text-emerald-400 shrink-0 w-14 text-right">
+                    {o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <button
+              onClick={startLadder}
+              disabled={starting}
+              className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+            >
+              {starting
+                ? '상대를 데려오는 중...'
+                : `⚔️ ${rankMedal(ladderTargets[0].rank)} ${ladderTargets[0].nickname}부터 도전!`}
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 친구를 지정해서 붙고 싶을 때. 랭킹 도전과 달리 횟수 제한이 없습니다. */}
+      {!showPicker ? (
+        <button
+          onClick={() => setShowPicker(true)}
+          className="text-sm text-slate-400 underline self-center"
+        >
+          친구를 직접 골라서 붙기
+        </button>
+      ) : (
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm text-slate-400">누구랑 붙을까요? (랭킹 순)</p>
@@ -595,7 +782,6 @@ export default function BattlePage() {
             <ol className="flex flex-col gap-2">
               {filtered.slice(0, visibleCount).map((o, i) => {
                 const move = specialMoveFor(o.stats);
-                const rank = opponents.indexOf(o) + 1;
                 return (
                   <li key={o.id}>
                     <button
@@ -607,7 +793,7 @@ export default function BattlePage() {
                       }`}
                     >
                       <span className="w-8 shrink-0 text-center font-bold text-amber-400">
-                        {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                        {rankMedal(o.rank)}
                       </span>
                       <span className="flex-1 min-w-0">
                         <span className="block font-bold truncate">{o.nickname}</span>
@@ -635,23 +821,29 @@ export default function BattlePage() {
             )}
           </>
         )}
-      </div>
 
-      <button
-        onClick={() => picked && startBattle(picked)}
-        disabled={!picked || starting}
-        className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg sticky bottom-4"
-      >
-        {starting
-          ? '상대를 데려오는 중...'
-          : picked
-            ? `⚔️ ${picked.nickname}와(과) 배틀!`
-            : '상대를 골라주세요'}
-      </button>
+        <button
+          onClick={() => picked && startBattle(picked)}
+          disabled={!picked || starting}
+          className="w-full mt-3 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+        >
+          {starting
+            ? '상대를 데려오는 중...'
+            : picked
+              ? `⚔️ ${picked.nickname}와(과) 배틀!`
+              : '상대를 골라주세요'}
+        </button>
+      </div>
+      )}
 
       {error && <p className="text-red-400 text-sm text-center">{error}</p>}
     </main>
   );
+}
+
+/** 1~3위는 메달로, 그 아래는 숫자로 보여줍니다. */
+function rankMedal(rank: number): string {
+  return rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `${rank}위`;
 }
 
 function clampBar(value: number) {
