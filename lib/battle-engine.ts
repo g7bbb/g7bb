@@ -1,5 +1,6 @@
 import { CoreStats, EnvironmentKey, StatKey } from './types';
 import { critChanceForLevel, statsWithLevelBonus } from './insect-stats';
+import { SPECIAL_MOVES, SpecialMoveKey } from './special-moves';
 
 // 환경마다 중요하게 작용하는 능력치를 다르게 둬서, 같은 곤충이라도 환경에 따라 결과가 달라지게 했습니다.
 // 이 가중치는 게임 밸런스 부분이라 실제 테스트 결과를 보고 여기 숫자만 조정하면 됩니다.
@@ -23,6 +24,8 @@ function weightedScore(stats: CoreStats, env: EnvironmentKey) {
 export interface BattleSideResult {
   score: number;
   crit: boolean;
+  /** 이 배틀에서 실제로 쓴 필살기 (안 썼으면 null) */
+  special: SpecialMoveKey | null;
 }
 
 export interface BattleResult {
@@ -33,24 +36,55 @@ export interface BattleResult {
   survivalPercentB: number;
 }
 
-function rollSide(baseStats: CoreStats, level: number, env: EnvironmentKey): BattleSideResult {
+/**
+ * 주사위를 굴린 "날것의" 결과입니다.
+ * 필살기를 배틀 도중에 고를 수 있어야 해서, 운/크리티컬은 배틀 시작 때 한 번만 굴려두고
+ * 필살기 배수는 나중에 resolveBattle 에서 곱합니다.
+ * (선택할 때마다 다시 굴리면 "필살기를 썼는데 더 나빠졌다"가 생길 수 있습니다.)
+ */
+export interface SideRoll {
+  base: number;
+  crit: boolean;
+}
+
+function rollSide(baseStats: CoreStats, level: number, env: EnvironmentKey): SideRoll {
   const effective = statsWithLevelBonus(baseStats, level);
   const base = weightedScore(effective, env);
   const luck = 0.9 + Math.random() * 0.2; // 운 요소 ±10%
   const crit = Math.random() < critChanceForLevel(level);
-  const score = base * luck * (crit ? 1.5 : 1);
-  return { score: Math.round(score), crit };
+  return { base: base * luck * (crit ? 1.5 : 1), crit };
 }
 
-export function calculateBattle(
+export function rollBattle(
   statsA: CoreStats,
   levelA: number,
   statsB: CoreStats,
   levelB: number,
   env: EnvironmentKey
+): { a: SideRoll; b: SideRoll } {
+  return {
+    a: rollSide(statsA, levelA, env),
+    b: rollSide(statsB, levelB, env),
+  };
+}
+
+/** 굴려둔 결과에 필살기 배수를 적용해 최종 승패를 냅니다. */
+export function resolveBattle(
+  rollA: SideRoll,
+  rollB: SideRoll,
+  specialA: SpecialMoveKey | null = null,
+  specialB: SpecialMoveKey | null = null
 ): BattleResult {
-  const a = rollSide(statsA, levelA, env);
-  const b = rollSide(statsB, levelB, env);
+  const moveA = specialA ? SPECIAL_MOVES[specialA] : null;
+  const moveB = specialB ? SPECIAL_MOVES[specialB] : null;
+
+  // 내 필살기는 내 점수를 올리고, 상대 필살기는 내 점수를 깎습니다.
+  const scoreA = rollA.base * (moveA?.selfMultiplier ?? 1) * (moveB?.opponentMultiplier ?? 1);
+  const scoreB = rollB.base * (moveB?.selfMultiplier ?? 1) * (moveA?.opponentMultiplier ?? 1);
+
+  const a: BattleSideResult = { score: Math.round(scoreA), crit: rollA.crit, special: specialA };
+  const b: BattleSideResult = { score: Math.round(scoreB), crit: rollB.crit, special: specialB };
+
   const sum = a.score + b.score;
   const total = sum === 0 ? 1 : sum; // 0으로 나누기만 방지 (NaN은 그대로 드러나야 원인을 찾기 쉬움)
 
@@ -61,4 +95,18 @@ export function calculateBattle(
     survivalPercentA: Math.round((a.score / total) * 100),
     survivalPercentB: Math.round((b.score / total) * 100),
   };
+}
+
+/** 한 번에 굴리고 바로 결과까지 내는 기존 방식 (필살기 없이 계산하고 싶을 때). */
+export function calculateBattle(
+  statsA: CoreStats,
+  levelA: number,
+  statsB: CoreStats,
+  levelB: number,
+  env: EnvironmentKey,
+  specialA: SpecialMoveKey | null = null,
+  specialB: SpecialMoveKey | null = null
+): BattleResult {
+  const { a, b } = rollBattle(statsA, levelA, statsB, levelB, env);
+  return resolveBattle(a, b, specialA, specialB);
 }
