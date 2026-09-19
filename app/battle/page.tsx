@@ -14,6 +14,7 @@ import {
   judgeTiming,
   specialMoveFor,
 } from '@/lib/special-moves';
+import { playPerfect, playTap } from '@/lib/sfx';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -267,6 +268,11 @@ export default function BattlePage() {
     timingResult.current = tier;
     setTiming(tier);
     specialRequested.current = true;
+
+    // 퍼펙트에만 "키잉!" 을 주고 나머지는 짧은 틱만 줍니다. 그래야 퍼펙트가 특별해집니다.
+    // 터치한 그 순간에 호출해야 폰에서 소리가 납니다 (브라우저 정책).
+    if (tier.key === 'perfect') playPerfect();
+    else playTap(tier.key === 'ok' ? 500 : 800);
   }
 
   // ───────────────────────────────────────────────
