@@ -68,18 +68,25 @@ export function rollBattle(
   };
 }
 
-/** 굴려둔 결과에 필살기 배수를 적용해 최종 승패를 냅니다. */
+/**
+ * 굴려둔 결과에 필살기 배수를 적용해 최종 승패를 냅니다.
+ *
+ * timingA 는 필살기 버튼을 얼마나 정확한 타이밍에 눌렀는지에 대한 보너스입니다(퍼펙트 1.35 ~ 1.0).
+ * 기술 배수와 **따로** 곱하는 이유는 lib/special-moves.ts 의 타이밍 주석에 적어뒀습니다.
+ */
 export function resolveBattle(
   rollA: SideRoll,
   rollB: SideRoll,
   specialA: SpecialMoveKey | null = null,
-  specialB: SpecialMoveKey | null = null
+  specialB: SpecialMoveKey | null = null,
+  timingA = 1
 ): BattleResult {
   const moveA = specialA ? SPECIAL_MOVES[specialA] : null;
   const moveB = specialB ? SPECIAL_MOVES[specialB] : null;
 
   // 내 필살기는 내 점수를 올리고, 상대 필살기는 내 점수를 깎습니다.
-  const scoreA = rollA.base * (moveA?.selfMultiplier ?? 1) * (moveB?.opponentMultiplier ?? 1);
+  const scoreA =
+    rollA.base * (moveA?.selfMultiplier ?? 1) * (moveB?.opponentMultiplier ?? 1) * (moveA ? timingA : 1);
   const scoreB = rollB.base * (moveB?.selfMultiplier ?? 1) * (moveA?.opponentMultiplier ?? 1);
 
   const a: BattleSideResult = { score: Math.round(scoreA), crit: rollA.crit, special: specialA };
@@ -105,8 +112,9 @@ export function calculateBattle(
   levelB: number,
   env: EnvironmentKey,
   specialA: SpecialMoveKey | null = null,
-  specialB: SpecialMoveKey | null = null
+  specialB: SpecialMoveKey | null = null,
+  timingA = 1
 ): BattleResult {
   const { a, b } = rollBattle(statsA, levelA, statsB, levelB, env);
-  return resolveBattle(a, b, specialA, specialB);
+  return resolveBattle(a, b, specialA, specialB, timingA);
 }

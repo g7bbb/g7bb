@@ -7,7 +7,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { BattleResult, SideRoll, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { levelFromXp, xpGainForBattle } from '@/lib/insect-stats';
-import { SpecialMove, specialMoveFor } from '@/lib/special-moves';
+import {
+  PERFECT_AT_MS,
+  SpecialMove,
+  TimingTier,
+  judgeTiming,
+  specialMoveFor,
+} from '@/lib/special-moves';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -106,12 +112,16 @@ export default function BattlePage() {
   const [impact, setImpact] = useState<ImpactFx | null>(null);
   const [specialFx, setSpecialFx] = useState<SpecialFx | null>(null);
   const [shaking, setShaking] = useState(false);
-  const [chanceLeft, setChanceLeft] = useState(0);
+  const [chanceId, setChanceId] = useState(0);
+  const [timing, setTiming] = useState<TimingTier | null>(null);
   const [usedSpecial, setUsedSpecial] = useState(false);
 
   // 버튼을 눌렀는지 연출 루프 안에서 확인해야 해서 ref 로 둡니다.
   const specialRequested = useRef(false);
   const fxCounter = useRef(0);
+  // 타이밍 판정용. 버튼이 뜬 시각과, 눌렀을 때의 판정 결과를 담습니다.
+  const chanceStart = useRef(0);
+  const timingResult = useRef<TimingTier | null>(null);
 
   const myMove = myInsect ? specialMoveFor(myInsect.stats) : null;
 
@@ -223,22 +233,40 @@ export default function BattlePage() {
     await sleep(150);
   }
 
-  /** 필살기 버튼이 떠 있는 동안 기다립니다. 누르면 즉시 true. */
-  async function waitForChance(): Promise<boolean> {
+  /**
+   * 필살기 버튼이 떠 있는 동안 기다립니다. 누르면 판정 등급을, 안 누르면 null 을 돌려줍니다.
+   *
+   * 고리가 줄어드는 그림은 CSS가 그리고(60fps), 여기서는 "눌렀나"만 확인합니다.
+   * 매 프레임 setState 로 고리를 그리면 폰에서 버벅여 타이밍 게임이 성립하지 않습니다.
+   */
+  async function waitForChance(): Promise<TimingTier | null> {
     specialRequested.current = false;
-    const start = Date.now();
-    setChanceLeft(CHANCE_MS);
+    timingResult.current = null;
+    setTiming(null);
+    setChanceId((v) => v + 1); // 고리 애니메이션을 처음부터 다시 돌립니다.
 
-    while (Date.now() - start < CHANCE_MS) {
-      if (specialRequested.current) {
-        setChanceLeft(0);
-        return true;
-      }
-      await sleep(70);
-      setChanceLeft(Math.max(0, CHANCE_MS - (Date.now() - start)));
+    // 고리가 **화면에 실제로 그려진** 뒤부터 시간을 잽니다.
+    // 여기서 바로 재면 React가 아직 버튼을 그리기 전이라, 아이가 보는 고리보다
+    // 판정 시계가 몇십 ms 앞서 갑니다. 타이밍 게임에서는 그게 그대로 억울함이 됩니다.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+    chanceStart.current = performance.now();
+
+    while (performance.now() - chanceStart.current < CHANCE_MS) {
+      if (specialRequested.current) return timingResult.current;
+      await sleep(50);
     }
-    setChanceLeft(0);
-    return false;
+    return null;
+  }
+
+  /** 아이가 필살기 버튼을 눌렀을 때. 누른 순간으로 등급을 매깁니다. */
+  function pressSpecial() {
+    if (specialRequested.current) return; // 한 배틀에 한 번만
+    const tier = judgeTiming(performance.now() - chanceStart.current);
+    timingResult.current = tier;
+    setTiming(tier);
+    specialRequested.current = true;
   }
 
   // ───────────────────────────────────────────────
@@ -288,6 +316,7 @@ export default function BattlePage() {
     // 화면 초기화
     setBattle(null);
     setUsedSpecial(false);
+    setTiming(null);
     setBarA(100);
     setBarB(100);
     setImpact(null);
@@ -301,19 +330,28 @@ export default function BattlePage() {
     await exchange('A', PROBE_DAMAGE_B, false);
     await exchange('B', PROBE_DAMAGE_A, false);
 
-    // 필살기 기회 (배틀당 한 번)
+    // 필살기 기회 (배틀당 한 번) — 타이밍이 좋을수록 위력이 올라갑니다.
     setPhase('chance');
-    const useMine = await waitForChance();
-    setUsedSpecial(useMine);
+    const tier = await waitForChance();
+    setUsedSpecial(tier !== null);
+
+    // 판정 글자를 잠깐 보여주고 넘어갑니다.
+    if (tier) await sleep(600);
 
     // 상대는 자기 필살기를 항상 씁니다. (안 그러면 내가 쓰기만 하면 무조건 이김)
-    const final = resolveBattle(rolls.a, rolls.b, useMine ? mine.key : null, theirs.key);
+    const final = resolveBattle(
+      rolls.a,
+      rolls.b,
+      tier ? mine.key : null,
+      theirs.key,
+      tier?.scoreMultiplier ?? 1
+    );
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
     const savePromise = saveResult(foe, final);
 
     setPhase('final');
-    if (useMine) await playSpecial('A', mine);
+    if (tier) await playSpecial('A', mine);
     await playSpecial('B', theirs);
 
     // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
@@ -535,22 +573,54 @@ export default function BattlePage() {
           crit={phase === 'done' && !!battle?.b.crit}
         />
 
-        {/* 필살기 버튼 — 배틀당 딱 한 번 */}
+        {/* 필살기 버튼 — 배틀당 딱 한 번.
+            큰 고리가 줄어들다가 가운데 목표 고리와 겹치는 순간(2초)이 퍼펙트입니다. */}
         {phase === 'chance' && myMove && (
           <button
-            onClick={() => {
-              specialRequested.current = true;
-            }}
-            className="mt-2 w-full bg-amber-400 text-slate-900 font-black py-5 rounded-2xl text-xl animate-chance-pulse"
+            onClick={pressSpecial}
+            className="mt-2 w-full bg-slate-900/60 rounded-2xl py-4 select-none"
           >
-            {myMove.emoji} 필살기 · {myMove.name}
-            <span className="block mt-1 h-1.5 bg-slate-900/25 rounded-full overflow-hidden">
-              <span
-                className="block h-full bg-slate-900 transition-[width] duration-75 ease-linear"
-                style={{ width: `${(chanceLeft / CHANCE_MS) * 100}%` }}
-              />
-            </span>
-            <span className="block text-xs font-bold mt-1">지금 눌러!</span>
+            <p className="text-sm font-bold text-amber-300">
+              {myMove.emoji} {myMove.name}
+            </p>
+
+            <div className="relative h-36 my-1">
+              {/* 목표 고리 — 여기에 겹칠 때 눌러야 퍼펙트 */}
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-4 border-amber-300 animate-timing-target" />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-amber-400/10" />
+
+              {/* 줄어드는 고리 — CSS가 60fps로 그립니다 */}
+              {!timing && (
+                <span
+                  key={chanceId}
+                  className="absolute left-1/2 top-1/2 w-24 h-24 rounded-full border-4 border-white animate-timing-ring"
+                  style={{ animationDuration: `${CHANCE_MS}ms` }}
+                />
+              )}
+
+              {/* 판정 결과 */}
+              {timing && (
+                <span
+                  className={`absolute left-1/2 top-1/2 text-3xl font-black whitespace-nowrap animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${timing.textColor}`}
+                >
+                  {timing.emoji} {timing.label}
+                </span>
+              )}
+
+              {!timing && (
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl">
+                  {myMove.emoji}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs font-bold text-slate-200">
+              {timing
+                ? timing.scoreMultiplier > 1
+                  ? `위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%!`
+                  : '필살기 발동!'
+                : '고리가 딱 겹칠 때 눌러!'}
+            </p>
           </button>
         )}
 
@@ -576,9 +646,17 @@ export default function BattlePage() {
             <p className="text-sm text-emerald-400">
               +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
             </p>
+            {usedSpecial && timing && myMove && (
+              <p className={`text-xs ${timing.textColor}`}>
+                {timing.emoji} {timing.label} {myMove.name}
+                {timing.scoreMultiplier > 1
+                  ? ` · 위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%`
+                  : ' · 타이밍을 맞추면 더 세져!'}
+              </p>
+            )}
             {!usedSpecial && myMove && (
               <p className="text-xs text-amber-300">
-                이번엔 필살기({myMove.name})를 못 썼어요. 다음엔 ⚡버튼이 뜨면 바로 눌러봐!
+                이번엔 필살기({myMove.name})를 못 썼어요. 다음엔 고리가 겹칠 때 눌러봐!
               </p>
             )}
             {/* 랭킹 도전 중이면 다음 상대를, 끝났으면 성적표를 보여줍니다. */}
@@ -668,7 +746,9 @@ export default function BattlePage() {
           </p>
           <p className="text-xs text-slate-400 mt-1">{myMove.description}</p>
           <p className="text-xs text-amber-200/80 mt-2">
-            배틀 중에 ⚡버튼이 딱 한 번 뜨는데, 그때 바로 누르면 발동돼!
+            배틀 중에 딱 한 번, 고리가 줄어드는 버튼이 떠.
+            <b className="text-amber-300"> 고리가 가운데 동그라미랑 겹칠 때</b> 누르면 ✨퍼펙트!
+            위력이 확 세져.
           </p>
         </div>
       )}
