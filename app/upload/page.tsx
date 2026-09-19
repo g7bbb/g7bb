@@ -9,6 +9,7 @@ import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/
 import { ENVIRONMENTS } from '@/lib/environments';
 import { SPECIES, speciesLabel } from '@/lib/species';
 import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
+import { readSheetPhoto } from '@/lib/sheet-read';
 import {
   MUTATIONS,
   MutationKey,
@@ -37,6 +38,7 @@ export default function UploadPage() {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const sheetInputRef = useRef<HTMLInputElement>(null);
 
   const [species, setSpecies] = useState('');
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
@@ -57,6 +59,10 @@ export default function UploadPage() {
 
   const [player, setPlayer] = useState<Player | null>(null);
   const [showHowTo, setShowHowTo] = useState(true);
+
+  // 종이 마킹 자동 인식 (순서표 6번)
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState('');
 
   useEffect(() => {
     getCurrentPlayer().then((p) => {
@@ -89,6 +95,47 @@ export default function UploadPage() {
     setResultImage(null);
     setError('');
     setPreviewUrl(URL.createObjectURL(selected));
+  }
+
+  // 종이 사진에서 마킹을 읽어 **화면의 입력값을 채워줍니다.**
+  // 바로 저장하지 않는 것이 중요합니다. 연필 마킹을 100% 읽는 건 불가능하고,
+  // 틀린 채로 저장되면 능력치가 엉뚱해진 걸 아무도 모릅니다. 아이가 눈으로 확인하고 고칠 수 있어야 합니다.
+  async function handleSheetPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    e.target.value = ''; // 같은 사진을 다시 골라도 동작하게
+    if (!selected) return;
+
+    setReading(true);
+    setReadNote('');
+    setError('');
+    try {
+      const result = await readSheetPhoto(selected);
+
+      if (result.species) setSpecies(result.species);
+      if (result.ageStage) setAgeStage(result.ageStage);
+      if (result.origin) setOrigin(result.origin);
+      if (result.color) setColor(result.color);
+      if (result.mood) setMood(result.mood);
+      if (Object.keys(result.bodyParts).length) {
+        setBodyParts((prev) => ({ ...prev, ...result.bodyParts }));
+      }
+      // 종을 먼저 반영한 뒤 특별 진화를 덮어씁니다. (종마다 정상 날개 수가 다름)
+      setMutations((prev) => ({
+        ...defaultMutations(result.species ?? species),
+        ...prev,
+        ...result.mutations,
+      }));
+
+      setReadNote(
+        result.read === 0
+          ? '표시한 곳을 하나도 못 찾았어요. 밝은 곳에서 종이 전체가 나오게 다시 찍어주세요.'
+          : `${result.total}칸 중 ${result.read}칸을 읽었어요. 아래에서 맞는지 확인하고 틀린 건 눌러서 고쳐주세요!`
+      );
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setReading(false);
+    }
   }
 
   async function handleConvert() {
@@ -165,6 +212,31 @@ export default function UploadPage() {
 
       {!resultImage && (
         <>
+          {/* 종이에 이미 다 표시했으니, 사진 한 장으로 아래 항목을 채워줍니다.
+              실패해도 손으로 입력하면 되므로 어디까지나 "빠른 길"입니다. */}
+          <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2 border border-sky-500/40">
+            <p className="font-bold text-sky-300">📄 종이 사진으로 한 번에 입력</p>
+            <p className="text-xs text-slate-400">
+              종이에 동그라미 친 걸 읽어서 아래를 자동으로 채워줘. 잘못 읽으면 직접 고치면 돼!
+            </p>
+            <button
+              onClick={() => sheetInputRef.current?.click()}
+              disabled={reading}
+              className="bg-sky-500 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-xl"
+            >
+              {reading ? '종이 읽는 중... 👀' : '📄 종이 찍어서 자동 입력'}
+            </button>
+            <input
+              ref={sheetInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleSheetPhoto}
+              className="hidden"
+            />
+            {readNote && <p className="text-xs text-emerald-400">{readNote}</p>}
+          </div>
+
           <div>
             {/* 자유 입력이면 AI가 어떤 종인지 몰라 생김새를 틀리게 그립니다.
                 목록에서 고르게 해야 그 종의 실제 생김새 규칙을 함께 넘길 수 있습니다. */}
