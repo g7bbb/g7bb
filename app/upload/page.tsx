@@ -34,6 +34,22 @@ function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }>
   });
 }
 
+/**
+ * 한 장의 그림으로 AI 이미지를 만들 수 있는 최대 횟수입니다.
+ *
+ * 무제한으로 두지 않은 이유가 두 가지 있습니다.
+ * 1) 한 번 만드는 데 10~20초가 걸립니다. 부스에 줄이 서 있는데 계속 다시 만들면 진행이 멈춥니다.
+ * 2) 이미지 생성은 호출마다 돈이 나갑니다. 300명 × 무제한이면 예상이 안 됩니다.
+ * 부스에서 여유가 있으면 이 숫자만 올리면 됩니다. (사진을 다시 고르면 횟수도 새로 시작합니다.)
+ */
+const MAX_ATTEMPTS = 3;
+
+/** 만들어진 곤충 이미지 한 장. 여러 번 만들면 전부 남겨두고 아이가 고르게 합니다. */
+interface Attempt {
+  image: string;
+  mime: string;
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -51,8 +67,13 @@ export default function UploadPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [resultImage, setResultImage] = useState<string | null>(null);
-  const [resultMime, setResultMime] = useState<string>('image/png');
+  // 만든 결과를 덮어쓰지 않고 쌓아둡니다.
+  // AI 그림은 매번 다르게 나와서, 다시 만들었더니 아까 게 더 나았다는 일이 생깁니다.
+  // 덮어써 버리면 그 그림은 영영 못 돌아옵니다.
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [picked, setPicked] = useState(0);
+  // 결과를 본 뒤에도 입력칸으로 돌아갈 수 있게 합니다 (종류를 잘못 골랐을 때).
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +98,11 @@ export default function UploadPage() {
   const stats = calculateStats(bodyParts, ageStage, mutations, species);
   const normals = normalCountsFor(species);
 
+  const result = attempts[picked] ?? null;
+  const attemptsLeft = MAX_ATTEMPTS - attempts.length;
+  // 아직 아무것도 안 만들었거나, 결과를 보다가 "설정 고치기"를 누른 상태
+  const showForm = attempts.length === 0 || editing;
+
   // 종을 바꾸면 "정상 개수"가 달라지므로 특별 진화 선택을 그 종 기준으로 되돌립니다.
   // (나비를 골랐는데 날개가 2장으로 남아 있으면 아이 그림과 어긋납니다.)
   function chooseSpecies(key: string) {
@@ -92,7 +118,10 @@ export default function UploadPage() {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
-    setResultImage(null);
+    // 그림이 바뀌면 지금까지 만든 결과는 다른 그림의 것이라 쓸모가 없습니다. 횟수도 새로 시작합니다.
+    setAttempts([]);
+    setPicked(0);
+    setEditing(false);
     setError('');
     setPreviewUrl(URL.createObjectURL(selected));
   }
@@ -147,6 +176,10 @@ export default function UploadPage() {
       setError('곤충종류를 골라주세요.');
       return;
     }
+    if (attempts.length >= MAX_ATTEMPTS) {
+      setError(`한 그림으로는 ${MAX_ATTEMPTS}번까지만 만들 수 있어. 만든 것 중에서 골라줘!`);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -154,12 +187,23 @@ export default function UploadPage() {
       const res = await fetch('/api/convert-insect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mimeType, species, bodyParts, mutations }),
+        // color·mood 를 빼먹으면 아이가 고른 색깔·느낌이 그림에 반영되지 않습니다.
+        body: JSON.stringify({
+          imageBase64: base64,
+          mimeType,
+          species,
+          bodyParts,
+          mutations,
+          color,
+          mood,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '변환에 실패했어요.');
-      setResultImage(data.imageBase64);
-      setResultMime(data.mimeType);
+      // 실패했을 때는 아무것도 쌓지 않으므로, 실패가 남은 횟수를 깎지 않습니다.
+      setPicked(attempts.length); // 새로 만든 것을 바로 보여줍니다
+      setAttempts((prev) => [...prev, { image: data.imageBase64, mime: data.mimeType || 'image/png' }]);
+      setEditing(false);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -168,7 +212,7 @@ export default function UploadPage() {
   }
 
   async function handleSave() {
-    if (!player || !resultImage) return;
+    if (!player || !result) return;
     setSaving(true);
     setError('');
     try {
@@ -180,8 +224,8 @@ export default function UploadPage() {
         age_stage: ageStage,
         body_parts: bodyParts,
         mutations,
-        image_base64: resultImage,
-        mime_type: resultMime,
+        image_base64: result.image,
+        mime_type: result.mime,
         stats,
         level: 1,
         xp: 0,
@@ -210,8 +254,18 @@ export default function UploadPage() {
         </button>
       </div>
 
-      {!resultImage && (
+      {showForm && (
         <>
+          {/* 결과를 본 뒤에 들어온 경우. 만든 그림을 잃지 않고 돌아갈 수 있어야 합니다. */}
+          {attempts.length > 0 && (
+            <button
+              onClick={() => setEditing(false)}
+              className="self-start text-sm border border-slate-600 text-slate-300 rounded-full px-3 py-1"
+            >
+              ← 만든 곤충 보러 가기
+            </button>
+          )}
+
           {/* 종이에 이미 다 표시했으니, 사진 한 장으로 아래 항목을 채워줍니다.
               실패해도 손으로 입력하면 되므로 어디까지나 "빠른 길"입니다. */}
           <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2 border border-sky-500/40">
@@ -444,24 +498,71 @@ export default function UploadPage() {
 
           <button
             onClick={handleConvert}
-            disabled={loading || !previewUrl}
+            disabled={loading || !previewUrl || attemptsLeft <= 0}
             className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
           >
-            {loading ? '곤충 그리는 중... 🐝' : '곤충으로 변신시키기'}
+            {loading
+              ? '곤충 그리는 중... 🐝'
+              : attempts.length === 0
+              ? '곤충으로 변신시키기'
+              : `🔄 고친 대로 다시 만들기 (${attemptsLeft}번 남음)`}
           </button>
+          {/* 한도를 다 쓴 뒤 설정만 고치러 들어오면 아무것도 못 하고 갇힙니다. 나가는 길을 알려줍니다. */}
+          {attemptsLeft <= 0 && (
+            <p className="text-xs text-slate-400 text-center">
+              다시 만들기를 다 썼어. 그림 사진을 다시 찍으면 또 만들 수 있어!
+            </p>
+          )}
         </>
       )}
 
       {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
-      {resultImage && (
+      {result && !editing && (
         <div className="flex flex-col gap-4 items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`data:${resultMime};base64,${resultImage}`}
-            alt="변신한 곤충"
-            className="rounded-2xl w-64 h-64 object-contain bg-slate-800"
-          />
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`data:${result.mime};base64,${result.image}`}
+              alt="변신한 곤충"
+              className="rounded-2xl w-64 h-64 object-contain bg-slate-800"
+            />
+            {/* 다시 만드는 동안에도 지금 그림을 계속 보여줍니다.
+                화면을 비워버리면 아이는 방금 것이 사라진 줄 압니다. */}
+            {loading && (
+              <div className="absolute inset-0 rounded-2xl bg-slate-950/70 flex items-center justify-center text-sm font-bold">
+                새로 그리는 중... 🐝
+              </div>
+            )}
+          </div>
+
+          {/* 여러 번 만들었으면 전부 남겨두고 고르게 합니다. */}
+          {attempts.length > 1 && (
+            <div className="w-full">
+              <p className="text-xs text-slate-400 mb-2 text-center">
+                마음에 드는 걸 눌러서 골라줘! (고른 걸로 저장돼)
+              </p>
+              <div className="flex gap-2 justify-center">
+                {attempts.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPicked(i)}
+                    className={`rounded-xl overflow-hidden border-2 ${
+                      picked === i ? 'border-sky-400' : 'border-slate-700 opacity-60'
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`data:${item.mime};base64,${item.image}`}
+                      alt={`${i + 1}번째 곤충`}
+                      className="w-20 h-20 object-contain bg-slate-800"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 w-full text-sm">
             <StatBar label="공격력" value={stats.atk} />
             <StatBar label="수비력" value={stats.def} />
@@ -469,9 +570,36 @@ export default function UploadPage() {
             <StatBar label="생존능력" value={stats.surv} />
             <StatBar label="지능" value={stats.int} />
           </div>
+          {/* 마음에 안 들면 같은 그림·같은 설정으로 한 번 더 만듭니다.
+              능력치는 표시한 값에서 나오므로 다시 만들어도 바뀌지 않습니다. 그림만 새로 나옵니다. */}
+          {attemptsLeft > 0 ? (
+            <button
+              onClick={handleConvert}
+              disabled={loading || saving}
+              className="w-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-2xl"
+            >
+              {loading ? '새로 그리는 중... 🐝' : `🔄 마음에 안 들면 다시 만들기 (${attemptsLeft}번 남음)`}
+            </button>
+          ) : (
+            <p className="text-xs text-slate-400 text-center">
+              다시 만들기는 여기까지야. 위에서 제일 마음에 드는 걸 골라줘!
+            </p>
+          )}
+
+          <button
+            onClick={() => {
+              setEditing(true);
+              setError('');
+            }}
+            disabled={loading || saving}
+            className="w-full border border-slate-600 text-slate-300 disabled:opacity-50 font-semibold py-2.5 rounded-2xl text-sm"
+          >
+            ✏️ 색깔·종류 고쳐서 만들기
+          </button>
+
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             className="w-full bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
           >
             {saving ? '저장 중...' : '이 곤충으로 저장하고 배틀하러 가기'}
