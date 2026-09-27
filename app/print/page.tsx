@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { SPECIES } from '@/lib/species';
 import { ENVIRONMENTS } from '@/lib/environments';
@@ -16,9 +17,28 @@ import { ticketAt } from '@/lib/ticket';
 // 목록을 고치면 종이도 자동으로 따라갑니다. 앱 화면과 종이가 어긋날 일이 없습니다.
 //
 // 사용법: /print?count=400 으로 열고 브라우저 인쇄(Ctrl+P) → "PDF로 저장"
+// 이어서 더 뽑을 때는 /print?count=100&start=400 처럼 start 를 주면 A-401 부터 나옵니다.
+
+/**
+ * 주소에 적힌 숫자를 읽어옵니다.
+ *
+ * 주소를 잘못 적었을 때 400장이 조용히 뽑히면 인쇄비가 그대로 나가므로,
+ * 읽을 수 없는 값이면 기본값으로 돌려보내고 범위를 벗어난 값은 잘라냅니다.
+ */
+function readNumberParam(raw: string | null, fallback: number, min: number, max: number): number {
+  if (raw === null) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
 function PrintInner() {
-  const [count, setCount] = useState(400);
-  const [startIndex, setStartIndex] = useState(0);
+  const searchParams = useSearchParams();
+  // 주소로 넘어온 값은 첫 화면의 기본값으로만 씁니다. 그 뒤로는 화면의 입력칸이 주인입니다.
+  const [count, setCount] = useState(() => readNumberParam(searchParams.get('count'), 400, 1, 2000));
+  const [startIndex, setStartIndex] = useState(() =>
+    readNumberParam(searchParams.get('start'), 0, 0, 9_000)
+  );
   const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
 
