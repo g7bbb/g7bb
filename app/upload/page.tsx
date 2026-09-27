@@ -10,6 +10,7 @@ import { ENVIRONMENTS } from '@/lib/environments';
 import { SPECIES, speciesLabel } from '@/lib/species';
 import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import { readSheetPhoto } from '@/lib/sheet-read';
+import { shrinkForStorage } from '@/lib/shrink-image';
 import {
   MUTATIONS,
   MutationKey,
@@ -200,9 +201,12 @@ export default function UploadPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '변환에 실패했어요.');
+      // DB 용량 때문에 여기서 바로 JPEG로 바꿔둡니다. (자세한 이유는 lib/shrink-image.ts)
+      // 화면에 보여주는 것과 저장되는 것이 같은 그림이어야 "고른 거랑 다르다"가 생기지 않습니다.
+      const stored = await shrinkForStorage(data.imageBase64, data.mimeType || 'image/png');
       // 실패했을 때는 아무것도 쌓지 않으므로, 실패가 남은 횟수를 깎지 않습니다.
       setPicked(attempts.length); // 새로 만든 것을 바로 보여줍니다
-      setAttempts((prev) => [...prev, { image: data.imageBase64, mime: data.mimeType || 'image/png' }]);
+      setAttempts((prev) => [...prev, stored]);
       setEditing(false);
     } catch (err: any) {
       setError(err.message);
