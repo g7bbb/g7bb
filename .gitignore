@@ -3,3 +3,6 @@ node_modules
 .env.local
 .vercel
 *.log
+
+# 타입 검사(tsc)가 만드는 캐시 파일. 코드가 아니라 올릴 필요가 없습니다.
+tsconfig.tsbuildinfo
