@@ -9,18 +9,35 @@ import { NextRequest, NextResponse } from 'next/server';
 // ⚠️ 환경변수는 **요청이 올 때마다** 읽습니다 (2026-09-28).
 // 파일 맨 위에서 `const ADMIN_CODE = process.env.ADMIN_CODE` 로 한 번만 읽으면,
 // 값이 없던 상태로 서버가 뜬 뒤에는 나중에 값이 생겨도 계속 없는 것으로 봅니다.
+/**
+ * 암호를 비교하기 전에 다듬습니다 (2026-09-28).
+ *
+ * **왜 필요한가 — Jin이 실제로 막혔던 것**
+ *
+ * "붙여넣기는 되는데 손으로 치면 안 된다"는 증상이 났고, 원인이 두 가지였습니다.
+ *
+ * 1) **앞뒤 공백**: Vercel 환경변수 칸에 붙여넣을 때 끝에 공백이나 줄바꿈이 딸려
+ *    들어가기 쉽습니다. 화면에는 안 보이는데 컴퓨터는 다른 값으로 봅니다.
+ *
+ * 2) **한글의 두 가지 저장 방식** (이쪽이 진짜 원인이었습니다):
+ *    `곤` 한 글자를 통째로 저장하는 방식(NFC, U+ACE4)과
+ *    `ㄱ`+`ㅗ`+`ㄴ` 으로 쪼개 저장하는 방식(NFD, U+1100 U+1169 U+11AB)이 있습니다.
+ *    화면에는 똑같이 `곤`으로 보이지만 컴퓨터에는 전혀 다른 값입니다.
+ *    붙여넣으면 저장된 형태가 그대로 들어가 맞고, 손으로 치면 그 기기의 입력기가
+ *    만드는 형태라 어긋납니다. 기기마다(윈도우/맥/폰) 다른 형태를 만듭니다.
+ *    → `normalize('NFC')` 로 한 가지 형태로 맞춰서 비교합니다.
+ *
+ * 부스에서는 PC로 등록해둔 암호를 폰으로 칠 수 있으므로 이 차이가 실제로 납니다.
+ * 이것 때문에 심사 화면이 안 열리면 시상 8명 중 4명을 못 뽑습니다.
+ */
+function tidy(value: string): string {
+  return value.normalize('NFC').trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // 앞뒤 공백을 떼고 비교합니다 (2026-09-28).
-    //
-    // Vercel 환경변수 칸에 값을 붙여넣으면 끝에 공백이나 줄바꿈이 딸려 들어가기 쉽습니다.
-    // 화면에는 보이지 않는데 컴퓨터는 다른 값으로 보기 때문에, 저장할 때 쓴 값을 그대로
-    // 손으로 쳐도 "암호가 맞지 않아요"가 뜹니다. 실제로 Jin이 이걸로 막혔습니다
-    // (붙여넣기는 되는데 타이핑은 안 되는 증상).
-    //
-    // 부스에서 폰으로 급하게 칠 때 이것 때문에 심사 화면이 안 열리면 안 되므로,
-    // 양쪽 다 떼고 비교합니다. 암호 앞뒤의 공백은 어차피 의도한 값이 아닙니다.
-    const adminCode = process.env.ADMIN_CODE?.trim();
+    const rawAdminCode = process.env.ADMIN_CODE;
+    const adminCode = rawAdminCode ? tidy(rawAdminCode) : '';
     const { code } = await req.json();
 
     if (!adminCode) {
@@ -37,7 +54,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof code !== 'string' || code.trim() !== adminCode) {
+    if (typeof code !== 'string' || tidy(code) !== adminCode) {
       return NextResponse.json({ ok: false, error: '암호가 맞지 않아요.' }, { status: 401 });
     }
 
