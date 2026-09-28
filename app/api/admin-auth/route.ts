@@ -11,7 +11,16 @@ import { NextRequest, NextResponse } from 'next/server';
 // 값이 없던 상태로 서버가 뜬 뒤에는 나중에 값이 생겨도 계속 없는 것으로 봅니다.
 export async function POST(req: NextRequest) {
   try {
-    const adminCode = process.env.ADMIN_CODE;
+    // 앞뒤 공백을 떼고 비교합니다 (2026-09-28).
+    //
+    // Vercel 환경변수 칸에 값을 붙여넣으면 끝에 공백이나 줄바꿈이 딸려 들어가기 쉽습니다.
+    // 화면에는 보이지 않는데 컴퓨터는 다른 값으로 보기 때문에, 저장할 때 쓴 값을 그대로
+    // 손으로 쳐도 "암호가 맞지 않아요"가 뜹니다. 실제로 Jin이 이걸로 막혔습니다
+    // (붙여넣기는 되는데 타이핑은 안 되는 증상).
+    //
+    // 부스에서 폰으로 급하게 칠 때 이것 때문에 심사 화면이 안 열리면 안 되므로,
+    // 양쪽 다 떼고 비교합니다. 암호 앞뒤의 공백은 어차피 의도한 값이 아닙니다.
+    const adminCode = process.env.ADMIN_CODE?.trim();
     const { code } = await req.json();
 
     if (!adminCode) {
@@ -28,7 +37,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof code !== 'string' || code !== adminCode) {
+    if (typeof code !== 'string' || code.trim() !== adminCode) {
       return NextResponse.json({ ok: false, error: '암호가 맞지 않아요.' }, { status: 401 });
     }
 
