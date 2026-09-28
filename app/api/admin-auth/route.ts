@@ -47,8 +47,9 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error:
-            '아직 암호가 등록되지 않았어요. Vercel → Settings → Environment Variables 에서 ' +
-            'ADMIN_CODE 를 Production 으로 추가한 뒤, Deployments 에서 Redeploy 까지 해야 반영됩니다.',
+            '아직 암호가 등록되지 않았어요. Vercel 프로젝트 → Settings → 왼쪽 위 🔍 Find 에 ' +
+            '"environment variable" 을 쳐서 나오는 화면에서 ADMIN_CODE 를 Production 으로 추가한 뒤, ' +
+            '반드시 Redeploy(또는 GitHub main 에 아무 커밋이나 푸시)까지 해야 반영됩니다.',
         },
         { status: 500 }
       );
