@@ -56,29 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (typeof code !== 'string' || tidy(code) !== adminCode) {
-      // ⚠️ 임시 진단 (2026-09-28) — 원인을 찾으면 이 블록을 지우고 원래 문구로 되돌릴 것.
-      //
-      // Jin이 "붙여넣기는 되는데 손으로 치면 안 된다"로 계속 막혀 있는데,
-      // "암호가 맞지 않아요" 한 줄로는 왜 다른지 알 수가 없어서 잠시 켜둡니다.
-      // **암호 자체는 절대 내보내지 않고 글자 수와 어긋나는 위치만** 알려줍니다.
-      // (이 화면은 아이들이 실수로 들어오는 것을 막는 용도라 글자 수 노출은 감수 가능.
-      //  그래도 필요 없어지면 바로 지웁니다.)
-      const typed = typeof code === 'string' ? tidy(code) : '';
-      let diffAt = 0;
-      const longer = Math.max(typed.length, adminCode.length);
-      for (let i = 0; i < longer; i += 1) {
-        if (typed[i] !== adminCode[i]) {
-          diffAt = i + 1;
-          break;
-        }
-      }
-      const hint =
-        `등록된 암호 ${adminCode.length}글자 / 방금 친 것 ${typed.length}글자` +
-        (diffAt ? ` / ${diffAt}번째 글자부터 다름` : '');
-      return NextResponse.json(
-        { ok: false, error: `암호가 맞지 않아요. (${hint})` },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: '암호가 맞지 않아요.' }, { status: 401 });
     }
 
     return NextResponse.json({ ok: true });
