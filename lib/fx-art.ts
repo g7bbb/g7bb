@@ -15,25 +15,38 @@ import { SpecialMoveKey, TimingTier } from './special-moves';
 // 색을 바꾸려면 그림을 다시 만들어야 한다.
 // ─────────────────────────────────────────────────────────────
 
+export interface FxArt {
+  src: string;
+  /**
+   * 화면에 띄울 높이(px). 안 적으면 부르는 쪽의 기본값을 쓴다.
+   *
+   * ⚠️ **두 줄짜리 글씨는 이 값을 키워줘야 한다.** 한 줄짜리는 그림 높이의 약 67%가
+   * 글자인데, 두 줄이면 그 높이를 둘이 나눠 쓰므로 같은 높이로 띄우면 글자가 절반만 해진다.
+   * (`나비처럼 날아 벌처럼 쏜다!` 가 그 경우)
+   */
+  height?: number;
+}
+
 /** ⚡버튼 타이밍 판정 (퍼펙트/그레이트/굿/발동) */
-export const TIMING_ART: Partial<Record<TimingTier['key'], string>> = {
-  perfect: '/fx/timing-perfect.png',
-  great: '/fx/timing-great.png',
-  good: '/fx/timing-good.png',
-  ok: '/fx/timing-ok.png',
+export const TIMING_ART: Partial<Record<TimingTier['key'], FxArt>> = {
+  perfect: { src: '/fx/timing-perfect.png' },
+  great: { src: '/fx/timing-great.png' },
+  good: { src: '/fx/timing-good.png' },
+  ok: { src: '/fx/timing-ok.png' },
 };
 
-/** 필살기 이름 8개. 파일이 오는 대로 한 줄씩 추가. */
-export const MOVE_ART: Partial<Record<SpecialMoveKey, string>> = {
-  commonAttack: '/fx/move-commonAttack.png',
-  // stag:          '/fx/move-stag.png',           // 큰턱공격!
-  // rhino:         '/fx/move-rhino.png',          // 씨름선수!
-  // mantis:        '/fx/move-mantis.png',         // 당랑권!
-  // bee:           '/fx/move-bee.png',            // 나비처럼 날아 벌처럼 쏜다!
-  // butterfly:     '/fx/move-butterfly.png',      // 흔들흔들 회피!
-  // other:         '/fx/move-other.png',          // 웅크리기!
-  // commonDefense: '/fx/move-commonDefense.png',  // 바위처럼!!
+/** 필살기 이름 8개. */
+export const MOVE_ART: Partial<Record<SpecialMoveKey, FxArt>> = {
+  mantis: { src: '/fx/move-mantis.png' }, //         당랑권!
+  butterfly: { src: '/fx/move-butterfly.png' }, //   흔들흔들 회피!
+  other: { src: '/fx/move-other.png' }, //           웅크리기!
+  commonDefense: { src: '/fx/move-commonDefense.png' }, // 바위처럼!!
+  commonAttack: { src: '/fx/move-commonAttack.png' }, //   공격!!
+  // 두 줄짜리라 높이를 키운다 (위 FxArt.height 설명 참고)
+  bee: { src: '/fx/move-bee.png', height: 200 }, //  나비처럼 날아 벌처럼 쏜다!
+  // stag:  { src: '/fx/move-stag.png' },   // 큰턱공격!  ← 아직 안 옴
+  // rhino: { src: '/fx/move-rhino.png' },  // 씨름선수!  ← 아직 안 옴
 };
 
 /** 서로 때리는 순간. 없으면 지금처럼 💥 이모지가 나온다. */
-export const IMPACT_ART: string | null = null; // '/fx/impact.png'  ← 콰쾅!
+export const IMPACT_ART: FxArt | null = null; // { src: '/fx/impact.png' }  ← 콰쾅!

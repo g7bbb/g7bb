@@ -1,5 +1,7 @@
 'use client';
 
+import { FxArt } from '@/lib/fx-art';
+
 // 효과 글씨 한 줄. **그림이 있으면 그림, 없으면 지금까지처럼 글씨**로 나옵니다.
 //
 // ⚠️ 13장이 한 번에 오지 않아서 이렇게 만들었습니다.
@@ -12,13 +14,13 @@
 export default function FxText({
   art,
   text,
-  /** 그림으로 나올 때의 높이(px) */
+  /** 그림으로 나올 때의 기본 높이(px). 그림이 자기 높이를 갖고 있으면 그쪽이 이긴다. */
   height,
   /** 그림이 없을 때 쓸 글씨 클래스 */
   textClassName,
   className = '',
 }: {
-  art?: string | null;
+  art?: FxArt | null;
   text: string;
   height: number;
   textClassName: string;
@@ -28,10 +30,10 @@ export default function FxText({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={art}
+        src={art.src}
         alt={text}
         className={className}
-        style={{ height, width: 'auto', maxWidth: '92vw', objectFit: 'contain' }}
+        style={{ height: art.height ?? height, width: 'auto', maxWidth: '92vw', objectFit: 'contain' }}
       />
     );
   }

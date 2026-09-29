@@ -1047,10 +1047,10 @@ function Fighter({
             {IMPACT_ART && !impact.crit ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={IMPACT_ART}
+                src={IMPACT_ART.src}
                 alt="콰쾅!"
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-impact-pop"
-                style={{ height: 120, width: 'auto', maxWidth: '92vw' }}
+                style={{ height: IMPACT_ART.height ?? 130, width: 'auto', maxWidth: '92vw' }}
               />
             ) : (
               <span className="absolute left-1/2 top-1/2 text-7xl animate-impact-pop">
