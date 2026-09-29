@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { CoreStats } from '@/lib/types';
 import { ENVIRONMENTS } from '@/lib/environments';
-import { specialMoveFor } from '@/lib/special-moves';
+import { baseMoveFor, secondMoveFor } from '@/lib/special-moves';
 import { tierForVisit } from '@/lib/card';
 
 // 아이에게 보여주고 출력해 줄 곤충 카드 한 장입니다.
@@ -44,7 +44,11 @@ export interface InsectCardData {
 export default function InsectCard({ data }: { data: InsectCardData }) {
   const [qr, setQr] = useState('');
   const tier = tierForVisit(data.visit);
-  const move = specialMoveFor(data.stats);
+  // 필살기는 **곤충 종류**로 정해집니다 (2026-09-29 Jin 재설계).
+  // 전에는 가장 높은 능력치로 정했는데, 이제 사슴벌레는 큰턱공격처럼 그 곤충다운 기술이 나옵니다.
+  const move = baseMoveFor(data.species);
+  // LV3부터 반대 형(공격↔수비)의 공통기가 하나 더 열립니다.
+  const move2 = secondMoveFor(data.species, data.level);
   const env = ENVIRONMENTS.find((e) => e.key === data.origin || e.label === data.origin);
 
   useEffect(() => {
@@ -116,12 +120,30 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
 
           {/* ── 필살기 + 능력치 ── */}
           <div className="px-3 pt-2.5 pb-3 bg-slate-950">
-            <div className="flex items-center gap-2 rounded-lg bg-slate-900 px-2.5 py-1.5 mb-2">
-              <span className="text-lg leading-none">{move.emoji}</span>
-              <div className="min-w-0">
-                <div className="text-[13px] font-bold text-amber-300 leading-tight">{move.name}</div>
-                <div className="text-[10px] text-slate-400 leading-tight truncate">{move.description}</div>
-              </div>
+            <div className="flex flex-col gap-1 mb-2">
+              {[move, move2].filter(Boolean).map((m, i) => (
+                <div
+                  key={m!.key}
+                  className="flex items-center gap-2 rounded-lg bg-slate-900 px-2.5 py-1.5"
+                >
+                  <span className="text-lg leading-none">{m!.emoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-[13px] font-bold leading-tight ${m!.textColor}`}>
+                      {m!.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400 leading-tight truncate">
+                      {m!.description}
+                    </div>
+                  </div>
+                  {/* 공격형/수비형을 한눈에 구분해줍니다. */}
+                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                    {m!.kind === 'attack' ? '공격' : '수비'}
+                  </span>
+                  {i === 1 && (
+                    <span className="shrink-0 text-[9px] font-bold text-emerald-400">LV3</span>
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="flex flex-col gap-1">

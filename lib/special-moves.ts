@@ -1,19 +1,41 @@
-import { CoreStats, StatKey } from './types';
+import { findSpecies } from './species';
 
 // ─────────────────────────────────────────────────────────────
-// 필살기 (배틀당 1번)
+// 필살기 (2026-09-29 Jin 이 전면 재설계)
 //
-// **어떤 필살기를 쓸지 아이가 따로 고르지 않습니다.**
-// 곤충의 가장 높은 능력치가 곧 그 곤충의 필살기가 됩니다.
-// 종이(마킹란)를 한 줄도 늘리지 않으면서, 아이마다 다른 필살기가 나오게 하는 방법입니다.
-// "내 곤충은 다리를 세게 그려서 그림자 숨기가 나왔어!" 처럼 그림과 기술이 연결됩니다.
+// **바뀐 점 — 이전에는 "가장 높은 능력치"가 필살기였다.**
+// 이제는 **곤충 종류**가 필살기를 정한다. 사슴벌레는 큰턱공격, 장수풍뎅이는 씨름선수처럼
+// 그 곤충다운 기술이 나온다. 아이가 고른 종류가 배틀에서 바로 티가 난다.
 //
-// 밸런스: 다섯 기술 모두 **내 점수 / 상대 점수 비율이 약 1.35배**가 되도록 맞춰져 있습니다.
-// 어떤 기술이 나와도 손해가 아니고, 연출과 느낌만 다릅니다.
-// 숫자를 바꾸고 싶으면 이 파일만 고치면 됩니다.
+// **두 가지 형(型)**
+//   - 공격형: 상대 점수를 깎는다        ("상대 HP의 50% 감소")
+//   - 수비형: 상대가 나를 깎는 것을 막는다 ("내가 받는 피해의 50% 감소")
+//
+// **LV3 부터 필살기가 하나 더 생긴다.** 자기 기본기와 **반대 형**의 공통기가 추가되어
+// 한 배틀에서 두 번 시전할 수 있다. 공격형 곤충은 수비를, 수비형 곤충은 공격을 얻는다.
+//
+// ⚠️ 이 게임의 배틀은 **HP를 깎는 방식이 아니라 점수 대결**이다 (`lib/battle-engine.ts`).
+// 화면의 HP 바는 두 점수의 비율을 보여주는 연출이다. 그래서 Jin 이 말한
+// "상대 HP의 50% 감소"는 **상대 점수 × 0.5** 로 옮겼다. 느낌은 그대로다.
+//
+// 숫자를 바꾸고 싶으면 이 파일만 고치면 된다.
 // ─────────────────────────────────────────────────────────────
 
-export type SpecialMoveKey = StatKey;
+export type MoveKind = 'attack' | 'defense';
+
+/**
+ * 종별 기본기 6개 + LV3 공통기 2개.
+ * 앞의 6개는 `lib/species.ts` 의 key 와 같은 이름이라 종류 ↔ 기술이 1:1 로 붙습니다.
+ */
+export type SpecialMoveKey =
+  | 'rhino'
+  | 'stag'
+  | 'mantis'
+  | 'bee'
+  | 'butterfly'
+  | 'other'
+  | 'commonDefense'
+  | 'commonAttack';
 
 export interface SpecialMove {
   key: SpecialMoveKey;
@@ -21,83 +43,176 @@ export interface SpecialMove {
   emoji: string;
   /** 아이에게 보여줄 한 줄 설명 */
   description: string;
-  /** 내 점수에 곱하는 값 */
-  selfMultiplier: number;
-  /** 상대 점수에 곱하는 값 */
-  opponentMultiplier: number;
+  kind: MoveKind;
+  /**
+   * 크리티컬이 터졌을 때의 효과 크기 (0.5 = 50%).
+   * 공격형이면 상대 점수를 이만큼 깎고, 수비형이면 내가 받는 깎임을 이만큼 막는다.
+   */
+  critRate: number;
+  /** 크리티컬이 아닐 때. 이 범위 안에서 무작위로 정해진다 (배틀 시작 때 한 번만 굴림). */
+  normalMin: number;
+  normalMax: number;
   /** 화면 전체를 덮는 섬광 색 */
   flashColor: string;
   /** 기술 이름 글자 색 */
   textColor: string;
 }
 
+/** 크리티컬이 아닐 때는 모든 기술이 20~30% 로 같다 (Jin 규칙). */
+const NORMAL_MIN = 0.2;
+const NORMAL_MAX = 0.3;
+
 export const SPECIAL_MOVES: Record<SpecialMoveKey, SpecialMove> = {
-  atk: {
-    key: 'atk',
-    name: '큰턱 강타',
-    emoji: '⚔️',
-    description: '온 힘을 모아 한 방! 내 공격이 확 세져',
-    selfMultiplier: 1.35,
-    opponentMultiplier: 1,
+  stag: {
+    key: 'stag',
+    name: '큰턱공격!',
+    emoji: '🦌',
+    description: '집게턱으로 콱! 상대를 크게 깎아',
+    kind: 'attack',
+    critRate: 0.5,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
     flashColor: 'bg-red-500',
     textColor: 'text-red-400',
   },
-  def: {
-    key: 'def',
-    name: '철갑 방어',
-    emoji: '🛡️',
-    description: '갑옷을 딱 굳혀서 상대 공격을 튕겨내',
-    selfMultiplier: 1,
-    opponentMultiplier: 0.74,
-    flashColor: 'bg-sky-400',
-    textColor: 'text-sky-300',
+  rhino: {
+    key: 'rhino',
+    name: '씨름선수!',
+    emoji: '🦏',
+    description: '뿔로 밀어붙여! 제일 강한 한 방',
+    kind: 'attack',
+    critRate: 0.6,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
+    flashColor: 'bg-orange-500',
+    textColor: 'text-orange-400',
   },
-  hp: {
-    key: 'hp',
-    name: '불굴의 생명력',
-    emoji: '💚',
-    description: '쓰러질 뻔해도 다시 일어나! 체력이 되살아나',
-    selfMultiplier: 1.18,
-    opponentMultiplier: 0.87,
-    flashColor: 'bg-emerald-400',
-    textColor: 'text-emerald-300',
+  mantis: {
+    key: 'mantis',
+    name: '당랑권!',
+    emoji: '🥋',
+    description: '낫처럼 빠른 앞발 연속 공격',
+    kind: 'attack',
+    critRate: 0.55,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
+    flashColor: 'bg-lime-500',
+    textColor: 'text-lime-400',
   },
-  surv: {
-    key: 'surv',
-    name: '그림자 숨기',
-    emoji: '🌫️',
-    description: '스윽 사라져서 상대가 나를 못 때려',
-    selfMultiplier: 1.1,
-    opponentMultiplier: 0.81,
-    flashColor: 'bg-violet-500',
-    textColor: 'text-violet-300',
-  },
-  int: {
-    key: 'int',
-    name: '약점 간파',
-    emoji: '🔮',
-    description: '상대의 약점을 딱 찾아내서 정확히 노려',
-    selfMultiplier: 1.25,
-    opponentMultiplier: 0.92,
+  bee: {
+    key: 'bee',
+    name: '나비처럼 날아 벌처럼 쏜다!',
+    emoji: '🐝',
+    description: '휙 날았다가 침으로 정확히 한 방',
+    kind: 'attack',
+    critRate: 0.5,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
     flashColor: 'bg-amber-400',
     textColor: 'text-amber-300',
   },
+  butterfly: {
+    key: 'butterfly',
+    name: '흔들흔들 회피!',
+    emoji: '🦋',
+    description: '살랑살랑 피해서 공격을 덜 받아',
+    kind: 'defense',
+    critRate: 0.5,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
+    flashColor: 'bg-sky-400',
+    textColor: 'text-sky-300',
+  },
+  other: {
+    key: 'other',
+    name: '웅크리기!',
+    emoji: '🛡️',
+    description: '몸을 꽉 말아 단단하게 버텨',
+    kind: 'defense',
+    critRate: 0.6,
+    normalMin: NORMAL_MIN,
+    normalMax: NORMAL_MAX,
+    flashColor: 'bg-slate-300',
+    textColor: 'text-slate-200',
+  },
+
+  // ── LV3 부터 추가되는 공통기 ─────────────────────────────
+  // 기본기가 공격형이면 수비를, 수비형이면 공격을 받는다. 그래서 둘 다 갖추게 된다.
+  commonDefense: {
+    key: 'commonDefense',
+    name: '바위처럼!!',
+    emoji: '🪨',
+    description: '바위가 되어 버틴다! 받는 피해를 크게 줄여',
+    kind: 'defense',
+    critRate: 0.6,
+    normalMin: 0.3,
+    normalMax: 0.3,
+    flashColor: 'bg-stone-300',
+    textColor: 'text-stone-200',
+  },
+  commonAttack: {
+    key: 'commonAttack',
+    name: '공격!!',
+    emoji: '💥',
+    description: '있는 힘껏 밀어붙인다!',
+    kind: 'attack',
+    critRate: 0.6,
+    normalMin: 0.3,
+    normalMax: 0.3,
+    flashColor: 'bg-rose-500',
+    textColor: 'text-rose-400',
+  },
 };
 
-// 능력치가 똑같이 높을 때 무엇을 먼저 고를지 정해둡니다. (매번 같은 기술이 나와야 아이가 헷갈리지 않음)
-const PRIORITY: SpecialMoveKey[] = ['atk', 'surv', 'def', 'int', 'hp'];
+/** 두 번째 필살기가 열리는 레벨. */
+export const SECOND_MOVE_LEVEL = 3;
 
-/** 곤충의 가장 높은 능력치로 필살기를 정합니다. */
-export function specialMoveFor(stats: CoreStats | null | undefined): SpecialMove {
-  if (!stats) return SPECIAL_MOVES.atk;
+/**
+ * 곤충 종류로 기본 필살기(LV1)를 정합니다.
+ *
+ * ⚠️ **`insects.species` 에는 키(`stag`)가 아니라 한글 이름(`사슴벌레`)이 저장됩니다.**
+ * (`app/upload/page.tsx` 가 `speciesLabel(species)` 로 저장하기 때문)
+ * 그래서 키로만 찾으면 **모든 곤충이 기타곤충의 웅크리기로 나와버립니다.**
+ * `findSpecies` 가 키와 한글 이름을 모두 받아주므로 그걸 거칩니다.
+ *
+ * 모르는 종이 들어오면 `기타 곤충`의 웅크리기로 둡니다. 옛 데이터나 오타로
+ * 배틀이 통째로 멈추는 것보다 낫습니다.
+ */
+export function baseMoveFor(species: string | null | undefined): SpecialMove {
+  const found = findSpecies(species);
+  const key = (found?.key ?? 'other') as SpecialMoveKey;
+  return SPECIAL_MOVES[key] ?? SPECIAL_MOVES.other;
+}
 
-  let best: SpecialMoveKey = PRIORITY[0];
-  PRIORITY.forEach((key) => {
-    const value = Number(stats[key] ?? 0);
-    const bestValue = Number(stats[best] ?? 0);
-    if (value > bestValue) best = key;
-  });
-  return SPECIAL_MOVES[best];
+/**
+ * LV3 부터 열리는 두 번째 필살기. 기본기와 **반대 형**입니다.
+ * 레벨이 모자라면 `null` — 이때는 배틀에서 필살기 기회가 한 번만 뜹니다.
+ */
+export function secondMoveFor(
+  species: string | null | undefined,
+  level: number
+): SpecialMove | null {
+  if (!Number.isFinite(level) || level < SECOND_MOVE_LEVEL) return null;
+  return baseMoveFor(species).kind === 'attack'
+    ? SPECIAL_MOVES.commonDefense
+    : SPECIAL_MOVES.commonAttack;
+}
+
+/** 그 곤충이 배틀에서 쓸 수 있는 필살기 전부 (순서대로 시전). */
+export function movesFor(species: string | null | undefined, level: number): SpecialMove[] {
+  const second = secondMoveFor(species, level);
+  return second ? [baseMoveFor(species), second] : [baseMoveFor(species)];
+}
+
+/**
+ * 이번 배틀에서 그 기술이 실제로 낼 효과 크기를 굴립니다.
+ *
+ * ⚠️ **배틀 시작 때 한 번만 굴려두고 재사용해야 합니다.** 매번 굴리면
+ * "필살기를 썼는데 아까보다 나빠졌다"가 생깁니다. (크리티컬을 미리 굴려두는 것과 같은 이유)
+ */
+export function rollMoveRate(move: SpecialMove, crit: boolean, random = Math.random): number {
+  if (crit) return move.critRate;
+  return move.normalMin + random() * (move.normalMax - move.normalMin);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -107,15 +222,8 @@ export function specialMoveFor(stats: CoreStats | null | undefined): SpecialMove
 // 큰 고리가 4초 동안 줄어들면서 2초 지점에서 목표 고리와 정확히 겹칩니다.
 // 그때 누르면 퍼펙트. 빨라도 늦어도 위력이 떨어집니다.
 //
-// 왜 "내 점수에 곱하기"로 했나:
-// 기술마다 selfMultiplier / opponentMultiplier 가 달라서, 기술 배수 자체를 키우면
-// 철갑 방어(상대를 깎는 기술)만 유독 세지는 등 밸런스가 틀어집니다.
-// 타이밍 보너스는 **기술과 무관하게 내 점수에만** 곱해서 다섯 기술 모두 똑같이 이득을 봅니다.
-//
-// 밸런스 감각:
-//   나·상대 둘 다 필살기 → 비김 (1.35 대 1.35)
-//   내가 퍼펙트까지 → 1.35배 유리
-//   내가 버튼을 놓침   → 0.74배 불리
+// 타이밍 보너스는 **기술과 무관하게 내 점수에만** 곱합니다.
+// 기술 자체의 효과를 키우면 수비형만 유독 세지는 등 밸런스가 틀어집니다.
 // ─────────────────────────────────────────────────────────────
 
 /** 고리가 목표와 겹치는 순간 (버튼이 뜬 뒤 몇 ms). */

@@ -12,7 +12,9 @@ import {
   SpecialMove,
   TimingTier,
   judgeTiming,
-  specialMoveFor,
+  movesFor,
+  baseMoveFor,
+  SpecialMoveKey,
 } from '@/lib/special-moves';
 import { playPerfect, playTap } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
@@ -128,7 +130,10 @@ export default function BattlePage() {
   const chanceStart = useRef(0);
   const timingResult = useRef<TimingTier | null>(null);
 
-  const myMove = myInsect ? specialMoveFor(myInsect.stats) : null;
+  // 필살기 기회가 LV3부터 **두 번** 오므로, 지금 뜬 기회가 어떤 기술인지 따로 담습니다.
+  const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
+  // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
+  const myMove = myInsect ? baseMoveFor(myInsect.species) : null;
 
   useEffect(() => {
     getCurrentPlayer().then((p) => {
@@ -312,8 +317,9 @@ export default function BattlePage() {
   async function runFight(foe: Insect) {
     if (!player || !myInsect) return;
 
-    const mine = specialMoveFor(myInsect.stats);
-    const theirs = specialMoveFor(foe.stats);
+    // 필살기는 **곤충 종류**로 정해지고, LV3부터 반대 형 공통기가 하나 더 열립니다.
+    const myMoves = movesFor(myInsect.species, myInsect.level);
+    const foeMoves = movesFor(foe.species, foe.level);
 
     // 운·크리티컬은 배틀 시작 때 한 번만 굴려둡니다.
     // 필살기 선택 뒤에 다시 굴리면 "필살기를 썼는데 더 나빠졌다"가 생길 수 있기 때문입니다.
@@ -342,29 +348,42 @@ export default function BattlePage() {
     await exchange('A', PROBE_DAMAGE_B, false);
     await exchange('B', PROBE_DAMAGE_A, false);
 
-    // 필살기 기회 (배틀당 한 번) — 타이밍이 좋을수록 위력이 올라갑니다.
-    setPhase('chance');
-    const tier = await waitForChance();
-    setUsedSpecial(tier !== null);
+    // 필살기 기회 — **기술 개수만큼** 옵니다 (LV1은 한 번, LV3부터 두 번).
+    // 누를 때마다 바로 연출이 터지게 해서 "눌렀더니 나갔다"가 즉시 느껴지게 합니다.
+    const usedKeys: SpecialMoveKey[] = [];
+    let bestTier: TimingTier | null = null;
 
-    // 판정 글자를 잠깐 보여주고 넘어갑니다.
-    if (tier) await sleep(600);
+    for (const move of myMoves) {
+      setChanceMove(move);
+      setPhase('chance');
+      const tier = await waitForChance();
+      if (!tier) continue;
+
+      usedKeys.push(move.key);
+      // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다.
+      // 두 번 다 곱하면 LV3 아이가 최대 1.8배가 되어 밸런스가 무너집니다.
+      if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
+
+      await sleep(600); // 판정 글자를 잠깐 보여주고
+      setPhase('final');
+      await playSpecial('A', move);
+    }
+    setUsedSpecial(usedKeys.length > 0);
 
     // 상대는 자기 필살기를 항상 씁니다. (안 그러면 내가 쓰기만 하면 무조건 이김)
     const final = resolveBattle(
       rolls.a,
       rolls.b,
-      tier ? mine.key : null,
-      theirs.key,
-      tier?.scoreMultiplier ?? 1
+      usedKeys,
+      foeMoves.map((m) => m.key),
+      bestTier?.scoreMultiplier ?? 1
     );
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
     const savePromise = saveResult(foe, final);
 
     setPhase('final');
-    if (tier) await playSpecial('A', mine);
-    await playSpecial('B', theirs);
+    for (const move of foeMoves) await playSpecial('B', move);
 
     // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
     const winner = final.winner === 'B' ? 'B' : 'A';
@@ -522,7 +541,7 @@ export default function BattlePage() {
               />
             ))}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className={`text-5xl font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
+              <p className={`text-[58px] leading-none font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
                 {specialFx.move.emoji}
               </p>
               <p className={`mt-2 text-3xl font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
@@ -566,7 +585,7 @@ export default function BattlePage() {
 
         <div className="text-center">
           {phase === 'intro' ? (
-            <p className="text-5xl font-black italic text-amber-400 animate-vs-slam">VS</p>
+            <p className="text-[58px] leading-none font-black italic text-amber-400 animate-vs-slam">VS</p>
           ) : (
             <p className="text-2xl font-black italic text-amber-400/70">VS</p>
           )}
@@ -589,13 +608,16 @@ export default function BattlePage() {
 
         {/* 필살기 버튼 — 배틀당 딱 한 번.
             큰 고리가 줄어들다가 가운데 목표 고리와 겹치는 순간(2초)이 퍼펙트입니다. */}
-        {phase === 'chance' && myMove && (
+        {phase === 'chance' && chanceMove && (
           <button
             onClick={pressSpecial}
             className="mt-2 w-full bg-slate-900/60 rounded-2xl py-4 select-none"
           >
-            <p className="text-sm font-bold text-amber-300">
-              {myMove.emoji} {myMove.name}
+            <p className={`text-sm font-bold ${chanceMove.textColor}`}>
+              {chanceMove.emoji} {chanceMove.name}
+              <span className="ml-1 text-[11px] text-slate-400">
+                ({chanceMove.kind === 'attack' ? '공격' : '수비'})
+              </span>
             </p>
 
             <div className="relative h-36 my-1">
@@ -615,7 +637,7 @@ export default function BattlePage() {
               {/* 판정 결과 */}
               {timing && (
                 <span
-                  className={`absolute left-1/2 top-1/2 text-3xl font-black whitespace-nowrap animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${timing.textColor}`}
+                  className={`absolute left-1/2 top-1/2 text-4xl font-black whitespace-nowrap animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${timing.textColor}`}
                 >
                   {timing.emoji} {timing.label}
                 </span>
@@ -623,7 +645,7 @@ export default function BattlePage() {
 
               {!timing && (
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl">
-                  {myMove.emoji}
+                  {chanceMove.emoji}
                 </span>
               )}
             </div>
@@ -875,7 +897,7 @@ export default function BattlePage() {
           <>
             <ol className="flex flex-col gap-2">
               {filtered.slice(0, visibleCount).map((o, i) => {
-                const move = specialMoveFor(o.stats);
+                const move = baseMoveFor(o.species);
                 return (
                   <li key={o.id}>
                     <button
@@ -1011,11 +1033,11 @@ function Fighter({
                 impact.crit ? 'bg-amber-300' : 'bg-white'
               } animate-slash-sweep`}
             />
-            <span className="absolute left-1/2 top-1/2 text-6xl animate-impact-pop">
+            <span className="absolute left-1/2 top-1/2 text-7xl animate-impact-pop">
               {impact.crit ? '⚡' : '💥'}
             </span>
             <span
-              className={`absolute left-1/2 top-[30%] text-3xl font-black animate-damage-float drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] ${
+              className={`absolute left-1/2 top-[30%] text-4xl font-black animate-damage-float drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] ${
                 impact.amount < 0 ? 'text-emerald-300' : impact.crit ? 'text-amber-300' : 'text-rose-300'
               }`}
             >
