@@ -227,7 +227,10 @@ export default function UploadPage() {
         battle_count: 0,
       });
       if (insertError) throw insertError;
-      router.push('/battle');
+      // 저장 직후에는 배틀보다 **카드**를 먼저 보여줍니다.
+      // 10~20초 기다려 만든 결과라 여기가 제일 짜릿한 순간이고, 카드에 박힌 QR 이
+      // 다음에 또 올 때의 신분증이라 아이가 한 번은 꼭 봐야 합니다. (배틀 버튼은 카드 화면에 있습니다)
+      router.push('/card');
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { findPlayerByTicket, rememberPlayer } from '@/lib/session';
+import { Player } from '@/lib/types';
 import { normalizeTicket } from '@/lib/ticket';
 import { logToSheet } from '@/lib/sheet-log';
 import {
@@ -32,17 +33,47 @@ function StartInner() {
   const [fromQr, setFromQr] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // QR 번호가 이미 등록된 아이면, 설문을 다시 받지 않고 바로 이어서 하게 합니다.
+  const [returning, setReturning] = useState<Player | null>(null);
+  const [checking, setChecking] = useState(false);
 
   // QR 주소(/start?t=A-014)로 들어오면 번호를 미리 채워 손으로 칠 일을 없앱니다.
+  //
+  // ⚠️ **이미 등록된 번호면 설문을 다시 받지 않습니다 (2026-09-29).**
+  // 참가비를 또 내고 두 번째 곤충을 만들러 온 아이는 카드에 박힌 QR 을 찍고 옵니다.
+  // 그때 이름과 설문 4개를 처음부터 다시 채우게 하면 헛수고이고 부스 줄이 막힙니다.
   useEffect(() => {
     const fromUrl = params.get('t');
     if (!fromUrl) return;
     const normalized = normalizeTicket(fromUrl);
-    if (normalized) {
-      setTicket(normalized);
-      setFromQr(true);
-    }
+    if (!normalized) return;
+
+    setTicket(normalized);
+    setFromQr(true);
+
+    let cancelled = false;
+    setChecking(true);
+    findPlayerByTicket(normalized)
+      .then((found) => {
+        if (!cancelled && found) setReturning(found);
+      })
+      // 조회에 실패하면 그냥 처음 온 아이로 봅니다. 체험이 막히면 안 됩니다.
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [params]);
+
+  // 이어서 하기: 이미 있는 아이이므로 저장할 것이 없습니다. 바로 곤충 만들기로 보냅니다.
+  function continueAsReturning() {
+    if (!returning) return;
+    rememberPlayer(returning.id);
+    router.push('/upload');
+  }
 
 /**
  * 저장이 실패했을 때 화면에 띄울 문구를 고릅니다 (2026-09-29).
@@ -139,8 +170,58 @@ function friendlyError(message?: string): string {
     router.push('/upload');
   }
 
+  // ── 다시 온 아이 ─────────────────────────────────────────
+  // 카드 QR 을 찍고 온 경우입니다. 이름도 설문도 이미 받아뒀으니 다시 묻지 않습니다.
+  if (returning) {
+    return (
+      <main className="max-w-md mx-auto min-h-screen px-6 py-10 flex flex-col gap-6 justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-3">👋</div>
+          <h1 className="text-2xl font-bold">
+            <span className="text-amber-400">{returning.display_name}</span> 다시 왔구나!
+          </h1>
+          <p className="mt-2 text-sm text-slate-400">
+            내 번호 <b className="text-slate-200">{returning.ticket_code}</b> 로 이어서 할게.
+            <br />
+            이름이랑 질문은 다시 안 물어볼게 😉
+          </p>
+        </div>
+
+        <button
+          onClick={continueAsReturning}
+          className="bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+        >
+          🐛 새 곤충 만들러 가기
+        </button>
+
+        <div className="flex gap-2">
+          <a href="/card" className="flex-1 text-center bg-slate-800 font-semibold py-3 rounded-xl">
+            🃏 내 카드 보기
+          </a>
+          <a
+            href="/battle"
+            className="flex-1 text-center bg-slate-800 font-semibold py-3 rounded-xl"
+          >
+            ⚔️ 배틀하기
+          </a>
+        </div>
+
+        {/* 번호가 잘못 읽혔을 수도 있으니 빠져나갈 길을 둡니다. */}
+        <button
+          onClick={() => setReturning(null)}
+          className="text-xs text-slate-500 underline"
+        >
+          내가 아니에요 (번호 직접 입력하기)
+        </button>
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-md mx-auto min-h-screen px-6 py-8 flex flex-col gap-7">
+      {checking && (
+        <p className="text-center text-xs text-slate-500">번호를 확인하는 중...</p>
+      )}
       <header className="text-center">
         <h1 className="text-2xl font-bold">🐛 곤충 배틀 시작하기</h1>
         <p className="mt-2 text-sm text-slate-400">질문 4개만 답하면 바로 시작해요!</p>
