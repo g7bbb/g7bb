@@ -616,8 +616,22 @@ Gemini가 주는 1024×1024 PNG는 한 장 2MB 안팎이고 base64로 부풀면 
 
 - **`.env.local`은 깃에 없음** (보안상 제외). 새 컴퓨터에서 작업하려면 `.env.local.example`을 복사해
   Gemini API 키, Supabase URL/anon key, 카카오 채널 링크를 채워야 함.
+- 🚨 **`gemini-2.5-flash-image` 는 2026-10-02 에 종료된다 (2026-09-29 확인).** 행사가 10/3~4 이라
+  **행사 전날 밤에 그림 변환이 통째로 죽는** 자리였다. 코드 기본값을 `gemini-3.1-flash-image-preview`
+  로 바꿨다(`app/api/convert-insect/route.ts`, `.env.local.example`).
+  - **Vercel 환경변수 `GEMINI_IMAGE_MODEL` 이 코드 기본값을 이긴다.** 그쪽도 같이 바꿔야 실제로 반영된다.
+  - 우리가 쓰는 건 `generativelanguage.googleapis.com` = **Gemini Developer API** 라 10/2 가 맞다.
+    Vertex AI 쪽은 2027-03-15 로 적혀 있지만 우리와 무관하다. 헷갈리지 말 것.
+  - 2.5 계열은 **공지된 종료일보다 먼저** 끊긴 사례가 보고돼 있다. 미루면 안 된다.
+  - 종이를 읽는 `gemini-2.5-flash`(OMR)는 10/16~20 종료로 **행사 뒤**라 급하지 않다.
 - **Gemini 모델명은 자주 바뀜**. 이미지 변환이 실패하면 `GEMINI_IMAGE_MODEL` 환경변수부터 최신 모델명인지 확인.
   이미지 생성 모델은 무료 등급 할당량이 0이라 **결제 등록이 필수**.
+- **이미지 생성 단가 (2026-09-29 조사, 1024px 기준)**: `gemini-3.1-flash-image-preview` 약 **$0.067/장**
+  (이전 2.5-flash-image 는 약 $0.039/장이었으므로 **약 1.7배 오른다**).
+  한 명당 최대 3번(`MAX_ATTEMPTS`)이므로 **평균 2번 가정 시 300명 ≈ $40(약 5.6만원), 1000명 ≈ $134(약 19만원)**.
+  부스가 붐비면 `app/upload/page.tsx` 의 `MAX_ATTEMPTS` 를 낮추는 게 유일한 레버다.
+  ⚠️ 단가는 구글 공식 페이지가 이 환경에서 막혀 있어 **제3자 계산기 사이트로 확인한 값**이다.
+  결제 전에 Google AI Studio 결제 화면에서 실제 청구액을 볼 것.
 - **Supabase RLS는 꺼져 있음** (베타 편의). 3일짜리 행사용으로는 충분하지만 정식 운영 시 정책 추가 필요.
   행사 종료 후 `supabase/schema.sql` 하단의 truncate 명령으로 아이들 데이터 정리 권장.
 - **스키마 변경 시 마이그레이션 필요**. `create table if not exists`는 기존 테이블에 컬럼을 추가하지 않음.
@@ -627,6 +641,10 @@ Gemini가 주는 1024×1024 PNG는 한 장 2MB 안팎이고 base64로 부풀면 
   스탯 구조를 바꿀 때는 기존 `insects` 행을 정리할 것.
 - **PowerShell로 Supabase에 한글 데이터를 직접 넣지 말 것**. 인코딩이 깨져 `???`로 저장됨.
   테스트 데이터도 브라우저(JS)를 통해 넣거나 UTF-8 바이트로 명시 변환해야 함.
+- **`TypeError: Failed to fetch` 는 앱 버그가 아니라 "서버에 연결 자체를 못 했다"는 뜻**이다.
+  Supabase 프로젝트 일시정지 / 환경변수의 URL 오타 / 인터넷 끊김이 원인이다.
+  시작 화면(`app/start/page.tsx` 의 `friendlyError`)에서 이 경우만 한국어 안내로 바꿨다.
+  부스에서 이 화면을 보는 건 개발자가 아니라 아이와 진행 요원이다.
 
 ## 개발 환경 메모
 

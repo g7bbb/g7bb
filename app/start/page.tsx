@@ -44,6 +44,34 @@ function StartInner() {
     }
   }, [params]);
 
+/**
+ * 저장이 실패했을 때 화면에 띄울 문구를 고릅니다 (2026-09-29).
+ *
+ * **왜 필요한가**: 서버에 연결 자체가 안 되면 Supabase 라이브러리가
+ * `TypeError: Failed to fetch` 라는 영어 문구를 그대로 돌려준다. 부스에서 이 화면을 보는 건
+ * 개발자가 아니라 아이와 진행 요원이라, 저 문구로는 "인터넷이 끊겼구나"를 알 수가 없다.
+ * 실제로 Jin 이 이 문구를 보고 원인을 몰라 막혔다.
+ *
+ * 연결 자체가 안 된 경우만 따로 안내하고, 그 외 서버가 돌려준 진짜 오류 문구는 그대로 보여준다
+ * (컬럼이 없다거나 하는 건 원문이 있어야 고칠 수 있다).
+ */
+function friendlyError(message?: string): string {
+  if (!message) return '저장에 실패했어요. 다시 한 번 눌러주세요.';
+
+  // 브라우저마다 문구가 다르다: 크롬 "Failed to fetch", 사파리 "Load failed", 파이어폭스 "NetworkError".
+  const looksOffline = /failed to fetch|load failed|networkerror|network request failed/i.test(
+    message
+  );
+  if (looksOffline) {
+    return (
+      '서버에 연결하지 못했어요. 와이파이나 데이터가 켜져 있는지 확인하고 다시 눌러주세요. ' +
+      '계속 안 되면 진행 요원에게 알려주세요. (서버 연결 실패)'
+    );
+  }
+
+  return message;
+}
+
   async function handleSubmit() {
     const code = normalizeTicket(ticket);
     if (!code) {
@@ -91,7 +119,7 @@ function StartInner() {
 
     if (insertError || !data) {
       setSaving(false);
-      setError(insertError?.message || '저장에 실패했어요. 다시 한 번 눌러주세요.');
+      setError(friendlyError(insertError?.message));
       return;
     }
 

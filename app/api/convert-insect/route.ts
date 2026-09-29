@@ -4,7 +4,21 @@ import { describeMutations } from '@/lib/mutations';
 import { appearancePrompt } from '@/lib/appearance';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+/**
+ * 그림을 그리는 Gemini 모델.
+ *
+ * 🚨 **2026-09-29: 기본값을 `gemini-2.5-flash-image` 에서 바꿨다.**
+ * 그 모델은 Gemini Developer API(= 이 코드가 쓰는 generativelanguage.googleapis.com)에서
+ * **2026년 10월 2일에 종료**된다. 행사가 10/3~4 이라 **행사 전날 밤에 변환이 통째로 죽는다.**
+ * 게다가 2.5 계열은 공지된 종료일보다 **먼저** 끊긴 전례가 보고돼 있어 더 못 미룬다.
+ * (Vertex AI 쪽은 2027-03-15 로 다르게 적혀 있지만, 우리는 Vertex 가 아니라 Developer API 다.)
+ *
+ * ⚠️ **Vercel 환경변수 `GEMINI_IMAGE_MODEL` 이 이 기본값을 이긴다.**
+ * 그쪽에 옛 모델명이 들어 있으면 이 파일을 고쳐도 소용없다. Vercel 값을 같이 바꿔야 한다.
+ *
+ * ⚠️ 모델명은 자주 바뀐다. 변환이 실패하면 https://ai.google.dev 의 최신 모델 목록부터 확인할 것.
+ */
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview';
 
 const BODY_PART_LABELS: Record<string, string> = {
   head: '머리(턱)',
