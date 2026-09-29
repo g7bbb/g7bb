@@ -19,6 +19,8 @@ import {
 import { playPerfect, playTap } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
+import FxText from './fx-text';
+import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -544,9 +546,14 @@ export default function BattlePage() {
               <p className={`text-[58px] leading-none font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
                 {specialFx.move.emoji}
               </p>
-              <p className={`mt-2 text-3xl font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
-                {specialFx.move.name}
-              </p>
+              <div className="mt-2 flex justify-center animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <FxText
+                  art={MOVE_ART[specialFx.move.key]}
+                  text={specialFx.move.name}
+                  height={120}
+                  textClassName={`text-3xl font-black ${specialFx.move.textColor}`}
+                />
+              </div>
               <p className="mt-1 text-sm font-bold text-white animate-special-name">
                 {specialFx.side === 'A' ? '내 곤충의 필살기!' : '상대의 필살기!'}
               </p>
@@ -636,11 +643,14 @@ export default function BattlePage() {
 
               {/* 판정 결과 */}
               {timing && (
-                <span
-                  className={`absolute left-1/2 top-1/2 text-4xl font-black whitespace-nowrap animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${timing.textColor}`}
-                >
-                  {timing.emoji} {timing.label}
-                </span>
+                <div className="absolute left-1/2 top-1/2 animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                  <FxText
+                    art={TIMING_ART[timing.key]}
+                    text={`${timing.emoji} ${timing.label}`}
+                    height={130}
+                    textClassName={`text-4xl font-black whitespace-nowrap ${timing.textColor}`}
+                  />
+                </div>
               )}
 
               {!timing && (
@@ -1033,9 +1043,20 @@ function Fighter({
                 impact.crit ? 'bg-amber-300' : 'bg-white'
               } animate-slash-sweep`}
             />
-            <span className="absolute left-1/2 top-1/2 text-7xl animate-impact-pop">
-              {impact.crit ? '⚡' : '💥'}
-            </span>
+            {/* 크리티컬은 ⚡ 로 남겨둡니다 — 보통 타격과 확실히 달라 보여야 합니다. */}
+            {IMPACT_ART && !impact.crit ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={IMPACT_ART}
+                alt="콰쾅!"
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-impact-pop"
+                style={{ height: 120, width: 'auto', maxWidth: '92vw' }}
+              />
+            ) : (
+              <span className="absolute left-1/2 top-1/2 text-7xl animate-impact-pop">
+                {impact.crit ? '⚡' : '💥'}
+              </span>
+            )}
             <span
               className={`absolute left-1/2 top-[30%] text-4xl font-black animate-damage-float drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] ${
                 impact.amount < 0 ? 'text-emerald-300' : impact.crit ? 'text-amber-300' : 'text-rose-300'
