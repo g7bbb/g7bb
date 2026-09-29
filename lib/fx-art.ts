@@ -44,9 +44,9 @@ export const MOVE_ART: Partial<Record<SpecialMoveKey, FxArt>> = {
   commonAttack: { src: '/fx/move-commonAttack.png' }, //   공격!!
   // 두 줄짜리라 높이를 키운다 (위 FxArt.height 설명 참고)
   bee: { src: '/fx/move-bee.png', height: 200 }, //  나비처럼 날아 벌처럼 쏜다!
-  // stag:  { src: '/fx/move-stag.png' },   // 큰턱공격!  ← 아직 안 옴
-  // rhino: { src: '/fx/move-rhino.png' },  // 씨름선수!  ← 아직 안 옴
+  stag: { src: '/fx/move-stag.png' }, //             큰턱공격!
+  rhino: { src: '/fx/move-rhino.png' }, //           씨름선수!
 };
 
 /** 서로 때리는 순간. 없으면 지금처럼 💥 이모지가 나온다. */
-export const IMPACT_ART: FxArt | null = null; // { src: '/fx/impact.png' }  ← 콰쾅!
+export const IMPACT_ART: FxArt | null = { src: '/fx/impact.png' }; // 콰쾅!
