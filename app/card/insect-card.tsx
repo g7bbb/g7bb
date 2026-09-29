@@ -78,7 +78,9 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
 
             {/* 왼쪽 위 — 현재 레벨 */}
             <div
-              className="absolute top-2 left-2 rounded-lg px-2.5 py-1 font-black text-sm leading-none shadow-lg"
+              // Jin 요청 (2026-09-29): "레벨 글씨가 한 20% 커져도 좋을 것 같은데"
+              // text-sm(14px) → 17px 로 약 21% 키우고, 여백도 같이 올려 답답해 보이지 않게 함.
+              className="absolute top-2 left-2 rounded-lg px-3 py-1.5 font-black text-[17px] leading-none shadow-lg"
               style={{ background: tier.frame, color: tier.ink }}
             >
               LV.{data.level}
