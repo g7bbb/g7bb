@@ -11,6 +11,7 @@ import { SPECIES, speciesLabel } from '@/lib/species';
 import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import { readSheetPhoto } from '@/lib/sheet-read';
 import { shrinkForStorage } from '@/lib/shrink-image';
+import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import {
   MUTATIONS,
   MutationKey,
@@ -21,19 +22,6 @@ import {
 } from '@/lib/mutations';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
-
-function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const [, base64] = result.split(',');
-      resolve({ base64, mimeType: file.type });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 /**
  * 한 장의 그림으로 AI 이미지를 만들 수 있는 최대 횟수입니다.
@@ -184,7 +172,9 @@ export default function UploadPage() {
     setLoading(true);
     setError('');
     try {
-      const { base64, mimeType } = await fileToBase64(file);
+      // 🚨 **보내기 전에 반드시 줄인다.** 폰 원본 사진은 base64 로 부풀면 서버 한도(4.5MB)를
+      // 넘겨서 "Request Entity Too Large" 가 난다. 자세한 경위는 lib/shrink-photo.ts 참고.
+      const { base64, mimeType } = await shrinkPhotoForUpload(file);
       const res = await fetch('/api/convert-insect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -199,7 +189,8 @@ export default function UploadPage() {
           mood,
         }),
       });
-      const data = await res.json();
+      // 서버가 JSON 이 아닌 걸 돌려줘도 화면이 깨지지 않게 합니다.
+      const data = await readJsonOrExplain(res);
       if (!res.ok) throw new Error(data.error || '변환에 실패했어요.');
       // DB 용량 때문에 여기서 바로 JPEG로 바꿔둡니다. (자세한 이유는 lib/shrink-image.ts)
       // 화면에 보여주는 것과 저장되는 것이 같은 그림이어야 "고른 거랑 다르다"가 생기지 않습니다.

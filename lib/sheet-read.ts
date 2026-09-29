@@ -5,6 +5,7 @@ import { MUTATIONS, MutationCounts } from './mutations';
 import { COLORS, MOODS } from './appearance';
 import { normalizeTicket } from './ticket';
 import { AgeStageKey, BodyPart, BodyPartScores, EnvironmentKey } from './types';
+import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 
 // 종이 사진에서 읽은 결과(사람이 보는 한글 문구)를 앱 내부 값으로 옮깁니다.
 //
@@ -106,26 +107,16 @@ export function mapSheetResult(raw: any): SheetReadResult {
   return out;
 }
 
-function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const [, base64] = (reader.result as string).split(',');
-      resolve({ base64, mimeType: file.type });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export async function readSheetPhoto(file: File): Promise<SheetReadResult> {
-  const { base64, mimeType } = await fileToBase64(file);
+  // 종이 사진도 폰 원본 그대로 보내면 서버 한도를 넘는다. lib/shrink-photo.ts 참고.
+  const { base64, mimeType } = await shrinkPhotoForUpload(file);
   const res = await fetch('/api/read-sheet', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64: base64, mimeType }),
   });
-  const data = await res.json();
+  const data = await readJsonOrExplain(res);
   if (!res.ok) throw new Error(data.error || '종이를 읽지 못했어요.');
   return mapSheetResult(data.result);
 }
