@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
-import { BattleResult, SideRoll, resolveBattle, rollBattle } from '@/lib/battle-engine';
+import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { levelFromXp, xpGainForBattle } from '@/lib/insect-stats';
 import {
   PERFECT_AT_MS,
@@ -19,13 +19,34 @@ import {
 import { playPerfect, playTap } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
-import FxText from './fx-text';
+import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * 배틀 연출을 이 배수만큼 늘립니다. 1이면 예전 속도, 2면 두 배 천천히.
+ *
+ * Jin 요청 (2026-09-29): "글씨 효과가 너무 빨리 없어진다. 나타나고 없어지는 속도를
+ * 2배로 느리게, 배틀 시간 자체도 2배 길게."
+ *
+ * ⚠️ **화면(CSS) 쪽도 같이 늘려야 합니다.** `app/globals.css` 의 효과 글씨
+ * 애니메이션 시간(`special-name`, `judge-pop`, `impact-pop`, `damage-float`)이
+ * 여기와 짝이 맞아야 합니다. 한쪽만 늘리면 글자가 사라진 뒤에 기다리거나,
+ * 글자가 떠 있는 채로 다음 장면이 겹칩니다.
+ */
+const BATTLE_PACE = 2;
+
+/** 연출용 멈춤. 폴링 같은 내부 대기에는 쓰지 않습니다(그건 그대로 `sleep`). */
+const pause = (ms: number) => sleep(ms * BATTLE_PACE);
+
 // 필살기 버튼이 떠 있는 시간. 부스에서 어린 친구들도 누를 수 있도록 넉넉하게 둡니다.
+//
+// ⚠️ **여기는 일부러 `BATTLE_PACE` 를 곱하지 않았습니다.** 이 4초는 리듬게임 판정과
+// 맞물려 있어(2초에 고리가 정확히 겹치도록 브라우저로 재서 맞춘 값),
+// 늘리면 `PERFECT_AT_MS` 와 고리 애니메이션까지 다시 재야 합니다.
+// 연출만 느려지고 누르는 타이밍은 그대로인 게 아이들에게도 덜 헷갈립니다.
 const CHANCE_MS = 4000;
 
 // 1라운드(탐색전)에서 깎이는 고정 수치. 최종 수치는 필살기까지 계산한 뒤에 정해집니다.
@@ -221,7 +242,7 @@ export default function BattlePage() {
     const target = attacker === 'A' ? 'B' : 'A';
 
     setAttackSide(attacker);
-    await sleep(170);
+    await pause(170);
 
     setHitSide(target);
     setImpact({ id: nextFxId(), side: target, amount, crit });
@@ -229,22 +250,22 @@ export default function BattlePage() {
     if (target === 'A') setBarA((v) => clampBar(v - amount));
     else setBarB((v) => clampBar(v - amount));
 
-    await sleep(430);
+    await pause(430);
     setAttackSide(null);
     setHitSide(null);
     setShaking(false);
-    await sleep(160);
+    await pause(160);
   }
 
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
   async function playSpecial(side: 'A' | 'B', move: SpecialMove) {
     setSpecialFx({ id: nextFxId(), side, move });
     setShaking(true);
-    await sleep(500);
+    await pause(500);
     setShaking(false);
-    await sleep(1000);
+    await pause(1000);
     setSpecialFx(null);
-    await sleep(150);
+    await pause(150);
   }
 
   /**
@@ -343,7 +364,7 @@ export default function BattlePage() {
     setSpecialFx(null);
 
     setPhase('intro');
-    await sleep(1100);
+    await pause(1100);
 
     // 1라운드 — 탐색전
     setPhase('round');
@@ -366,7 +387,10 @@ export default function BattlePage() {
       // 두 번 다 곱하면 LV3 아이가 최대 1.8배가 되어 밸런스가 무너집니다.
       if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
 
-      await sleep(600); // 판정 글자를 잠깐 보여주고
+      // 판정 글자(`퍼펙트!` 등)를 **끝까지** 보여주고 넘어갑니다.
+      // `judge-pop` 이 2초이므로 여기도 2초(=1000×BATTLE_PACE)여야 글자가
+      // 사라지는 것까지 다 보입니다. 짧게 잡으면 한창 떠 있을 때 뚝 끊깁니다.
+      await pause(1000);
       setPhase('final');
       await playSpecial('A', move);
     }
@@ -388,15 +412,19 @@ export default function BattlePage() {
     for (const move of foeMoves) await playSpecial('B', move);
 
     // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
+    //
+    // 바에 그릴 값은 `barPercents` 가 따로 정합니다. **진 쪽은 0까지 내려갑니다.**
+    // (점수 비율을 그대로 쓰면 49% : 51% 처럼 진 쪽도 절반이 남아
+    //  "졌는데 왜 살아있지?" 가 됩니다 — Jin 지적, 2026-09-29)
+    const bars = barPercents(final);
     const winner = final.winner === 'B' ? 'B' : 'A';
     const loser = winner === 'A' ? 'B' : 'A';
     const currentA = clampBar(100 - PROBE_DAMAGE_A);
     const currentB = clampBar(100 - PROBE_DAMAGE_B);
-    const deltaLoser =
-      loser === 'A' ? currentA - final.survivalPercentA : currentB - final.survivalPercentB;
+    const deltaLoser = loser === 'A' ? currentA - bars.a : currentB - bars.b;
 
     setAttackSide(winner);
-    await sleep(200);
+    await pause(200);
     setHitSide(loser);
     setImpact({
       id: nextFxId(),
@@ -405,9 +433,9 @@ export default function BattlePage() {
       crit: winner === 'A' ? final.a.crit : final.b.crit,
     });
     setShaking(true);
-    setBarA(final.survivalPercentA);
-    setBarB(final.survivalPercentB);
-    await sleep(750);
+    setBarA(bars.a);
+    setBarB(bars.b);
+    await pause(750);
     setAttackSide(null);
     setHitSide(null);
     setShaking(false);
@@ -1045,13 +1073,13 @@ function Fighter({
             />
             {/* 크리티컬은 ⚡ 로 남겨둡니다 — 보통 타격과 확실히 달라 보여야 합니다. */}
             {IMPACT_ART && !impact.crit ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={IMPACT_ART.src}
-                alt="콰쾅!"
+              // key 를 때릴 때마다 바꿔서 기울기를 새로 뽑습니다.
+              <span
+                key={impact.id}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-impact-pop"
-                style={{ height: IMPACT_ART.height ?? 130, width: 'auto', maxWidth: '92vw' }}
-              />
+              >
+                <FxImage art={IMPACT_ART} alt="콰쾅!" height={130} />
+              </span>
             ) : (
               <span className="absolute left-1/2 top-1/2 text-7xl animate-impact-pop">
                 {impact.crit ? '⚡' : '💥'}

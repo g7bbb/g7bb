@@ -160,6 +160,38 @@ export function resolveBattle(
   };
 }
 
+/**
+ * HP 바에 보여줄 값 (0~100). **점수 계산과는 무관한 연출용 수치입니다.**
+ *
+ * Jin 요청 (2026-09-29): "곤충이 배틀에서 질 때 생명력 바가 0까지 안 된다.
+ * 0이 돼야 배틀이 끝나는 걸로 다시 세팅해줘."
+ *
+ * 이 게임은 HP를 깎는 방식이 아니라 **점수 대결**입니다(위 `resolveBattle`).
+ * 그래서 점수 비율을 그대로 바에 그리면 `49% : 51%` 처럼 **진 쪽도 절반이 남아**
+ * "졌는데 왜 아직 살아있지?" 가 됩니다. 바에만 따로 규칙을 둡니다.
+ *
+ *   진 쪽   → **0**
+ *   이긴 쪽 → 이긴 만큼만 남음 (점수차 ÷ 이긴 쪽 점수)
+ *
+ * 51 대 49 처럼 아슬아슬하면 이긴 쪽도 4%만 남아 "간신히 이겼다"가 눈에 보이고,
+ * 크게 이기면 많이 남습니다. 승부가 얼마나 팽팽했는지가 바 하나로 읽힙니다.
+ *
+ * ⚠️ **여기 숫자를 바꿔도 승패·점수·랭킹은 전혀 바뀌지 않습니다.**
+ * 밸런스(6종 × 6종 48.1~51.2%)는 `resolveBattle` 이 정하고,
+ * 이 함수는 그 결과를 보기 좋게 그릴 뿐입니다.
+ */
+export function barPercents(result: BattleResult): { a: number; b: number } {
+  if (result.winner === 'draw') return { a: 50, b: 50 };
+
+  const win = result.winner === 'A' ? result.a.score : result.b.score;
+  const lose = result.winner === 'A' ? result.b.score : result.a.score;
+
+  // 이긴 쪽까지 0으로 보이면 진 쪽과 구분이 안 되므로 최소 1%는 남깁니다.
+  const left = win <= 0 ? 100 : Math.max(1, Math.round(((win - lose) / win) * 100));
+
+  return result.winner === 'A' ? { a: left, b: 0 } : { a: 0, b: left };
+}
+
 export function calculateBattle(
   statsA: CoreStats,
   levelA: number,
