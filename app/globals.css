@@ -303,3 +303,36 @@ body {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ─── 카드 등급: 홀로그램 (2026-09-29) ───────────────────────────
+   4회차 이상 카드의 무지개 테두리 위로 빛이 흐르는 것처럼 보이게 합니다.
+   `app/card/insect-card.tsx`(카드 전체)와 `app/card/tier-frame.tsx`(테두리만)
+   **두 곳에서 쓰므로** 컴포넌트 안이 아니라 여기에 둡니다.
+   그림 자체는 건드리지 않고 테두리에만 씌워서 곤충이 이상한 색으로 물들지 않습니다. */
+.holo-frame {
+  position: relative;
+}
+.holo-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.85) 45%,
+    transparent 60%
+  );
+  background-size: 280% 280%;
+  animation: holo-sweep 3.4s linear infinite;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+@keyframes holo-sweep {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 280% 280%; }
+}
+/* 어지러움을 타는 기기에서는 빛 흐름을 멈춥니다. */
+@media (prefers-reduced-motion: reduce) {
+  .holo-frame::before { animation: none; }
+}

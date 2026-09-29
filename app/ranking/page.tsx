@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { loadVisitMap } from '@/lib/visit-count';
+import TierFrame from '@/app/card/tier-frame';
 
 interface RankRow {
   player_id: string;
@@ -31,6 +33,8 @@ export default function RankingPage() {
   const [rows, setRows] = useState<RankRow[]>([]);
   // 상위 3명 곤충 그림 (insect_id → data URL). 아직 안 받아왔거나 그림이 없으면 비어 있습니다.
   const [podium, setPodium] = useState<Map<string, string>>(new Map());
+  // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리를 입히는 데 씁니다.
+  const [visits, setVisits] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export default function RankingPage() {
     // 그림은 **순위를 다 그린 뒤에** 따로 받아옵니다.
     // 같이 기다리면 그림 때문에 순위표 전체가 늦게 뜹니다. 이러면 그림이 나중에 스르륵 채워집니다.
     void loadPodiumImages(ranked.slice(0, PODIUM_COUNT));
+    // 등급 테두리는 없어도 되는 장식이라 순위표를 먼저 그린 뒤 따로 받아옵니다.
+    void loadVisitMap().then(setVisits);
   }
 
   async function loadPodiumImages(top: RankRow[]) {
@@ -155,14 +161,17 @@ export default function RankingPage() {
               >
                 {/* 그림은 나중에 도착하므로, 그 전에는 같은 크기의 빈 자리를 둡니다.
                     자리를 안 잡아두면 그림이 뜰 때 줄이 통째로 밀려서 보기 안 좋습니다. */}
-                <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
-                  {image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={image} alt={row.nickname} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl">🐛</span>
-                  )}
-                </div>
+                {/* 카드와 같은 등급 테두리를 둘러, 금색 아이는 랭킹에서도 금색으로 보입니다. */}
+                <TierFrame visit={visits.get(row.insect_id) ?? 1} round width={2} className="shrink-0">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt={row.nickname} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">🐛</span>
+                    )}
+                  </div>
+                </TierFrame>
 
                 <span className="text-2xl shrink-0">{MEDALS[i]}</span>
 

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { getCurrentPlayer } from '@/lib/session';
 import { loadHeartCounts, loadMyHearts, toggleHeart } from '@/lib/hearts';
+import { loadVisitMap } from '@/lib/visit-count';
+import TierFrame from '@/app/card/tier-frame';
 import { Player } from '@/lib/types';
 
 // 아이들이 다른 친구 곤충을 구경하며 하트를 누르는 화면입니다.
@@ -29,6 +31,8 @@ export default function GalleryPage() {
   const [mine, setMine] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
+  // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리용.
+  const [visits, setVisits] = useState<Map<string, number>>(new Map());
 
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
@@ -51,6 +55,8 @@ export default function GalleryPage() {
       setCounts(heartCounts);
       if (current) setMine(await loadMyHearts(current.id));
       await loadMore(0);
+      // 등급 테두리는 장식이라 그림을 먼저 띄운 뒤 따로 받아옵니다.
+      void loadVisitMap().then(setVisits);
     }
     init();
   }, [loadMore]);
@@ -97,15 +103,17 @@ export default function GalleryPage() {
         {insects.map((insect) => {
           const liked = mine.has(insect.id);
           const isOwn = player?.display_name === insect.nickname;
+          // 카드와 같은 등급 테두리. 은·금·홀로그램 곤충이 격자에서 바로 눈에 띕니다.
           return (
-            <div key={insect.id} className="bg-slate-800 rounded-2xl overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`data:${insect.mime_type};base64,${insect.image_base64}`}
-                alt={insect.nickname}
-                className="w-full aspect-square object-cover"
-                loading="lazy"
-              />
+            <TierFrame key={insect.id} visit={visits.get(insect.id) ?? 1} width={2}>
+              <div className="bg-slate-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:${insect.mime_type};base64,${insect.image_base64}`}
+                  alt={insect.nickname}
+                  className="w-full aspect-square object-cover"
+                  loading="lazy"
+                />
               <div className="px-3 py-2">
                 <p className="text-sm font-bold truncate">{insect.nickname}</p>
                 {insect.species && (
@@ -122,7 +130,8 @@ export default function GalleryPage() {
                 </button>
                 {isOwn && <p className="mt-1 text-[11px] text-slate-500 text-center">내 곤충이야!</p>}
               </div>
-            </div>
+              </div>
+            </TierFrame>
           );
         })}
       </div>

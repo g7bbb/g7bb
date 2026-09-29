@@ -15,6 +15,8 @@ import {
   specialMoveFor,
 } from '@/lib/special-moves';
 import { playPerfect, playTap } from '@/lib/sfx';
+import { loadVisitMap } from '@/lib/visit-count';
+import TierFrame from '@/app/card/tier-frame';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -81,6 +83,8 @@ export default function BattlePage() {
   const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [myInsect, setMyInsect] = useState<Insect | null>(null);
+  // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리용 (없어도 되는 장식).
+  const [visits, setVisits] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -148,6 +152,8 @@ export default function BattlePage() {
       .maybeSingle();
     setMyInsect(data as Insect | null);
     setLoading(false);
+    // 등급 테두리는 장식이라 배틀 화면을 먼저 띄운 뒤 따로 받아옵니다.
+    void loadVisitMap().then(setVisits);
   }
 
   // 상대 목록은 "랭킹 순"으로 보여줍니다.
@@ -545,6 +551,7 @@ export default function BattlePage() {
 
         <Fighter
           insect={myInsect}
+          visit={visits.get(myInsect.id) ?? 1}
           label="내 곤충"
           side="A"
           attacking={attackSide === 'A'}
@@ -567,6 +574,7 @@ export default function BattlePage() {
 
         <Fighter
           insect={opponent}
+          visit={visits.get(opponent.id) ?? 1}
           label="상대 곤충"
           side="B"
           attacking={attackSide === 'B'}
@@ -938,6 +946,8 @@ function clampBar(value: number) {
 
 interface FighterProps {
   insect: Insect;
+  /** 그 아이의 몇 번째 곤충인지. 카드 등급 테두리를 입히는 데 씁니다. */
+  visit: number;
   label: string;
   side: 'A' | 'B';
   attacking: boolean;
@@ -952,6 +962,7 @@ interface FighterProps {
 
 function Fighter({
   insect,
+  visit,
   label,
   side,
   attacking,
@@ -969,14 +980,23 @@ function Fighter({
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative w-full">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`data:${insect.mime_type};base64,${insect.image_base64}`}
-          alt={label}
-          className={`w-full max-h-[32vh] object-contain rounded-2xl bg-slate-950 ${
+        {/* 카드와 같은 등급 테두리를 둘러, 금색·홀로그램 곤충이 배틀에서도 티가 납니다.
+            ⚠️ 움직임(공격·피격)은 **테두리째** 걸어야 합니다. 그림에만 걸면 곤충만 액자 밖으로
+            튀어나가 보입니다. 그래서 애니메이션 클래스를 테두리 쪽에 둡니다. */}
+        <TierFrame
+          visit={visit}
+          width={3}
+          className={`w-full ${
             hit ? 'animate-hit-flash' : attacking ? lunge : powered ? `animate-power-up ${powerColor}` : ''
           }`}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`data:${insect.mime_type};base64,${insect.image_base64}`}
+            alt={label}
+            className="w-full max-h-[32vh] object-contain bg-slate-950"
+          />
+        </TierFrame>
 
         {/* 타격 순간 이펙트 */}
         {impact && (

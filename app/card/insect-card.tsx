@@ -166,43 +166,6 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
         {tier.label}
       </p>
 
-      <style jsx global>{`
-        /* 홀로그램: 무지개 테두리 위로 빛이 흐르는 것처럼 보이게 합니다.
-           그림 자체는 건드리지 않고 테두리에만 씌워서, 곤충이 이상한 색으로 물들지 않습니다. */
-        .holo-frame {
-          position: relative;
-        }
-        .holo-frame::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: 1rem;
-          background: linear-gradient(
-            115deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.85) 45%,
-            transparent 60%
-          );
-          background-size: 280% 280%;
-          animation: holo-sweep 3.4s linear infinite;
-          pointer-events: none;
-          mix-blend-mode: overlay;
-        }
-        @keyframes holo-sweep {
-          0% {
-            background-position: 0% 0%;
-          }
-          100% {
-            background-position: 280% 280%;
-          }
-        }
-        /* 어지러움을 타는 기기에서는 빛 흐름을 멈춥니다. */
-        @media (prefers-reduced-motion: reduce) {
-          .holo-frame::before {
-            animation: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

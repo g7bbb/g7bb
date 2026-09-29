@@ -12,6 +12,8 @@ import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import { readSheetPhoto } from '@/lib/sheet-read';
 import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
+import { countInsectsForPlayer } from '@/lib/visit-count';
+import InsectCard from '@/app/card/insect-card';
 import {
   MUTATIONS,
   MutationKey,
@@ -49,6 +51,8 @@ export default function UploadPage() {
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
+  // 이 아이가 이미 만들어둔 곤충 개수. 지금 만드는 것이 `이 값 + 1` 번째 = 카드 등급.
+  const [savedCount, setSavedCount] = useState(0);
   const [mutations, setMutations] = useState(defaultMutations(''));
   // 색깔·느낌은 안 골라도 됩니다. 안 고르면 AI가 아이 그림의 색을 그대로 따릅니다.
   const [color, setColor] = useState('');
@@ -81,6 +85,9 @@ export default function UploadPage() {
         return;
       }
       setPlayer(p);
+      // 이미 만들어둔 곤충 개수를 세어 카드 등급(회차)을 미리 맞춰둡니다.
+      // 실패해도 0 이 돌아와 첫 카드로 보일 뿐이라 체험은 막히지 않습니다.
+      countInsectsForPlayer(p.id).then(setSavedCount);
     });
   }, [router]);
 
@@ -518,17 +525,27 @@ export default function UploadPage() {
 
       {result && !editing && (
         <div className="flex flex-col gap-4 items-center">
-          <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:${result.mime};base64,${result.image}`}
-              alt="변신한 곤충"
-              className="rounded-2xl w-64 h-64 object-contain bg-slate-800"
+          {/* 저장하기 전부터 **완성될 카드 그대로** 보여줍니다 (2026-09-29, Jin 요청).
+              전에는 여기가 밋밋한 그림 + 막대였다가 저장하면 갑자기 카드가 떠서 흐름이 끊겼습니다.
+              여기서부터 카드로 보여주면 아이 입장에서 "내 카드를 뽑는 중"이 됩니다. */}
+          <div className="relative w-full">
+            <InsectCard
+              data={{
+                nickname: player?.display_name ?? '내 곤충',
+                species: speciesLabel(species),
+                origin,
+                stats,
+                level: 1, // 아직 저장 전이라 항상 1레벨입니다. 배틀을 해야 올라갑니다.
+                image: result.image,
+                mime: result.mime,
+                ticketCode: player?.ticket_code ?? null,
+                visit: savedCount + 1, // 지금 만드는 것이 몇 번째인지
+              }}
             />
-            {/* 다시 만드는 동안에도 지금 그림을 계속 보여줍니다.
+            {/* 다시 만드는 동안에도 지금 카드를 계속 보여줍니다.
                 화면을 비워버리면 아이는 방금 것이 사라진 줄 압니다. */}
             {loading && (
-              <div className="absolute inset-0 rounded-2xl bg-slate-950/70 flex items-center justify-center text-sm font-bold">
+              <div className="absolute inset-0 rounded-2xl bg-slate-950/75 flex items-center justify-center text-sm font-bold">
                 새로 그리는 중... 🐝
               </div>
             )}
@@ -561,13 +578,7 @@ export default function UploadPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 w-full text-sm">
-            <StatBar label="공격력" value={stats.atk} />
-            <StatBar label="수비력" value={stats.def} />
-            <StatBar label="HP" value={stats.hp} />
-            <StatBar label="생존능력" value={stats.surv} />
-            <StatBar label="지능" value={stats.int} />
-          </div>
+          {/* 능력치는 카드 안에 이미 들어 있어 여기서 또 보여주지 않습니다. */}
           {/* 마음에 안 들면 같은 그림·같은 설정으로 한 번 더 만듭니다.
               능력치는 표시한 값에서 나오므로 다시 만들어도 바뀌지 않습니다. 그림만 새로 나옵니다. */}
           {attemptsLeft > 0 ? (
