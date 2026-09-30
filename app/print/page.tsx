@@ -9,6 +9,7 @@ import { AGE_STAGES, BODY_PARTS } from '@/lib/insect-stats';
 import { MUTATIONS } from '@/lib/mutations';
 import { COLORS, MOODS } from '@/lib/appearance';
 import { ticketAt } from '@/lib/ticket';
+import { SITE_URL, ticketUrl } from '@/lib/site';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
 //
@@ -46,15 +47,16 @@ function PrintInner() {
     let cancelled = false;
 
     async function build() {
-      const origin = window.location.origin;
       const codes: string[] = [];
       for (let i = 0; i < count; i += 1) {
         if (cancelled) return;
         const ticket = ticketAt(startIndex + i);
         // QR을 찍으면 번호가 채워진 시작 화면이 열립니다.
-        codes.push(
-          await QRCode.toDataURL(`${origin}/start?t=${ticket}`, { margin: 0, width: 240 })
-        );
+        //
+        // 🔴 **이 화면을 연 주소가 아니라 `SITE_URL` 을 씁니다.**
+        // 전에는 `window.location.origin` 이었는데, 개발용 localhost 에서 인쇄하면
+        // 종이 300장에 죽은 QR 이 박힙니다. 자세한 이유는 `lib/site.ts` 참고.
+        codes.push(await QRCode.toDataURL(ticketUrl(ticket), { margin: 0, width: 240 }));
         if (i % 20 === 0) setProgress(i);
       }
       if (!cancelled) {
@@ -103,6 +105,9 @@ function PrintInner() {
             {ready ? '인쇄 / PDF로 저장' : `QR 만드는 중... ${progress}/${count}`}
           </button>
         </div>
+        <p className="hint">
+          이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
+        </p>
         <p className="hint">
           인쇄 설정에서 <b>용지 A4</b>, <b>여백 없음</b>, <b>배율 100%</b>, <b>배경 그래픽 켜기</b>로
           맞춰주세요. 대상을 &quot;PDF로 저장&quot;으로 고르면 인쇄소에 넘길 파일이 됩니다.
