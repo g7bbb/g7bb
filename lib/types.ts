@@ -1,14 +1,22 @@
 export type EnvironmentKey = 'meteor' | 'heat' | 'lowland' | 'water' | 'highland';
 
-export type StatKey = 'atk' | 'def' | 'hp' | 'surv' | 'int';
+export type StatKey = 'atk' | 'def' | 'hp' | 'int' | 'eva';
 
-// 공격력 / 수비력 / HP 체력 / 생존능력 / 지능
+// 공격력 / 수비력 / HP 체력 / 지능 / 회피력 (2026-09-30 Jin 재설계)
+//
+// ⚠️ 예전에는 `surv`(생존능력)가 있었다. Jin 이 "생존능력(HP)" 라고 적어 HP 로 합치고,
+// 그 자리에 **회피력**을 넣었다. 예전에 저장된 곤충의 `stats` 에는 `surv` 가 남아 있으므로
+// 배틀·카드는 저장된 값을 믿지 말고 `statsForInsect()` 로 **입력값에서 다시 계산**한다.
 export interface CoreStats {
   atk: number;
   def: number;
+  /** 실제 체력 숫자 (대략 130~290). 다른 능력치처럼 0~100 이 아니다. */
   hp: number;
-  surv: number;
   int: number;
+  /** 상대 필살기를 피할 힘. 이 숫자(%)만큼의 확률로 피한다 (최대 60%). */
+  eva: number;
+  /** 성실함 — 육감이 낮을 때만 생기는 특별 능력치 (0~5). 맞을 때마다 버틴다. */
+  grit?: number;
 }
 
 export type BodyPart = 'head' | 'legs' | 'armor' | 'wings' | 'eyes' | 'instinct' | 'genetics';

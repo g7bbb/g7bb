@@ -1,5 +1,6 @@
 'use client';
 
+import { statsForInsect } from '@/lib/insect-stats';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -62,7 +63,7 @@ function CardInner() {
       // 오래된 것부터 불러와야 "몇 번째 곤충"이 순서대로 매겨집니다.
       const { data } = await supabase
         .from('insects')
-        .select('id, nickname, species, origin, stats, level, image_base64, mime_type, created_at')
+        .select('id, nickname, species, origin, stats, level, image_base64, mime_type, created_at, body_parts, age_stage, mutations')
         .eq('player_id', player.id)
         .order('created_at', { ascending: true });
 
@@ -77,7 +78,8 @@ function CardInner() {
         ownerName: player!.display_name,
         species: row.species,
         origin: row.origin,
-        stats: row.stats,
+        // 저장된 값 대신 입력값에서 다시 계산합니다 (공식이 바뀌어도 카드가 맞게 나오도록).
+        stats: statsForInsect(row as any),
         level: row.level ?? 1,
         image: row.image_base64,
         mime: row.mime_type || 'image/jpeg',

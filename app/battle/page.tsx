@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
+import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
 import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
-import { levelFromXp, xpGainForBattle } from '@/lib/insect-stats';
+import { levelFromXp, statsForInsect, xpGainForBattle } from '@/lib/insect-stats';
 import {
   PERFECT_AT_MS,
   SpecialMove,
@@ -103,6 +104,16 @@ interface SpecialFx {
   id: number;
   side: 'A' | 'B';
   move: SpecialMove;
+  /** 맞는 쪽이 회피력으로 피했는지 */
+  dodged: boolean;
+}
+
+const envOf = (key: EnvironmentKey | null | undefined) => ENVIRONMENTS.find((e) => e.key === key);
+
+/** 받침이 있으면 앞의 조사, 없으면 뒤의 조사 (기온상승"이" / 저지대"가") */
+function josa(word: string, withBatchim: string, without: string) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return word + (code >= 0 && code <= 11171 && code % 28 !== 0 ? withBatchim : without);
 }
 
 export default function BattlePage() {
@@ -114,7 +125,8 @@ export default function BattlePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [env, setEnv] = useState<EnvironmentKey>('meteor');
+  // 출신지 상성 안내 (예: "💧물근처가 🌡️기온상승을 이겨!"). 상성이 없으면 null.
+  const [edgeNote, setEdgeNote] = useState<{ text: string; good: boolean } | null>(null);
 
   // ─── 상대 고르기 ───
   const [opponents, setOpponents] = useState<OpponentSummary[]>([]);
@@ -259,8 +271,8 @@ export default function BattlePage() {
   }
 
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
-  async function playSpecial(side: 'A' | 'B', move: SpecialMove) {
-    setSpecialFx({ id: nextFxId(), side, move });
+  async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false) {
+    setSpecialFx({ id: nextFxId(), side, move, dodged });
     setShaking(true);
     await pause(500);
     setShaking(false);
@@ -347,12 +359,23 @@ export default function BattlePage() {
 
     // 운·크리티컬은 배틀 시작 때 한 번만 굴려둡니다.
     // 필살기 선택 뒤에 다시 굴리면 "필살기를 썼는데 더 나빠졌다"가 생길 수 있기 때문입니다.
+    //
+    // 능력치는 저장된 값이 아니라 **입력값에서 다시 계산**합니다 (공식이 바뀌어도 모두 같은 규칙으로 싸우게).
     const rolls: { a: SideRoll; b: SideRoll } = rollBattle(
-      myInsect.stats,
-      myInsect.level,
-      foe.stats,
-      foe.level,
-      env
+      { stats: statsForInsect(myInsect), level: myInsect.level, origin: myInsect.origin ?? null },
+      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null }
+    );
+
+    // 출신지 상성을 VS 화면에서 알려줍니다.
+    const mine = envOf(myInsect.origin);
+    const theirs = envOf(foe.origin);
+    const bonus = Math.round(MATCHUP_BONUS * 100);
+    setEdgeNote(
+      rolls.a.matchup === 1 && mine && theirs
+        ? { text: `${mine.emoji}${josa(mine.label, '이', '가')} ${theirs.emoji}${josa(theirs.label, '을', '를')} 이겨! (내 힘 +${bonus}%)`, good: true }
+        : rolls.a.matchup === -1 && mine && theirs
+          ? { text: `${theirs.emoji}${josa(theirs.label, '이', '가')} ${mine.emoji}${josa(mine.label, '을', '를')} 이겨! (상대 힘 +${bonus}%)`, good: false }
+          : null
     );
 
     // 화면 초기화
@@ -393,7 +416,7 @@ export default function BattlePage() {
       // 사라지는 것까지 다 보입니다. 짧게 잡으면 한창 떠 있을 때 뚝 끊깁니다.
       await pause(1000);
       setPhase('final');
-      await playSpecial('A', move);
+      await playSpecial('A', move, rolls.b.dodged);
     }
     setUsedSpecial(usedKeys.length > 0);
 
@@ -410,7 +433,7 @@ export default function BattlePage() {
     const savePromise = saveResult(foe, final);
 
     setPhase('final');
-    for (const move of foeMoves) await playSpecial('B', move);
+    for (const move of foeMoves) await playSpecial('B', move, rolls.a.dodged);
 
     // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
     //
@@ -477,7 +500,8 @@ export default function BattlePage() {
         player_id: player.id,
         insect_id: myInsect.id,
         opponent_insect_id: foe.id,
-        environment: env,
+        // 예전에는 배틀마다 고른 환경을 적었다. 이제는 내 곤충의 출신지를 적는다.
+        environment: myInsect.origin ?? 'meteor',
         score: final.a.score,
         result: final.winner === 'A' ? 'win' : final.winner === 'B' ? 'lose' : 'draw',
       });
@@ -586,6 +610,12 @@ export default function BattlePage() {
               <p className="mt-1 text-sm font-bold text-white animate-special-name">
                 {specialFx.side === 'A' ? '내 곤충의 필살기!' : '상대의 필살기!'}
               </p>
+              {/* 회피 — 맞는 쪽의 회피력으로 필살기를 통째로 피했을 때 */}
+              {specialFx.dodged && (
+                <p className="mt-4 px-4 text-center text-3xl font-black text-sky-300 whitespace-nowrap animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                  💨 {specialFx.side === 'A' ? '상대가' : '내 곤충이'} 피했다!
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -624,6 +654,14 @@ export default function BattlePage() {
             <p className="text-[58px] leading-none font-black italic text-amber-400 animate-vs-slam">VS</p>
           ) : (
             <p className="text-2xl font-black italic text-amber-400/70">VS</p>
+          )}
+          {edgeNote && (
+            <p
+              className={`mt-1 text-xs font-bold ${edgeNote.good ? 'text-emerald-300' : 'text-rose-300'}`}
+              style={{ wordBreak: 'keep-all' }}
+            >
+              ⚡ 상성! {edgeNote.text}
+            </p>
           )}
         </div>
 
@@ -828,22 +866,9 @@ export default function BattlePage() {
         </div>
       )}
 
-      <div>
-        <p className="text-sm text-slate-400 mb-2">어떤 환경에서 배틀할까요?</p>
-        <div className="grid grid-cols-3 gap-2">
-          {ENVIRONMENTS.map((e) => (
-            <button
-              key={e.key}
-              onClick={() => setEnv(e.key)}
-              className={`rounded-xl py-3 text-sm font-semibold ${
-                env === e.key ? 'bg-sky-500 text-slate-900' : 'bg-slate-800 text-slate-200'
-              }`}
-            >
-              {e.emoji} {e.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* 배틀 환경 고르기는 없앴습니다 (2026-09-30). 이제는 곤충의 **출신지**가 상성을 정합니다.
+          같은 이름(운석충돌 등)이 "환경"과 "출신지" 두 뜻으로 쓰이면 헷갈립니다. */}
+      <OriginInfo origin={myInsect.origin} />
 
       {/* 기본 방식: 랭킹 3위 → 2위 → 1위 사다리 */}
       <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3 border border-emerald-500/40">
@@ -1121,6 +1146,38 @@ function HpBar({ label, percent, color }: { label: string; percent: number; colo
           style={{ width: `${percent}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+/** 준비 화면: 내 출신지가 누구에게 강하고 누구에게 약한지 */
+function OriginInfo({ origin }: { origin: EnvironmentKey | null | undefined }) {
+  const me = envOf(origin);
+  if (!origin || !me) return null;
+  const effect = ORIGIN_EFFECTS[origin];
+  const beats = envOf(effect.beats);
+  const loses = envOf(weakTo(origin));
+  return (
+    <div className="bg-slate-800 rounded-2xl p-4 text-sm" style={{ wordBreak: 'keep-all' }}>
+      <p className="font-bold">
+        {me.emoji} 내 출신지 · {me.label}
+      </p>
+      {beats || loses ? (
+        <div className="mt-2 flex flex-col gap-1 text-xs">
+          {beats && (
+            <p className="text-emerald-300">
+              💪 {beats.emoji} {beats.label} 친구한테 강해!
+            </p>
+          )}
+          {loses && (
+            <p className="text-rose-300">
+              😣 {loses.emoji} {loses.label} 친구는 조심해!
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-slate-300">누구한테도 강하지도 약하지도 않아. 든든한 선택!</p>
+      )}
     </div>
   );
 }

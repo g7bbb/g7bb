@@ -38,8 +38,9 @@ export const MUTATIONS: MutationOption[] = [
       { value: 4, label: '4개 이상' },
     ],
     bonus: { stat: 'atk', perStep: 0.12 },
+    // 2026-09-30: 생존능력이 HP 로 합쳐져서 surv → hp 로 옮겼다. (Jin 이 이 칸을 다시 손볼 예정)
     penalty: [
-      { stat: 'surv', perStep: 0.08 },
+      { stat: 'hp', perStep: 0.08 },
       { stat: 'int', perStep: 0.08 },
     ],
     hint: '공격은 세지지만 무거워서 잘 못 숨어',
@@ -68,7 +69,7 @@ export const MUTATIONS: MutationOption[] = [
       { value: 7, label: '7개' },
       { value: 8, label: '8개 이상' },
     ],
-    bonus: { stat: 'surv', perStep: 0.12 },
+    bonus: { stat: 'hp', perStep: 0.12 }, // 예전 생존능력 → HP
     penalty: [{ stat: 'atk', perStep: 0.08 }],
     hint: '잘 도망가지만 힘이 나뉘어',
   },
@@ -134,15 +135,13 @@ export function hasAnyMutation(counts: MutationCounts, species?: string | null):
   return MUTATIONS.some((option) => stepsAbove(option, counts, species) > 0);
 }
 
-const clamp = (value: number) => Math.max(10, Math.min(100, Math.round(value)));
-
 // 기본 능력치에 특별 진화의 보너스/페널티를 곱해서 최종 능력치를 만듭니다.
 export function applyMutations(
   stats: CoreStats,
   counts: MutationCounts,
   species?: string | null
 ): CoreStats {
-  const multipliers: Record<StatKey, number> = { atk: 1, def: 1, hp: 1, surv: 1, int: 1 };
+  const multipliers: Record<StatKey, number> = { atk: 1, def: 1, hp: 1, int: 1, eva: 1 };
 
   MUTATIONS.forEach((option) => {
     const steps = stepsAbove(option, counts, species);
@@ -154,11 +153,12 @@ export function applyMutations(
   });
 
   return {
-    atk: clamp(stats.atk * multipliers.atk),
-    def: clamp(stats.def * multipliers.def),
-    hp: clamp(stats.hp * multipliers.hp),
-    surv: clamp(stats.surv * multipliers.surv),
-    int: clamp(stats.int * multipliers.int),
+    ...stats,
+    atk: stats.atk * multipliers.atk,
+    def: stats.def * multipliers.def,
+    hp: stats.hp * multipliers.hp,
+    int: stats.int * multipliers.int,
+    eva: stats.eva * multipliers.eva,
   };
 }
 

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
 import { ENVIRONMENTS } from '@/lib/environments';
+import { ORIGIN_EFFECTS, weakTo } from '@/lib/origins';
 import { SPECIES, speciesLabel } from '@/lib/species';
 import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import { readSheetPhoto } from '@/lib/sheet-read';
@@ -49,6 +50,13 @@ export default function UploadPage() {
   const sheetInputRef = useRef<HTMLInputElement>(null);
 
   const [species, setSpecies] = useState('');
+  /**
+   * "기타 곤충"을 고른 아이가 **직접 적는** 곤충 이름과 생김새 (2026-09-30 Jin 요청).
+   * 목록에 없는 곤충을 그린 아이라, 이게 없으면 AI 는 "기타 곤충"만 보고 아무 곤충이나 그린다.
+   * 이름은 곤충 종류로 저장되고(카드에 "물방개"로 나옴), 생김새는 그림 만들 때만 쓴다.
+   */
+  const [customSpecies, setCustomSpecies] = useState('');
+  const [customLook, setCustomLook] = useState('');
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
@@ -104,8 +112,13 @@ export default function UploadPage() {
     });
   }, [router]);
 
-  const stats = calculateStats(bodyParts, ageStage, mutations, species);
+  const stats = calculateStats(bodyParts, ageStage, mutations, species, origin);
   const normals = normalCountsFor(species);
+
+  // 기타 곤충이고 이름을 적었으면 그 이름을 종류로 저장합니다 ("물방개").
+  // 목록에 없는 이름은 필살기·날개 기준이 자동으로 "기타 곤충" 것을 따라가서 안전합니다 (findSpecies).
+  const savedSpecies =
+    species === 'other' && customSpecies.trim() ? customSpecies.trim() : speciesLabel(species);
 
   const result = attempts[picked] ?? null;
   const attemptsLeft = MAX_ATTEMPTS - attempts.length;
@@ -203,6 +216,9 @@ export default function UploadPage() {
           imageBase64: base64,
           mimeType,
           species,
+          // 기타 곤충일 때 아이가 직접 적은 이름·생김새. 빠뜨리면 AI 가 아무 곤충이나 그린다.
+          customSpecies: species === 'other' ? customSpecies.trim() : '',
+          customLook: species === 'other' ? customLook.trim() : '',
           bodyParts,
           mutations,
           color,
@@ -235,7 +251,7 @@ export default function UploadPage() {
         player_id: player.id,
         // 비워두면 아이 이름을 그대로 씁니다.
         nickname: insectName.trim() || player.display_name,
-        species: speciesLabel(species),
+        species: savedSpecies,
         origin,
         age_stage: ageStage,
         body_parts: bodyParts,
@@ -347,6 +363,30 @@ export default function UploadPage() {
                 </button>
               ))}
             </div>
+            {species === 'other' && (
+              <div className="mt-3 bg-slate-800/60 border border-sky-500/40 rounded-xl p-3 flex flex-col gap-2">
+                <p className="text-sm font-bold text-sky-300">🔍 어떤 곤충을 그렸어?</p>
+                <input
+                  type="text"
+                  value={customSpecies}
+                  onChange={(e) => setCustomSpecies(e.target.value.slice(0, 20))}
+                  maxLength={20}
+                  placeholder="예: 물방개, 장수말벌, 반딧불이"
+                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                <input
+                  type="text"
+                  value={customLook}
+                  onChange={(e) => setCustomLook(e.target.value.slice(0, 60))}
+                  maxLength={60}
+                  placeholder="생김새도 알려줘! 예: 꼬리에서 빛이 나, 뿔이 3개야"
+                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                <p className="text-[11px] text-slate-400" style={{ wordBreak: 'keep-all' }}>
+                  자세히 적을수록 AI 가 내 곤충을 더 똑같이 그려줘. 몰라도 괜찮아!
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -364,13 +404,19 @@ export default function UploadPage() {
                 </button>
               ))}
             </div>
+            {/* 누르면 바로 아래에 설명이 뜹니다. 부스에서 아이·부모님이 폰/태블릿으로 같이 봅니다. */}
+            <OriginExplain origin={origin} />
           </div>
 
           <div>
             {/* 아이가 금색으로 그렸는데 AI가 검정으로 그려버리면 "내 거랑 다른데?"가 됩니다.
                 연필로만 그린 그림은 AI가 색을 알 수 없어서, 표시해주면 그대로 칠해집니다. */}
             <p className="text-sm text-slate-400 mb-1">✏️ 그림 꾸미기</p>
-            <p className="text-xs text-slate-500 mb-2">안 골라도 돼! 안 고르면 그림에 있는 색 그대로 그려줄게</p>
+            <p className="text-xs text-slate-500 mb-1">안 골라도 돼! 안 고르면 그림에 있는 색 그대로 그려줄게</p>
+            {/* Jin 문구 (2026-09-30). 1위 상품 피규어는 한 가지 색으로 만들어지기 때문. */}
+            <p className="text-xs text-amber-200/90 mb-2" style={{ wordBreak: 'keep-all' }}>
+              🏆 나중에 피규어로 만들 때는 검은색으로 만들어질 거야. 하지만 포스터에는 예쁘게 표현해줄게!
+            </p>
 
             <p className="text-xs text-slate-500 mb-1">색깔</p>
             <div className="grid grid-cols-4 gap-2 mb-3">
@@ -420,6 +466,7 @@ export default function UploadPage() {
                 </button>
               ))}
             </div>
+            <AgeExplain ageStage={ageStage} />
           </div>
 
           <div>
@@ -429,7 +476,7 @@ export default function UploadPage() {
             <div className="flex flex-col gap-3">
               {MUTATIONS.map((option) => (
                 <div key={option.key} className="bg-slate-800 rounded-xl px-4 py-3">
-                  <div className="flex justify-between text-sm mb-2">
+                  <div className="text-sm mb-2">
                     <span className="font-semibold">
                       {option.label}
                       {/* 종마다 정상 개수가 달라서(나비는 날개 4장), 어디부터가 진화인지 보여줍니다. */}
@@ -437,7 +484,7 @@ export default function UploadPage() {
                         원래 {normals[option.key]}
                       </span>
                     </span>
-                    <span className="text-slate-400 text-xs">{option.hint}</span>
+                    <p className="text-slate-400 text-xs mt-0.5">{option.hint}</p>
                   </div>
                   <div className="flex gap-2">
                     {option.choices.map((choice) => (
@@ -470,9 +517,9 @@ export default function UploadPage() {
             <p className="text-sm text-slate-400">신체 부위 강화 (1~5점)</p>
             {BODY_PARTS.map((part) => (
               <div key={part.key} className="bg-slate-800 rounded-xl px-4 py-3">
-                <div className="flex justify-between text-sm mb-2">
+                <div className="text-sm mb-2">
                   <span className="font-semibold">{part.label}</span>
-                  <span className="text-slate-400 text-xs">{part.hint}</span>
+                  <p className="text-slate-400 text-xs mt-0.5">{part.hint}</p>
                 </div>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((v) => (
@@ -567,7 +614,7 @@ export default function UploadPage() {
               data={{
                 nickname: insectName.trim() || player?.display_name || '내 곤충',
                 ownerName: player?.display_name ?? null,
-                species: speciesLabel(species),
+                species: savedSpecies,
                 origin,
                 stats,
                 level: 1, // 아직 저장 전이라 항상 1레벨입니다. 배틀을 해야 올라갑니다.
@@ -685,6 +732,81 @@ function StatBar({ label, value }: { label: string; value: number }) {
       <div className="mt-1 h-2 bg-slate-700 rounded-full overflow-hidden">
         <div className="h-full bg-emerald-400" style={{ width: `${value}%` }} />
       </div>
+    </div>
+  );
+}
+
+/** 눈에 잘 띄는 "+10%" / "−5%" 조각 */
+function Delta({ label, value }: { label: string; value: number }) {
+  if (!value) return null;
+  const up = value > 0;
+  return (
+    <span
+      className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${
+        up ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+      }`}
+    >
+      {label} {up ? '+' : '−'}
+      {Math.abs(value)}%
+    </span>
+  );
+}
+
+/** 출신지를 누르면 아래에 뜨는 설명: 이야기 + 능력치 변화 + 상성 */
+function OriginExplain({ origin }: { origin: EnvironmentKey }) {
+  const me = ENVIRONMENTS.find((e) => e.key === origin);
+  const effect = ORIGIN_EFFECTS[origin];
+  if (!me || !effect) return null;
+  const beats = ENVIRONMENTS.find((e) => e.key === effect.beats);
+  const loserKey = weakTo(origin);
+  const loses = ENVIRONMENTS.find((e) => e.key === loserKey);
+  return (
+    <div className="mt-2 bg-slate-800/60 border border-sky-500/30 rounded-xl p-3 text-sm" style={{ wordBreak: 'keep-all' }}>
+      <p className="font-bold">
+        {me.emoji} {me.label}
+      </p>
+      <p className="mt-1 text-xs text-slate-300">{effect.story}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Delta label="HP" value={effect.hp} />
+        <Delta label="수비력" value={effect.def} />
+        <Delta label="필살기 회피력" value={effect.eva} />
+      </div>
+      <div className="mt-2 flex flex-col gap-1 text-xs">
+        {beats ? (
+          <p className="text-emerald-300">
+            💪 {beats.emoji} {beats.label}한테 강해! <span className="text-slate-400">{effect.beatsWhy}</span>
+          </p>
+        ) : null}
+        {loses ? (
+          <p className="text-rose-300">
+            😣 {loses.emoji} {loses.label}한테 약해! <span className="text-slate-400">{ORIGIN_EFFECTS[loses.key].beatsWhy}</span>
+          </p>
+        ) : null}
+        {!beats && !loses && (
+          <p className="text-slate-300">⚖️ 상성이 없어! 누구한테도 강하지도 약하지도 않은 든든한 선택이야.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 성장단계를 누르면 아래에 뜨는 설명 */
+function AgeExplain({ ageStage }: { ageStage: AgeStageKey }) {
+  const stage = AGE_STAGES.find((s) => s.key === ageStage);
+  if (!stage) return null;
+  const changes = [stage.hp, stage.atk, stage.def, stage.eva].some((v) => v !== 0);
+  return (
+    <div className="mt-2 bg-slate-800/60 border border-sky-500/30 rounded-xl p-3 text-sm" style={{ wordBreak: 'keep-all' }}>
+      <p className="font-bold">{stage.label}</p>
+      <p className="mt-1 text-xs text-slate-300">{stage.story}</p>
+      {changes && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Delta label="HP" value={stage.hp} />
+          <Delta label="공격력" value={stage.atk} />
+          <Delta label="수비력" value={stage.def} />
+          <Delta label="필살기 회피력" value={stage.eva} />
+        </div>
+      )}
     </div>
   );
 }

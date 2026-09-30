@@ -1,5 +1,6 @@
 'use client';
 
+import { statBarPercent } from '@/lib/insect-stats';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { CoreStats } from '@/lib/types';
@@ -19,12 +20,13 @@ import { tierForVisit } from '@/lib/card';
 // - **레벨이 진짜 현재 레벨**을 따라갑니다 (배틀하면 오르는데, 그림에 구우면 1레벨에 멈춥니다)
 // - **원본 그림이 깨끗하게 남습니다** → 1위 상품 포스터·피규어는 글자 없는 원본이 필요합니다
 
-const STAT_ROWS: { key: keyof CoreStats; label: string; color: string }[] = [
+// 2026-09-30: 생존능력이 HP 로 합쳐지고 회피력이 들어왔다 (lib/insect-stats.ts 참고).
+const STAT_ROWS: { key: 'atk' | 'def' | 'hp' | 'int' | 'eva'; label: string; color: string }[] = [
+  { key: 'hp', label: 'HP', color: '#4ade80' },
   { key: 'atk', label: '공격력', color: '#f87171' },
   { key: 'def', label: '수비력', color: '#60a5fa' },
-  { key: 'hp', label: 'HP', color: '#4ade80' },
-  { key: 'surv', label: '생존', color: '#fbbf24' },
   { key: 'int', label: '지능', color: '#c084fc' },
+  { key: 'eva', label: '회피력', color: '#38bdf8' },
 ];
 
 export interface InsectCardData {
@@ -160,7 +162,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                   <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                     <div
                       className="h-full rounded-full"
-                      style={{ width: `${data.stats[row.key]}%`, background: row.color }}
+                      style={{ width: `${statBarPercent(row.key, data.stats[row.key])}%`, background: row.color }}
                     />
                   </div>
                   <span className="w-7 shrink-0 text-right text-[10px] font-bold text-slate-200">
@@ -168,6 +170,12 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                   </span>
                 </div>
               ))}
+              {/* 성실함 — 육감이 낮을 때만 생기는 특별 능력치 */}
+              {!!data.stats.grit && (
+                <div className="text-[10px] font-bold text-amber-300">
+                  💪 성실함 +{data.stats.grit} <span className="font-normal text-slate-400">맞아도 꾹 참아!</span>
+                </div>
+              )}
             </div>
 
             {/* ── 번호 + QR ── */}

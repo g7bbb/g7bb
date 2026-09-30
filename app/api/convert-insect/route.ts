@@ -33,7 +33,8 @@ const BODY_PART_LABELS: Record<string, string> = {
 // 아이가 그린 곤충 그림 사진을 받아, 실사 느낌 + 멋진 이펙트가 들어간 곤충 일러스트로 변환합니다.
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, species, bodyParts, mutations, color, mood } = await req.json();
+    const { imageBase64, mimeType, species, customSpecies, customLook, bodyParts, mutations, color, mood } =
+      await req.json();
 
     if (!imageBase64 || !mimeType) {
       return NextResponse.json({ error: '이미지가 없습니다.' }, { status: 400 });
@@ -56,11 +57,24 @@ export async function POST(req: NextRequest) {
     // 종류를 알면 그 종의 실제 생김새 규칙까지 함께 알려줍니다.
     // 이게 없으면 AI가 "멋있게"를 우선해서 사슴벌레 턱을 4개 그리는 식의 오류를 냅니다.
     const matchedSpecies = findSpecies(species);
-    const speciesName = matchedSpecies?.label || species;
+    // "기타 곤충"을 고른 아이는 곤충 이름과 생김새를 직접 적는다 (2026-09-30 Jin 요청).
+    // 이게 없으면 AI 는 "기타 곤충"만 보고 아무 곤충이나 그린다.
+    // 아이가 자유롭게 친 글이라 줄바꿈을 없애고 길이를 자른다 (프롬프트가 엉뚱하게 늘어나지 않게).
+    const clean = (value: unknown, max: number) =>
+      typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
+    const ownName = clean(customSpecies, 20);
+    const ownLook = clean(customLook, 60);
+    const speciesName = ownName || matchedSpecies?.label || species;
     const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
-    const speciesAnatomy = matchedSpecies?.anatomy
-      ? `${speciesName}의 실제 생김새는 이렇다: ${matchedSpecies.anatomy} `
-      : '';
+    const speciesAnatomy = ownName
+      ? `아이가 직접 "${ownName}"을(를) 그렸다고 알려줬다. 실제 ${ownName}의 생김새를 따라 그려라. ` +
+        (ownLook ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. ` : '')
+      : matchedSpecies?.anatomy
+        ? `${speciesName}의 실제 생김새는 이렇다: ${matchedSpecies.anatomy} ` +
+          (ownLook ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. ` : '')
+        : ownLook
+          ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. `
+          : '';
 
     // 아이가 상상으로 개수를 더 그린 부위는 실제 곤충과 달라도 그대로 살립니다.
     // 이 체험의 핵심은 "내가 그린 곤충이 살아나는 것"이라, 여기서 고쳐버리면 안 됩니다.

@@ -1,31 +1,52 @@
-import { CoreStats, EnvironmentKey, StatKey } from './types';
+import { CoreStats, EnvironmentKey } from './types';
 import { critChanceForLevel, statsWithLevelBonus } from './insect-stats';
+import { MATCHUP_BONUS, matchup } from './origins';
 import { SPECIAL_MOVES, SpecialMoveKey, rollMoveRate } from './special-moves';
 
-// 환경마다 중요하게 작용하는 능력치를 다르게 둬서, 같은 곤충이라도 환경에 따라 결과가 달라지게 했습니다.
-// 이 가중치는 게임 밸런스 부분이라 실제 테스트 결과를 보고 여기 숫자만 조정하면 됩니다.
-const ENV_WEIGHTS: Record<EnvironmentKey, Partial<Record<StatKey, number>>> = {
-  meteor: { surv: 0.5, def: 0.3, hp: 0.2 }, // 운석충돌: 버티고 피하는 생존능력이 핵심
-  heat: { surv: 0.4, int: 0.3, def: 0.3 }, // 기온상승: 체온 조절 지능 + 생존능력
-  lowland: { atk: 0.4, def: 0.3, surv: 0.3 }, // 저지대: 경쟁이 치열해서 공격력 중요
-  water: { surv: 0.4, def: 0.3, hp: 0.3 }, // 물근처: 천적이 많아 수비/생존 중요
-  highland: { int: 0.4, surv: 0.4, hp: 0.2 }, // 고지대: 환경 적응 지능 + 생존능력
-};
+// ─────────────────────────────────────────────────────────────
+// 배틀 점수 (2026-09-30 재설계)
+//
+// 예전에는 배틀마다 "환경"을 골라 환경별로 중요한 능력치에 가중치를 줬다.
+// 이제는 **곤충의 출신지**가 능력치 보너스와 상성을 정하므로(`lib/origins.ts`),
+// 배틀 화면에서 환경을 따로 고르지 않는다. 같은 이름(운석충돌 등)이 두 가지 뜻으로
+// 쓰이면 아이도 진행 요원도 헷갈린다.
+//
+// 기본 점수 = 100 × (HP)^0.4 × (공격력)^0.3 × (수비력)^0.3   (전부 3점 곤충 ≈ 100)
+//   - 지능은 공격력과 수비력을 함께 올려준다 (Jin 규칙).
+//   - 세 가지를 **곱하는** 이유: 하나만 몰빵한 곤충이 이기지 않게. 골고루 좋아야 세다.
+// ─────────────────────────────────────────────────────────────
 
-function weightedScore(stats: CoreStats, env: EnvironmentKey) {
-  const weights = ENV_WEIGHTS[env];
-  let score = 0;
-  (Object.keys(weights) as StatKey[]).forEach((stat) => {
-    score += stats[stat] * (weights[stat] ?? 0);
-  });
-  return score;
+/** 지능 1 이 공격력·수비력에 주는 효과. 지능 60 이면 +4%, 40 이면 −4%. */
+const INT_EFFECT = 1 / 250;
+
+function power(stats: CoreStats): number {
+  const smart = 1 + (stats.int - 50) * INT_EFFECT;
+  const hp = Math.max(1, stats.hp) / 192.5;
+  const atk = Math.max(1, stats.atk * smart) / 57.5;
+  const def = Math.max(1, stats.def * smart) / 50;
+  return 100 * Math.pow(hp, 0.4) * Math.pow(atk, 0.3) * Math.pow(def, 0.3);
 }
+
+/** 회피력(%) → 상대 필살기를 피할 확률. 너무 높으면 아무것도 안 맞으므로 60% 에서 막는다. */
+export function dodgeChance(stats: CoreStats): number {
+  return Math.max(0, Math.min(0.6, (stats.eva ?? 0) / 100));
+}
+
+/**
+ * 성실함 1 이 막아주는 피해. 성실함 5 → 필살기 피해 15% 덜 받음.
+ * Jin 표현 "공격을 당할 때마다 HP 10씩 참" 을 점수 대결에 맞게 옮긴 것이다.
+ */
+const GRIT_GUARD = 0.03;
 
 export interface BattleSideResult {
   score: number;
   crit: boolean;
   /** 이 배틀에서 실제로 쓴 필살기들 (LV3부터 두 개까지) */
   specials: SpecialMoveKey[];
+  /** 상대 필살기를 피했는지 */
+  dodged: boolean;
+  /** 출신지 상성: 1 이김 / 0 상관없음 / -1 짐 */
+  matchup: -1 | 0 | 1;
 }
 
 export interface BattleResult {
@@ -36,36 +57,47 @@ export interface BattleResult {
   survivalPercentB: number;
 }
 
+export interface BattleSide {
+  stats: CoreStats;
+  level: number;
+  origin: EnvironmentKey | null;
+}
+
 /**
  * 주사위를 굴린 "날것의" 결과입니다.
- * 필살기를 배틀 도중에 고를 수 있어야 해서, 운/크리티컬은 배틀 시작 때 한 번만 굴려두고
+ * 필살기를 배틀 도중에 고를 수 있어야 해서, 운/크리티컬/회피는 배틀 시작 때 한 번만 굴려두고
  * 필살기 배수는 나중에 resolveBattle 에서 곱합니다.
  * (선택할 때마다 다시 굴리면 "필살기를 썼는데 더 나빠졌다"가 생길 수 있습니다.)
  */
 export interface SideRoll {
   base: number;
   crit: boolean;
+  dodged: boolean;
+  grit: number;
+  matchup: -1 | 0 | 1;
 }
 
-function rollSide(baseStats: CoreStats, level: number, env: EnvironmentKey): SideRoll {
-  const effective = statsWithLevelBonus(baseStats, level);
-  const base = weightedScore(effective, env);
-  const luck = 0.9 + Math.random() * 0.2; // 운 요소 ±10%
-  const crit = Math.random() < critChanceForLevel(level);
-  return { base: base * luck * (crit ? 1.5 : 1), crit };
+function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRoll {
+  const effective = statsWithLevelBonus(me.stats, me.level);
+  const edge = matchup(me.origin, foe.origin);
+  const luck = 0.9 + random() * 0.2; // 운 요소 ±10%
+  const crit = random() < critChanceForLevel(me.level);
+  const dodged = random() < dodgeChance(me.stats);
+  return {
+    base: power(effective) * luck * (crit ? 1.5 : 1) * (edge === 1 ? 1 + MATCHUP_BONUS : 1),
+    crit,
+    dodged,
+    grit: me.stats.grit ?? 0,
+    matchup: edge,
+  };
 }
 
 export function rollBattle(
-  statsA: CoreStats,
-  levelA: number,
-  statsB: CoreStats,
-  levelB: number,
-  env: EnvironmentKey
+  a: BattleSide,
+  b: BattleSide,
+  random: () => number = Math.random
 ): { a: SideRoll; b: SideRoll } {
-  return {
-    a: rollSide(statsA, levelA, env),
-    b: rollSide(statsB, levelB, env),
-  };
+  return { a: rollSide(a, b, random), b: rollSide(b, a, random) };
 }
 
 /**
@@ -137,16 +169,34 @@ export function resolveBattle(
   const attackA = Math.max(moveA.attack, counterA);
   const attackB = Math.max(moveB.attack, counterB);
 
-  const takenByA = attackB * (1 - moveA.defense);
-  const takenByB = attackA * (1 - moveB.defense);
+  // 회피: 피한 쪽은 상대의 공격(반격 포함)을 **통째로** 안 맞는다.
+  const hitA = rollA.dodged ? 0 : attackB;
+  const hitB = rollB.dodged ? 0 : attackA;
+
+  // 성실함: 맞은 만큼에서 조금 버틴다.
+  const takenByA = hitA * (1 - moveA.defense) * (1 - GRIT_GUARD * rollA.grit);
+  const takenByB = hitB * (1 - moveB.defense) * (1 - GRIT_GUARD * rollB.grit);
 
   // 타이밍 보너스는 기술과 무관하게 **내 점수에만** 곱합니다.
   // 기술 효과 자체를 키우면 수비형만 유독 세지는 등 밸런스가 틀어집니다.
   const scoreA = rollA.base * (1 - takenByA) * (specialsA.length ? timingA : 1);
   const scoreB = rollB.base * (1 - takenByB);
 
-  const a: BattleSideResult = { score: Math.round(scoreA), crit: rollA.crit, specials: specialsA };
-  const b: BattleSideResult = { score: Math.round(scoreB), crit: rollB.crit, specials: specialsB };
+  const a: BattleSideResult = {
+    score: Math.round(scoreA),
+    crit: rollA.crit,
+    specials: specialsA,
+    // 상대가 필살기를 안 썼으면 피할 것도 없었던 것
+    dodged: rollA.dodged && specialsB.length > 0,
+    matchup: rollA.matchup,
+  };
+  const b: BattleSideResult = {
+    score: Math.round(scoreB),
+    crit: rollB.crit,
+    specials: specialsB,
+    dodged: rollB.dodged && specialsA.length > 0,
+    matchup: rollB.matchup,
+  };
 
   const sum = a.score + b.score;
   const total = sum === 0 ? 1 : sum; // 0으로 나누기만 방지 (NaN은 그대로 드러나야 원인을 찾기 쉬움)
@@ -193,15 +243,12 @@ export function barPercents(result: BattleResult): { a: number; b: number } {
 }
 
 export function calculateBattle(
-  statsA: CoreStats,
-  levelA: number,
-  statsB: CoreStats,
-  levelB: number,
-  env: EnvironmentKey,
+  a: BattleSide,
+  b: BattleSide,
   specialsA: SpecialMoveKey[] = [],
   specialsB: SpecialMoveKey[] = [],
   timingA = 1
 ): BattleResult {
-  const { a, b } = rollBattle(statsA, levelA, statsB, levelB, env);
-  return resolveBattle(a, b, specialsA, specialsB, timingA);
+  const rolls = rollBattle(a, b);
+  return resolveBattle(rolls.a, rolls.b, specialsA, specialsB, timingA);
 }
