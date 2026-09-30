@@ -53,6 +53,15 @@ export default function UploadPage() {
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
   // 이 아이가 이미 만들어둔 곤충 개수. 지금 만드는 것이 `이 값 + 1` 번째 = 카드 등급.
   const [savedCount, setSavedCount] = useState(0);
+
+  /**
+   * 곤충 이름. 아이 이름과 **따로** 짓습니다 (2026-09-30 Jin 요청).
+   *
+   * ⚠️ **비워둬도 됩니다.** 비우면 아이 이름을 그대로 씁니다 —
+   * 부스에서 이름 짓느라 줄이 막히면 안 되기 때문입니다.
+   * DB 의 `insects.nickname` 컬럼은 원래 있던 것이라 마이그레이션이 필요 없습니다.
+   */
+  const [insectName, setInsectName] = useState('');
   const [mutations, setMutations] = useState(defaultMutations(''));
   // 색깔·느낌은 안 골라도 됩니다. 안 고르면 AI가 아이 그림의 색을 그대로 따릅니다.
   const [color, setColor] = useState('');
@@ -220,7 +229,8 @@ export default function UploadPage() {
     try {
       const { error: insertError } = await supabase.from('insects').insert({
         player_id: player.id,
-        nickname: player.display_name,
+        // 비워두면 아이 이름을 그대로 씁니다.
+        nickname: insectName.trim() || player.display_name,
         species: speciesLabel(species),
         origin,
         age_stage: ageStage,
@@ -294,6 +304,24 @@ export default function UploadPage() {
               className="hidden"
             />
             {readNote && <p className="text-xs text-emerald-400">{readNote}</p>}
+          </div>
+
+          {/* 곤충 이름 — 아이 이름과 따로 짓습니다. 안 지어도 됩니다.
+              종이에는 넣지 않았습니다: 손글씨는 종이 읽기(OMR)가 못 읽고,
+              종이에 쓰고 앱에 또 치면 아이가 헷갈립니다. */}
+          <div>
+            <p className="text-sm text-slate-400 mb-2">
+              곤충 이름 <span className="text-slate-500">— 안 지어도 돼!</span>
+            </p>
+            <input
+              id="insect-name"
+              type="text"
+              value={insectName}
+              onChange={(e) => setInsectName(e.target.value.slice(0, 12))}
+              placeholder={player?.display_name ? `비우면 "${player.display_name}"` : '예: 황금턱'}
+              maxLength={12}
+              className="w-full bg-slate-800 rounded-xl px-4 py-3 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
+            />
           </div>
 
           <div>
@@ -531,7 +559,8 @@ export default function UploadPage() {
           <div className="relative w-full">
             <InsectCard
               data={{
-                nickname: player?.display_name ?? '내 곤충',
+                nickname: insectName.trim() || player?.display_name || '내 곤충',
+                ownerName: player?.display_name ?? null,
                 species: speciesLabel(species),
                 origin,
                 stats,

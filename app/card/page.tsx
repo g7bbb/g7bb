@@ -73,6 +73,7 @@ function CardInner() {
 
       const built = rows.map((row, i) => ({
         nickname: row.nickname,
+        ownerName: player!.display_name,
         species: row.species,
         origin: row.origin,
         stats: row.stats,

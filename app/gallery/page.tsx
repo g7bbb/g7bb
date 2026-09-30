@@ -18,7 +18,10 @@ const PAGE_SIZE = 12;
 
 interface GalleryInsect {
   id: string;
+  /** 곤충 이름 (아이 이름과 다를 수 있습니다) */
   nickname: string;
+  /** 누가 만든 곤충인지. **자기 곤충에 하트를 못 누르게 하는 판단에 씁니다.** */
+  player_id: string;
   species: string | null;
   image_base64: string;
   mime_type: string;
@@ -38,7 +41,7 @@ export default function GalleryPage() {
     setLoading(true);
     const { data } = await supabase
       .from('insects')
-      .select('id, nickname, species, image_base64, mime_type')
+      .select('id, player_id, nickname, species, image_base64, mime_type')
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -102,7 +105,11 @@ export default function GalleryPage() {
       <div className="grid grid-cols-2 gap-3">
         {insects.map((insect) => {
           const liked = mine.has(insect.id);
-          const isOwn = player?.display_name === insect.nickname;
+          // ⚠️ **이름이 아니라 만든 사람으로 판단합니다.**
+          // 예전에는 `아이 이름 === 곤충 이름` 으로 봤는데, 2026-09-30 에 곤충 이름을
+          // 따로 짓게 되면서 그 비교가 깨졌습니다(자기 곤충에 하트를 누를 수 있게 됨).
+          // 이름이 같은 아이 둘이 서로를 못 누르던 문제도 같이 사라집니다.
+          const isOwn = !!player && player.id === insect.player_id;
           // 카드와 같은 등급 테두리. 은·금·홀로그램 곤충이 격자에서 바로 눈에 띕니다.
           return (
             <TierFrame key={insect.id} visit={visits.get(insect.id) ?? 1} width={2}>

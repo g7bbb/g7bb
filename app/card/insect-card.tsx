@@ -28,7 +28,10 @@ const STAT_ROWS: { key: keyof CoreStats; label: string; color: string }[] = [
 ];
 
 export interface InsectCardData {
+  /** 곤충 이름. 아이가 안 지었으면 아이 이름이 그대로 들어옵니다. */
   nickname: string;
+  /** 곤충을 만든 아이 이름. 곤충 이름과 같으면 아래에 또 쓰지 않습니다. */
+  ownerName?: string | null;
   species: string | null;
   origin: string | null;
   stats: CoreStats;
@@ -110,11 +113,13 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
               <div className="text-2xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] leading-tight break-keep">
                 {data.nickname}
               </div>
-              {data.species && (
-                <div className="text-[11px] font-semibold text-slate-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-                  {data.species}
-                </div>
-              )}
+              {/* 곤충 이름 아래 한 줄: `아이이름 · 종류`.
+                  이름을 안 지어서 곤충 이름 = 아이 이름이면 같은 말을 두 번 쓰지 않습니다. */}
+              <div className="text-[11px] font-semibold text-slate-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+                {[data.ownerName && data.ownerName !== data.nickname ? data.ownerName : null, data.species]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
             </div>
           </div>
 
