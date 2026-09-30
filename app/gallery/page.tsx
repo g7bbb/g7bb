@@ -8,6 +8,7 @@ import { loadHeartCounts, loadMyHearts, toggleHeart } from '@/lib/hearts';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { Player } from '@/lib/types';
+import { BrandMark } from '@/app/brand-logo';
 
 // 아이들이 다른 친구 곤충을 구경하며 하트를 누르는 화면입니다.
 // 하트는 재미 요소이고 최종 "예쁜 곤충" 순위는 운영자가 정합니다.
@@ -87,7 +88,7 @@ export default function GalleryPage() {
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-5 px-5 py-8">
       <header className="text-center">
-        <h1 className="text-2xl font-bold">🎨 친구들 곤충 구경하기</h1>
+        <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />친구들 곤충 구경하기</h1>
         <p className="mt-2 text-sm text-slate-400">
           멋진 곤충에 하트를 눌러줘! 예쁜 곤충 상은 하트를 참고해서 정해져요.
         </p>

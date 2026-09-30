@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/session';
 import { normalizeTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
+import { BrandLogo } from '@/app/brand-logo';
+import { GAME_TITLE } from '@/lib/brand';
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
@@ -40,7 +42,10 @@ function HomeInner() {
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col justify-center gap-6 px-6 py-10">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">🐛 곤충 배틀 베타</h1>
+        <BrandLogo size={150} />
+        <h1 className="mt-4 text-2xl font-bold" style={{ wordBreak: 'keep-all' }}>
+          {GAME_TITLE}
+        </h1>
         {player ? (
           <p className="mt-2 text-slate-300">{player.display_name}님, 환영해요!</p>
         ) : (
@@ -67,7 +72,7 @@ function HomeInner() {
             href="/battle"
             className="block text-center bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold py-4 rounded-2xl text-lg"
           >
-            ⚔️ 곤충 배틀
+            ⚔️ G7BB 배틀
           </Link>
           <Link
             href="/gallery"

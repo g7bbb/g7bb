@@ -34,7 +34,11 @@ export const FAVORITE_INSECTS: string[] = [
 
 export const OTHER_INSECT_KEY = '기타';
 
-export const COLLECTING_OPTIONS: string[] = ['응, 꼭 해보고 싶어!', '그냥 그래', '이미 해봤어'];
+// 3번 질문이 "채집 체험 해보고 싶어?" → "같이 갈래?"로 바뀌면서 (2026-09-30 Jin)
+// 답도 거기에 맞췄습니다. '이미 해봤어'는 "같이 갈래?"의 대답이 안 되기 때문입니다.
+export const COLLECTING_QUESTION =
+  '여름엔 야간 곤충채집, 봄가을겨울엔 애벌레 채집 떠날건데 같이갈래?';
+export const COLLECTING_OPTIONS: string[] = ['응, 같이 갈래!', '생각해볼게', '아니'];
 
 export const GAME_OPTIONS: string[] = ['응, 재밌겠다!', '잘 모르겠어', '아니'];
 

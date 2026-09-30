@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { findPlayerByTicket, rememberPlayer } from '@/lib/session';
+import { findPlayerByTicket, rememberInsectName, rememberPlayer } from '@/lib/session';
 import { Player } from '@/lib/types';
 import { normalizeTicket } from '@/lib/ticket';
 import { logToSheet } from '@/lib/sheet-log';
+import { GAME_TITLE } from '@/lib/brand';
+import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import {
   COLLECTING_OPTIONS,
+  COLLECTING_QUESTION,
   FAVORITE_INSECTS,
   GAME_OPTIONS,
   OTHER_INSECT_KEY,
@@ -24,6 +27,8 @@ function StartInner() {
 
   const [ticket, setTicket] = useState('');
   const [nickname, setNickname] = useState('');
+  // 곤충 이름은 안 지어도 됩니다. 비우면 곤충 만들기 화면에서 아이 이름을 씁니다.
+  const [insectName, setInsectName] = useState('');
   const [favorite, setFavorite] = useState('');
   const [favoriteOther, setFavoriteOther] = useState('');
   const [prize, setPrize] = useState('');
@@ -123,6 +128,9 @@ function friendlyError(message?: string): string {
     setError('');
     setSaving(true);
 
+    // 곤충은 다음 화면에서 만들어지므로 이름만 들고 갑니다.
+    rememberInsectName(insectName.trim());
+
     // 같은 번호로 다시 들어온 경우에는 새로 만들지 않고 원래 곤충으로 이어집니다.
     const existing = await findPlayerByTicket(code);
     if (existing) {
@@ -162,7 +170,8 @@ function friendlyError(message?: string): string {
       이름: nickname.trim(),
       받고싶은선물: prizeLabel(prize),
       좋아하는곤충: favoriteAnswer,
-      채집체험: collecting,
+      같이채집: collecting,
+      곤충이름: insectName.trim(),
       게임의향: game,
       참여시각: new Date().toLocaleString('ko-KR'),
     });
@@ -176,7 +185,7 @@ function friendlyError(message?: string): string {
     return (
       <main className="max-w-md mx-auto min-h-screen px-6 py-10 flex flex-col gap-6 justify-center">
         <div className="text-center">
-          <div className="text-5xl mb-3">👋</div>
+          <BrandLogo size={100} className="mb-3" />
           <h1 className="text-2xl font-bold">
             <span className="text-amber-400">{returning.display_name}</span> 다시 왔구나!
           </h1>
@@ -189,9 +198,9 @@ function friendlyError(message?: string): string {
 
         <button
           onClick={continueAsReturning}
-          className="bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          className="bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl text-lg flex items-center justify-center gap-2"
         >
-          🐛 새 곤충 만들러 가기
+          <BrandMark size={30} tone="black" />새 곤충 만들러 가기
         </button>
 
         <div className="flex gap-2">
@@ -223,7 +232,8 @@ function friendlyError(message?: string): string {
         <p className="text-center text-xs text-slate-500">번호를 확인하는 중...</p>
       )}
       <header className="text-center">
-        <h1 className="text-2xl font-bold">🐛 곤충 배틀 시작하기</h1>
+        <BrandLogo size={120} />
+        <h1 className="mt-3 text-2xl font-bold">{GAME_TITLE}</h1>
         <p className="mt-2 text-sm text-slate-400">질문 4개만 답하면 바로 시작해요!</p>
       </header>
 
@@ -241,12 +251,28 @@ function friendlyError(message?: string): string {
       </section>
 
       <section className="flex flex-col gap-2">
-        <label className="text-sm text-slate-400">이름 (랭킹에 표시돼요)</label>
+        <label className="text-sm text-slate-400">내 닉네임 (랭킹에 표시돼요)</label>
         <input
           className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
           placeholder="예: 장수풍뎅이왕"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
+        />
+      </section>
+
+      {/* 곤충 이름 — 아이 닉네임과 따로 (2026-09-30 Jin).
+          여기서 적으면 곤충 만들기 화면에 미리 채워지고, 거기서 또 바꿀 수 있습니다.
+          12자 제한은 카드에서 이름이 잘리지 않게 하려는 것입니다. */}
+      <section className="flex flex-col gap-2">
+        <label className="text-sm text-slate-400">
+          내 곤충 닉네임 <span className="text-slate-500">— 안 지어도 돼!</span>
+        </label>
+        <input
+          className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
+          placeholder={nickname.trim() ? `비우면 "${nickname.trim()}"` : '예: 황금턱'}
+          value={insectName}
+          maxLength={12}
+          onChange={(e) => setInsectName(e.target.value.slice(0, 12))}
         />
       </section>
 
@@ -285,7 +311,7 @@ function friendlyError(message?: string): string {
         </div>
       </Question>
 
-      <Question title="3. 사슴벌레 채집 체험 해보고 싶어?">
+      <Question title={`3. ${COLLECTING_QUESTION}`}>
         <ChoiceGrid options={COLLECTING_OPTIONS} selected={collecting} onSelect={setCollecting} />
       </Question>
 
@@ -293,14 +319,32 @@ function friendlyError(message?: string): string {
         <ChoiceGrid options={GAME_OPTIONS} selected={game} onSelect={setGame} />
       </Question>
 
+      {/* 시즌1 안내 (2026-09-30 Jin 문구 그대로) */}
+      <div className="bg-amber-400/10 border border-amber-400/40 rounded-2xl px-4 py-4 text-center text-sm leading-relaxed" style={{ wordBreak: 'keep-all' }}>
+        <p className="font-bold text-amber-300">
+          이번에 참여한 친구들은 G7BB배틀 시즌1에 참여한거야!
+        </p>
+        <p className="mt-1 text-slate-200">
+          꼭 1등이 아니더라도, 선물 많이 받을 수 있을거야!!
+        </p>
+      </div>
+
       {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
       <button
         onClick={handleSubmit}
         disabled={saving}
-        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg flex items-center justify-center gap-2"
       >
-        {saving ? '준비하는 중...' : '🚀 곤충 만들러 가기'}
+        {saving ? (
+          '준비하는 중...'
+        ) : (
+          <>
+            {/* 초록 버튼이라 검은 로고가 잘 보입니다 */}
+            <BrandMark size={30} tone="black" />
+            곤충 만들러 가기
+          </>
+        )}
       </button>
     </main>
   );
@@ -309,7 +353,9 @@ function friendlyError(message?: string): string {
 function Question({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="font-bold mb-3">{title}</h2>
+      <h2 className="font-bold mb-3" style={{ wordBreak: 'keep-all' }}>
+        {title}
+      </h2>
       {children}
     </section>
   );

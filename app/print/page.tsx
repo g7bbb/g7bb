@@ -10,6 +10,7 @@ import { MUTATIONS } from '@/lib/mutations';
 import { COLORS, MOODS } from '@/lib/appearance';
 import { ticketAt } from '@/lib/ticket';
 import { SITE_URL, ticketUrl } from '@/lib/site';
+import { BRAND, GAME_TITLE } from '@/lib/brand';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
 //
@@ -119,9 +120,14 @@ function PrintInner() {
         return (
           <section className="sheet" key={ticket}>
             <header className="sheet-head">
-              <div>
-                <div className="title">🐛 곤충 배틀</div>
-                <div className="subtitle">내 곤충을 그리고 QR을 찍어줘!</div>
+              <div className="brand">
+                {/* 종이는 흰 바탕이라 검은 로고를 씁니다 */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={BRAND.logo.black} alt="곤충본부" className="brand-logo" />
+                <div>
+                  <div className="title">{GAME_TITLE}</div>
+                  <div className="subtitle">내 곤충을 그리고 QR을 찍어줘!</div>
+                </div>
               </div>
               <div className="ticket-box">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -251,8 +257,18 @@ function PrintInner() {
           border-bottom: 2px solid #000;
           padding-bottom: 3mm;
         }
+        .sheet-head .brand {
+          display: flex;
+          align-items: center;
+          gap: 4mm;
+        }
+        .brand-logo {
+          height: 24mm;
+          width: auto;
+          display: block;
+        }
         .sheet-head .title {
-          font-size: 22pt;
+          font-size: 18pt;
           font-weight: 800;
         }
         .sheet-head .subtitle {

@@ -22,6 +22,7 @@ import TierFrame from '@/app/card/tier-frame';
 import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
+import { BrandMark } from '@/app/brand-logo';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -805,7 +806,7 @@ export default function BattlePage() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
-      <h1 className="text-2xl font-bold text-center">⚔️ 곤충 배틀</h1>
+      <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />G7BB 배틀</h1>
 
       <div className="bg-slate-800 rounded-xl px-4 py-3 flex justify-between text-sm">
         <span>내 곤충 Lv.{myInsect.level}</span>

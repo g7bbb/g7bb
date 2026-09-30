@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentPlayer } from '@/lib/session';
+import { getCurrentPlayer, readInsectName, rememberInsectName } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
@@ -24,6 +24,7 @@ import {
 } from '@/lib/mutations';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
+import { BrandMark } from '@/app/brand-logo';
 
 /**
  * 한 장의 그림으로 AI 이미지를 만들 수 있는 최대 횟수입니다.
@@ -94,6 +95,9 @@ export default function UploadPage() {
         return;
       }
       setPlayer(p);
+      // 첫 화면에서 곤충 이름을 지어왔으면 채워둡니다. 여기서 바꿔도 됩니다.
+      const fromStart = readInsectName();
+      if (fromStart) setInsectName((current) => current || fromStart);
       // 이미 만들어둔 곤충 개수를 세어 카드 등급(회차)을 미리 맞춰둡니다.
       // 실패해도 0 이 돌아와 첫 카드로 보일 뿐이라 체험은 막히지 않습니다.
       countInsectsForPlayer(p.id).then(setSavedCount);
@@ -244,6 +248,8 @@ export default function UploadPage() {
         battle_count: 0,
       });
       if (insertError) throw insertError;
+      // 다음 곤충에 같은 이름이 또 채워지지 않게 비웁니다.
+      rememberInsectName('');
       // 저장 직후에는 배틀보다 **카드**를 먼저 보여줍니다.
       // 10~20초 기다려 만든 결과라 여기가 제일 짜릿한 순간이고, 카드에 박힌 QR 이
       // 다음에 또 올 때의 신분증이라 아이가 한 번은 꼭 봐야 합니다. (배틀 버튼은 카드 화면에 있습니다)
@@ -260,7 +266,7 @@ export default function UploadPage() {
       {showHowTo && <HowTo onClose={() => setShowHowTo(false)} />}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">📸 내 곤충 만들기</h1>
+        <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 만들기</h1>
         <button
           onClick={() => setShowHowTo(true)}
           className="text-sm border border-slate-600 text-slate-300 rounded-full px-3 py-1"

@@ -8,6 +8,7 @@ import { findPlayerByTicket, getCurrentPlayer } from '@/lib/session';
 import { normalizeTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import InsectCard, { InsectCardData } from './insect-card';
+import { BrandMark } from '@/app/brand-logo';
 
 // 아이에게 보여주고 현장에서 출력해 줄 **곤충 카드** 화면입니다.
 //
@@ -99,7 +100,7 @@ function CardInner() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-4 px-5 py-8">
-      <h1 className="text-2xl font-bold text-center">🃏 내 곤충 카드</h1>
+      <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 카드</h1>
 
       {loading ? (
         <p className="text-center text-slate-400 py-10">불러오는 중...</p>
