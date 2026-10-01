@@ -69,6 +69,10 @@ function PosterDesk() {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [mode, setMode] = useState<'poster' | 'image'>('poster');
+  // 고화질 그림 끼우기 (2026-10-01 인쇄소: "A3 로는 화질이 부족해").
+  // 저장된 그림은 1024px 이라 A3 에서 약 90dpi. 4배로 키운 그림(4096px ≈ 350dpi)을 PC 에서 골라 끼우면
+  // 인쇄할 때만 그걸 쓴다. **DB 에는 저장하지 않는다** (용량 16배 + 아이 화면엔 필요 없음).
+  const [hiRes, setHiRes] = useState<{ url: string; size: number } | null>(null);
 
   const search = useCallback(async (raw: string) => {
     setSearching(true);
@@ -139,6 +143,7 @@ function PosterDesk() {
       if (e) throw e;
       const owner = owners.get(row.player_id) ?? null;
       const order = (siblings || []).findIndex((s: any) => s.id === row.id) + 1;
+      setHiRes(null);
       setPicked({
         insect: data as Insect,
         owner,
@@ -151,6 +156,26 @@ function PosterDesk() {
     } finally {
       setOpening(null);
     }
+  }
+
+  function pickHiRes(file: File | undefined) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth < 1500) {
+        URL.revokeObjectURL(url);
+        setError(`고른 그림이 ${img.naturalWidth}px 이야. 키운 그림(4096px 같은)을 골라줘.`);
+        return;
+      }
+      setError('');
+      setHiRes({ url, size: img.naturalWidth });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setError('그림 파일을 열지 못했어. JPG·PNG 파일을 골라줘.');
+    };
+    img.src = url;
   }
 
   function downloadOriginal() {
@@ -268,13 +293,22 @@ function PosterDesk() {
                 </button>
               ))}
             </div>
+            <label className="bg-slate-900 border-2 border-dashed border-amber-400/60 rounded-xl px-4 py-3 text-sm cursor-pointer">
+              <span className="font-bold text-amber-300">🔍 고화질 그림 끼우기</span>
+              <span className="block text-[11px] text-slate-400 mt-0.5">
+                {hiRes
+                  ? `✅ ${hiRes.size}px 그림으로 인쇄해 (A3 약 ${Math.round(hiRes.size / (POSTER_W / 25.4))}dpi). 다른 곤충을 열면 풀려.`
+                  : '4배로 키운 그림 파일을 고르면 인쇄할 때 그걸 써. (지금은 1024px → A3 약 88dpi)'}
+              </span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => pickHiRes(e.target.files?.[0])} />
+            </label>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               PC 크롬에서 인쇄 → 대상 <b>PDF로 저장</b> → 용지 <b>A3</b> 확인 → 더보기에서 <b>배경 그래픽</b> 체크 → 저장.
-              그 PDF 를 인쇄소에 주면 돼요. 그림은 1024px 이라 A3 에서는 가까이 보면 조금 부드러워요.
+              그 PDF 를 인쇄소에 주면 돼요.
             </p>
           </div>
 
-          <PosterPreview picked={picked} mode={mode} />
+          <PosterPreview picked={picked} mode={mode} src={hiRes?.url ?? null} />
         </>
       )}
 
@@ -309,7 +343,11 @@ function PosterDesk() {
 }
 
 /** A3 실제 크기(mm)로 그리고, 화면에서는 폭에 맞게 줄여서 보여준다. 인쇄할 때는 줄임을 푼다. */
-function PosterPreview({ picked, mode }: { picked: Picked; mode: 'poster' | 'image' }) {
+function imageSrc(insect: Insect, src: string | null) {
+  return src ?? `data:${insect.mime_type || 'image/jpeg'};base64,${insect.image_base64}`;
+}
+
+function PosterPreview({ picked, mode, src }: { picked: Picked; mode: 'poster' | 'image'; src: string | null }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.3);
 
@@ -327,7 +365,7 @@ function PosterPreview({ picked, mode }: { picked: Picked; mode: 'poster' | 'ima
     <div>
       <div ref={boxRef} className="poster-box overflow-hidden" style={{ width: POSTER_W * MM * scale, height: POSTER_H * MM * scale }}>
         <div className="poster-scale" style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          {mode === 'poster' ? <Poster picked={picked} /> : <ImageOnly picked={picked} />}
+          {mode === 'poster' ? <Poster picked={picked} src={src} /> : <ImageOnly picked={picked} src={src} />}
         </div>
       </div>
     </div>
@@ -342,7 +380,7 @@ const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'int' | 'eva'; label: string; col
   { key: 'eva', label: '회피력', color: '#38bdf8' },
 ];
 
-function Poster({ picked }: { picked: Picked }) {
+function Poster({ picked, src }: { picked: Picked; src: string | null }) {
   const { insect, owner, visit } = picked;
   const tier = tierForVisit(visit);
   const stats = statsForInsect(insect);
@@ -381,7 +419,7 @@ function Poster({ picked }: { picked: Picked }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`data:${insect.mime_type || 'image/jpeg'};base64,${insect.image_base64}`}
+          src={imageSrc(insect, src)}
           alt={insect.nickname}
           className="absolute inset-0 w-full h-full object-cover"
         />
@@ -458,7 +496,7 @@ function Poster({ picked }: { picked: Picked }) {
   );
 }
 
-function ImageOnly({ picked }: { picked: Picked }) {
+function ImageOnly({ picked, src }: { picked: Picked; src: string | null }) {
   const { insect, owner } = picked;
   return (
     <div
@@ -467,7 +505,7 @@ function ImageOnly({ picked }: { picked: Picked }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`data:${insect.mime_type || 'image/jpeg'};base64,${insect.image_base64}`}
+        src={imageSrc(insect, src)}
         alt={insect.nickname}
         style={{ width: `${POSTER_W}mm`, height: `${POSTER_W}mm`, objectFit: 'cover' }}
       />
