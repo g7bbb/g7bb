@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { effectiveVisit } from './card';
-import { tierForTicket } from './tiers';
+import { tierForPlayer } from './tiers';
 
 // 카드 등급(기본·은·금·홀로그램)을 매기려면 **그 곤충이 그 아이의 몇 번째 곤충인지**를 알아야 합니다.
 //
@@ -27,10 +27,11 @@ export async function loadVisitMap(): Promise<Map<string, number>> {
       .order('created_at', { ascending: true });
 
     // 참가 금액(종이 번호 앞 글자)에 따라 첫 카드부터 금색·다이아가 됩니다 (lib/card.ts effectiveVisit).
-    // 번호 두 칸만 받아오므로 300명이어도 가볍습니다. 실패하면 금액 없이 회차만으로 매깁니다.
-    const { data: players } = await supabase.from('players').select('id, ticket_code');
+    // 직원이 올려준 금액(survey.game.tier)도 봐야 해서 survey 까지 받습니다 (설문·게임 기록뿐이라 300명이어도 수십 KB).
+    // 실패하면 금액 없이 회차만으로 매깁니다.
+    const { data: players } = await supabase.from('players').select('id, ticket_code, survey');
     const style = new Map<string, 'normal' | 'gold' | 'diamond'>();
-    (players || []).forEach((p: any) => style.set(p.id, tierForTicket(p.ticket_code).card));
+    (players || []).forEach((p: any) => style.set(p.id, tierForPlayer(p).card));
 
     const seen = new Map<string, number>();
     (data || []).forEach((row: any) => {

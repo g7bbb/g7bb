@@ -6,6 +6,11 @@
 // 종이를 금액별로 따로 뽑아서, 부스에서 돈을 받고 그 금액의 종이를 건네주면 된다.
 // (`/print` 에서 금액을 고르면 그 글자부터 뽑힌다.)
 //
+// 🔁 **2026-10-01 바뀜 (Jin: "가격마다 종이를 따로 인쇄해야 해? 더 편한 방법은?")**
+// 종이는 **한 종류(A, 1만원)만** 뽑고, 3만원 이상 낸 아이만 **직원이 `/admin/tier` 에서 올려준다.**
+// 올려준 금액은 `players.survey.game.tier` 에 저장되고, 번호 앞 글자보다 **우선한다** (`tierForPlayer`).
+// 금액별로 따로 인쇄하는 방법(`/print?tier=B`)도 그대로 남아 있어서 섞어 써도 된다.
+//
 // 금액·횟수·혜택을 바꾸려면 이 파일만 고치면 된다.
 // ─────────────────────────────────────────────────────────────
 
@@ -97,4 +102,14 @@ export function tierStartIndex(key: TierKey): number {
 
 export function gamesLabel(tier: Tier): string {
   return Number.isFinite(tier.games) ? `${tier.games}게임` : '무제한';
+}
+
+/**
+ * 이 아이의 참가권. **직원이 올려준 금액이 있으면 그게 우선**이고, 없으면 종이 번호 앞 글자.
+ * (`players.survey.game.tier`, lib/game-state.ts)
+ */
+export function tierForPlayer(player: { ticket_code?: string | null; survey?: unknown } | null | undefined): Tier {
+  const override = (player?.survey as any)?.game?.tier as TierKey | undefined;
+  if (override && TIERS[override]) return TIERS[override];
+  return tierForTicket(player?.ticket_code);
 }

@@ -7,7 +7,7 @@ import { getCurrentPlayer } from '@/lib/session';
 import { Player } from '@/lib/types';
 import { BADGES, BadgeDef, earnedBadges } from '@/lib/badges';
 import { awardBadges, readGameState } from '@/lib/game-state';
-import { tierForTicket } from '@/lib/tiers';
+import { tierForPlayer } from '@/lib/tiers';
 import { findSpecies } from '@/lib/species';
 import { hasAnyMutation } from '@/lib/mutations';
 import { BrandMark } from '@/app/brand-logo';
@@ -76,7 +76,7 @@ export default function BadgesPage() {
           judged: (insects || []).some((row: any) => row.judge_rank),
           evolved: (insects || []).some((row: any) => row.mutations && hasAnyMutation(row.mutations, row.species)),
           mySpecies: (insects || []).some((row: any) => row.species && !findSpecies(row.species)),
-          tierKey: tierForTicket(p.ticket_code).key,
+          tierKey: tierForPlayer(p).key,
           stored: state.badges,
         })
       );
@@ -209,7 +209,7 @@ function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
         </span>
       ))}
       {/* 가운데 마스코트 */}
-      <div className="absolute flex justify-center" style={{ left: 0, right: 0, top: 18 * u }}>
+      <div className="absolute flex justify-center" style={{ left: 0, right: 0, top: 14 * u }}>
         {hasLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -225,7 +225,16 @@ function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
       {/* 대전 글씨 */}
       <div
         className="absolute left-0 right-0 text-center font-black text-white leading-none"
-        style={{ top: 66 * u, fontSize: 19 * u, textShadow: `0 ${1 * u}px ${3 * u}px rgba(0,0,0,0.8)`, letterSpacing: 1 * u }}
+        // Jin (2026-10-01): "대전 글씨가 좀 더 두꺼워서 잘 보였으면" → 크게 + 진한 남색 외곽선
+        style={{
+          top: 62 * u,
+          fontSize: 25 * u,
+          fontWeight: 900,
+          WebkitTextStroke: `${2.4 * u}px #0b1033`,
+          paintOrder: 'stroke fill',
+          textShadow: `0 ${1.5 * u}px ${4 * u}px rgba(0,0,0,0.9)`,
+          letterSpacing: 1 * u,
+        }}
       >
         대전
       </div>

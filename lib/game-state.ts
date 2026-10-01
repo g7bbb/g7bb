@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { Player } from './types';
-import { Tier, tierForTicket } from './tiers';
+import { Tier, TierKey, TIERS, tierForPlayer } from './tiers';
+import { normalizeTicket } from './ticket';
 
 // ─────────────────────────────────────────────────────────────
 // 참여 횟수 · 30분 대기 · 뱃지 기록 (2026-10-01 Jin 확정)
@@ -38,6 +39,8 @@ export interface GameState {
   sessions: PlaySession[];
   /** 뱃지 key → 처음 받은 시각 (ISO). 화면에서 바로 계산되는 뱃지는 여기 안 적는다. */
   badges: Record<string, string>;
+  /** 직원이 올려준 참가권 (없으면 종이 번호 앞 글자로 정함) */
+  tier?: TierKey;
 }
 
 export function readGameState(player: Pick<Player, 'survey'> | null | undefined): GameState {
@@ -45,6 +48,7 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
   return {
     sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
     badges: raw.badges && typeof raw.badges === 'object' ? raw.badges : {},
+    ...(raw.tier && TIERS[raw.tier as TierKey] ? { tier: raw.tier as TierKey } : {}),
   };
 }
 
@@ -70,7 +74,7 @@ export interface PlayStatus {
 }
 
 export function playStatus(player: Player, now = Date.now()): PlayStatus {
-  const tier = tierForTicket(player.ticket_code);
+  const tier = tierForPlayer(player);
   const state = readGameState(player);
   const last = state.sessions[state.sessions.length - 1];
   const used = state.sessions.length;
@@ -196,4 +200,42 @@ export function blockedMessage(status: PlayStatus): string {
     return `${status.tier.price} 참가권으로 할 수 있는 게임을 다 했어! 카드·랭킹·뱃지는 계속 볼 수 있어.`;
   }
   return `⏳ ${formatCountdown(status.cooldownMs)} 뒤에 다시 할 수 있어! (재참여는 30분 뒤)`;
+}
+
+/**
+ * 아직 이름·설문을 안 한 "직원이 먼저 만든" 자리인지.
+ * 직원이 금액을 먼저 올려주면 이름 없는 줄이 생긴다. 시작 화면은 이걸 **처음 온 아이**로 다룬다.
+ */
+export function isPending(player: Pick<Player, 'display_name'> | null | undefined): boolean {
+  return !!player && !player.display_name?.trim();
+}
+
+/**
+ * 직원 화면: 이 번호의 참가권을 바꿉니다 (`/admin/tier`).
+ * 아이가 아직 시작 화면을 안 거쳤으면 **이름 없는 자리를 먼저 만들어 둡니다.**
+ * 아이가 QR 을 찍으면 시작 화면이 그 자리에 이름·설문을 채웁니다 (app/start/page.tsx).
+ */
+export async function setTierForTicket(rawTicket: string, tier: TierKey): Promise<Player> {
+  const ticket = normalizeTicket(rawTicket);
+  if (!ticket) throw new Error('번호를 다시 확인해 주세요 (예: A-014)');
+  const { data: found, error: findError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('ticket_code', ticket)
+    .maybeSingle();
+  if (findError) throw findError;
+
+  if (found) {
+    const player = found as Player;
+    const state = readGameState(player);
+    return saveGameState(player, { ...state, tier });
+  }
+
+  const { data, error } = await supabase
+    .from('players')
+    .insert({ ticket_code: ticket, display_name: '', survey: { game: { sessions: [], badges: {}, tier } } })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Player;
 }

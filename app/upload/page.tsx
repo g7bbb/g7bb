@@ -1,7 +1,7 @@
 'use client';
 
 import { effectiveVisit } from '@/lib/card';
-import { tierForTicket } from '@/lib/tiers';
+import { tierForPlayer } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentPlayer, readInsectName, rememberInsectName } from '@/lib/session';
@@ -652,7 +652,7 @@ export default function UploadPage() {
                 mime: result.mime,
                 ticketCode: player?.ticket_code ?? null,
                 // 지금 만드는 것이 몇 번째인지. 5만원·10만원은 첫 카드부터 금색·다이아.
-                visit: effectiveVisit(savedCount + 1, tierForTicket(player?.ticket_code).card),
+                visit: effectiveVisit(savedCount + 1, tierForPlayer(player).card),
               }}
             />
             {/* 다시 만드는 동안에도 지금 카드를 계속 보여줍니다.

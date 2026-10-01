@@ -1,7 +1,7 @@
 'use client';
 
 import { effectiveVisit } from '@/lib/card';
-import { tierForTicket } from '@/lib/tiers';
+import { tierForPlayer } from '@/lib/tiers';
 import { statsForInsect } from '@/lib/insect-stats';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -87,7 +87,7 @@ function CardInner() {
         mime: row.mime_type || 'image/jpeg',
         ticketCode: player!.ticket_code ?? null,
         // 만든 순서 = 회차. 5만원·10만원 참가권은 첫 카드부터 금색·다이아 (lib/card.ts)
-        visit: effectiveVisit(i + 1, tierForTicket(player!.ticket_code).card),
+        visit: effectiveVisit(i + 1, tierForPlayer(player).card),
       }));
 
       setCards(built);

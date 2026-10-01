@@ -10,6 +10,8 @@ import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import Returning from './returning';
+import { isPending } from '@/lib/game-state';
+import { tierForPlayer } from '@/lib/tiers';
 import {
   COLLECTING_OPTIONS,
   COLLECTING_QUESTION,
@@ -41,6 +43,8 @@ function StartInner() {
   const [error, setError] = useState('');
   // QR 번호가 이미 등록된 아이면, 설문을 다시 받지 않고 바로 이어서 하게 합니다.
   const [returning, setReturning] = useState<Player | null>(null);
+  // 직원이 금액을 먼저 올려둔 번호 (이름 없는 자리). 처음 온 아이처럼 이름·설문을 받되, 그 자리에 채웁니다.
+  const [prepaid, setPrepaid] = useState<Player | null>(null);
   const [checking, setChecking] = useState(false);
 
   // QR 주소(/start?t=A-014)로 들어오면 번호를 미리 채워 손으로 칠 일을 없앱니다.
@@ -61,7 +65,9 @@ function StartInner() {
     setChecking(true);
     findPlayerByTicket(normalized)
       .then((found) => {
-        if (!cancelled && found) setReturning(found);
+        if (cancelled || !found) return;
+        if (isPending(found)) setPrepaid(found);
+        else setReturning(found);
       })
       // 조회에 실패하면 그냥 처음 온 아이로 봅니다. 체험이 막히면 안 됩니다.
       .catch(() => {})
@@ -129,7 +135,7 @@ function friendlyError(message?: string): string {
     // 손으로 번호를 쳐서 들어와도 QR 로 온 것과 똑같이 "다시 온 아이" 화면으로 보냅니다.
     // (바로 곤충 만들기로 보내면 게임 횟수·30분 규칙을 건너뛰게 됩니다)
     const existing = await findPlayerByTicket(code);
-    if (existing) {
+    if (existing && !isPending(existing)) {
       setSaving(false);
       setReturning(existing);
       return;
@@ -141,16 +147,38 @@ function friendlyError(message?: string): string {
       wantsGame: game,
     };
 
-    const { data, error: insertError } = await supabase
-      .from('players')
-      .insert({
-        ticket_code: code,
-        display_name: nickname.trim(),
-        prize_choice: prize,
-        survey,
-      })
-      .select()
-      .single();
+    // 직원이 금액을 먼저 올려둔 번호면 새로 만들지 않고 **그 자리를 채웁니다** (금액 기록을 지키려고).
+    // 새로 만들다가 "이미 있는 번호" 오류가 나도(직원이 같은 순간에 올린 경우) 그 자리를 채웁니다.
+    async function fillPending(row: Player) {
+      return supabase
+        .from('players')
+        .update({
+          display_name: nickname.trim(),
+          prize_choice: prize,
+          survey: { ...((row.survey as any) ?? {}), ...survey },
+        })
+        .eq('id', row.id)
+        .select()
+        .single();
+    }
+
+    let { data, error: insertError } = existing
+      ? await fillPending(existing)
+      : await supabase
+          .from('players')
+          .insert({
+            ticket_code: code,
+            display_name: nickname.trim(),
+            prize_choice: prize,
+            survey,
+          })
+          .select()
+          .single();
+
+    if (insertError && /duplicate|23505|unique/i.test(`${insertError.code} ${insertError.message}`)) {
+      const again = await findPlayerByTicket(code);
+      if (again && isPending(again)) ({ data, error: insertError } = await fillPending(again));
+    }
 
     if (insertError || !data) {
       setSaving(false);
@@ -204,6 +232,11 @@ function friendlyError(message?: string): string {
           autoCapitalize="characters"
         />
         {fromQr && <p className="text-xs text-emerald-400 text-center">✓ QR에서 번호를 읽었어요</p>}
+        {prepaid && (
+          <p className="text-sm font-bold text-amber-300 text-center">
+            {tierForPlayer(prepaid).emoji} {tierForPlayer(prepaid).price} {tierForPlayer(prepaid).name} 참가권이 적용됐어!
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">

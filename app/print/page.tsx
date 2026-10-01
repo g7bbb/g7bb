@@ -136,8 +136,9 @@ function PrintInner() {
           이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
         </p>
         <p className="hint">
-          💰 지금 고른 금액: <b>{tierInfo.emoji} {tierInfo.price} {tierInfo.name}</b> — 번호가{' '}
-          <b>{tier}-</b> 로 시작합니다. 금액마다 따로 뽑아 주세요.
+          💰 <b>보통은 A(기본) 한 종류만 뽑으면 됩니다.</b> 3만원 이상 낸 아이는 직원이{' '}
+          <b>/admin/tier</b> 에서 번호를 치고 금액을 눌러 올려줍니다. 지금 고른 금액:{' '}
+          <b>{tierInfo.emoji} {tierInfo.price}</b> (번호가 <b>{tier}-</b> 로 시작).
           {printable < count && ` (한 금액은 999장까지라 ${printable}장만 뽑힙니다)`}
         </p>
         <p className="hint">
@@ -164,10 +165,13 @@ function PrintInner() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt={ticket} className="qr" />
                 <div className="ticket">{ticket}</div>
-                {/* 부스에서 금액이 맞는 종이를 건넸는지 바로 보이게 */}
-                <div className="tier-chip">
-                  {tierInfo.price} · {gamesLabel(tierInfo)}
-                </div>
+                {/* 금액별로 따로 뽑을 때만 표시. 기본(A) 종이는 모든 아이가 받고 금액은 직원 화면에서
+                    올려주므로(2026-10-01), "1만원" 이 찍혀 있으면 10만원 낸 아이가 헷갈린다. */}
+                {tier !== 'A' && (
+                  <div className="tier-chip">
+                    {tierInfo.price} · {gamesLabel(tierInfo)}
+                  </div>
+                )}
               </div>
             </header>
 
