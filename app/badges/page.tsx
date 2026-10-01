@@ -116,6 +116,16 @@ export default function BadgesPage() {
             </p>
           </div>
 
+          {/* 행사 뱃지는 따로 크게 — 이번 행사에 온 아이 모두가 받는 첫 뱃지 */}
+          <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-4" style={{ wordBreak: 'keep-all' }}>
+            <DaejeonEmblem earned={earned.has('daejeon')} size={96} />
+            <div>
+              <p className="text-xs text-amber-300 font-bold">🎉 행사 기념 뱃지</p>
+              <p className="text-lg font-black leading-tight">2026 대전 곤충축제</p>
+              <p className="text-xs text-slate-400 mt-1">G7BB 배틀 시즌1에 참여한 친구만 받을 수 있어!</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             {BADGES.map((badge) => (
               <BadgeTile key={badge.key} badge={badge} earned={earned.has(badge.key)} />
@@ -163,22 +173,66 @@ function BadgeTile({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
   );
 }
 
-/** 대전 행사 뱃지 — "대전" 글씨 + 꿈돌이 (공식 그림 파일이 있으면) */
-function DaejeonBadge({ earned }: { earned: boolean }) {
+/**
+ * 대전 행사 뱃지 — 우리 곤충본부 마스코트 + 엑스포 느낌(궤도 고리·별) + "대전" 글씨.
+ *
+ * 2026-10-01 Jin: 꿈돌이를 넣을지 정하기 전에 "꿈돌이 없는 우리 디자인"을 먼저 보기로 했다.
+ * 꿈돌이는 대전시 캐릭터라 쓰려면 허락이 필요하다. `public/badges/kkumdori.png` 를 넣으면
+ * 가운데 마스코트 자리가 그 그림으로 바뀐다 (없으면 우리 마스코트).
+ */
+function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
   const [hasLogo, setHasLogo] = useState(true);
+  const u = size / 100; // 100 기준으로 그린 뒤 크기만 맞춘다
   return (
     <div
-      className={`w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 ${
-        earned ? 'bg-gradient-to-br from-sky-400 to-indigo-600 border-white shadow-lg' : 'bg-slate-800 border-slate-700 grayscale'
-      }`}
+      className={`relative rounded-full shrink-0 ${earned ? '' : 'grayscale opacity-70'}`}
+      style={{
+        width: size,
+        height: size,
+        background: 'radial-gradient(circle at 35% 30%, #3b5bdb, #1e2a78 55%, #0b1033)',
+        boxShadow: earned ? `0 0 0 ${3 * u}px #fcd34d, 0 0 0 ${5 * u}px #b45309, 0 0 ${18 * u}px rgba(252,211,77,0.45)` : `0 0 0 ${3 * u}px #475569`,
+      }}
     >
-      {hasLogo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={DAEJEON_LOGO} alt="꿈돌이" className="w-7 h-7 object-contain" onError={() => setHasLogo(false)} />
-      ) : (
-        <span className="text-lg leading-none">🎡</span>
-      )}
-      <span className="text-[11px] font-black text-white leading-none mt-0.5">대전</span>
+      {/* 궤도 고리 — 엑스포 느낌 */}
+      <div
+        className="absolute rounded-[50%] border-amber-300"
+        style={{ left: 8 * u, right: 8 * u, top: 34 * u, height: 26 * u, borderWidth: 2 * u, transform: 'rotate(-18deg)' }}
+      />
+      {/* 별 */}
+      {[
+        [18, 20, 9],
+        [76, 16, 7],
+        [82, 62, 6],
+      ].map(([x, y, s], k) => (
+        <span key={k} className="absolute text-amber-200 leading-none" style={{ left: x * u, top: y * u, fontSize: s * u }}>
+          ✦
+        </span>
+      ))}
+      {/* 가운데 마스코트 */}
+      <div className="absolute flex justify-center" style={{ left: 0, right: 0, top: 18 * u }}>
+        {hasLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={DAEJEON_LOGO}
+            alt="꿈돌이"
+            style={{ height: 46 * u, width: 'auto' }}
+            onError={() => setHasLogo(false)}
+          />
+        ) : (
+          <BrandMark size={46 * u} />
+        )}
+      </div>
+      {/* 대전 글씨 */}
+      <div
+        className="absolute left-0 right-0 text-center font-black text-white leading-none"
+        style={{ top: 66 * u, fontSize: 19 * u, textShadow: `0 ${1 * u}px ${3 * u}px rgba(0,0,0,0.8)`, letterSpacing: 1 * u }}
+      >
+        대전
+      </div>
     </div>
   );
+}
+
+function DaejeonBadge({ earned }: { earned: boolean }) {
+  return <DaejeonEmblem earned={earned} size={56} />;
 }
