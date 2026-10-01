@@ -9,7 +9,7 @@ import { baseMoveFor, secondMoveFor } from '@/lib/special-moves';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { effectiveVisit, tierForVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
-import { GAME_NAME } from '@/lib/brand';
+import { BRAND, GAME_NAME } from '@/lib/brand';
 import { BrandMark } from '@/app/brand-logo';
 import AdminGate from '../admin-gate';
 
@@ -455,7 +455,7 @@ function Poster({ picked }: { picked: Picked }) {
 }
 
 function ImageOnly({ picked }: { picked: Picked }) {
-  const { insect } = picked;
+  const { insect, owner } = picked;
   return (
     <div
       className="poster relative flex items-center justify-center"
@@ -467,6 +467,24 @@ function ImageOnly({ picked }: { picked: Picked }) {
         alt={insect.nickname}
         style={{ width: `${POSTER_W}mm`, height: `${POSTER_W}mm`, objectFit: 'cover' }}
       />
+
+      {/* 오른쪽 위 — 우리 로고 (2026-10-01 Jin) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={BRAND.logo.white}
+        alt="곤충본부 로고"
+        className="absolute"
+        style={{ top: '12mm', right: '16mm', height: '38mm', width: 'auto' }}
+      />
+
+      {/* 왼쪽 아래 — 꾸민 포스터와 같은 꼬리 (시즌1 문구 + 번호) */}
+      <div
+        className="absolute flex justify-between items-center"
+        style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '4.2mm', fontWeight: 700, color: '#94a3b8' }}
+      >
+        <span>2026 대전 곤충축제 · G7BB 배틀 시즌1</span>
+        <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{owner?.ticket_code ?? ''}</span>
+      </div>
     </div>
   );
 }
