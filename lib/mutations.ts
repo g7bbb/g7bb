@@ -132,6 +132,9 @@ export function defaultMutations(species?: string | null): MutationCounts {
  * 개수를 그냥 빼지 않고 **선택지 순서**로 셉니다.
  * 날개가 2 → 4 → 6 처럼 2씩 뛰기 때문에, 빼기로 세면 한 칸 올린 것이 두 단계로 계산됩니다.
  */
+/** 옛 기록(선택지에 없는 개수)이 받을 수 있는 최대 단계 — 지금 선택지의 최대(날개 2→6장)와 같다. */
+const MAX_LEGACY_STEPS = 2;
+
 export function stepsAbove(
   option: MutationOption,
   counts: MutationCounts,
@@ -144,7 +147,9 @@ export function stepsAbove(
   const normalIndex = values.indexOf(normal);
   if (pickedIndex === -1 || normalIndex === -1) {
     // 선택지에 없는 값이 저장돼 있으면 옛 방식(빼기)으로 넘어갑니다.
-    return Math.max(0, (counts[option.key] ?? normal) - normal);
+    // 최대 2단계로 자른다 (2026-10-01 시뮬레이션: 이상한 값 99 가 들어오면 공격력이 −367 이 됐다).
+    const diff = Number(counts[option.key] ?? normal) - normal;
+    return Number.isFinite(diff) ? Math.min(MAX_LEGACY_STEPS, Math.max(0, diff)) : 0;
   }
   return Math.max(0, pickedIndex - normalIndex);
 }
