@@ -24,7 +24,7 @@ export interface BadgeDef {
 }
 
 export const BADGES: BadgeDef[] = [
-  { key: 'daejeon', emoji: '🎡', name: '대전 곤충축제', how: '2026 대전 곤충행사에 참가하기', special: 'daejeon' },
+  { key: 'daejeon', emoji: '🎡', name: '대전 곤충박람회', how: '2026 대전 곤충박람회에 참가하기', special: 'daejeon' },
   { key: 'firstInsect', emoji: '🐣', name: '첫 곤충 탄생', how: '내 곤충을 처음 만들기' },
   { key: 'play1', emoji: '🎮', name: '첫 게임', how: '게임에 처음 참여하기' },
   { key: 'revisit', emoji: '🔁', name: '또 왔다!', how: 'QR 로 다시 와서 게임하기' },

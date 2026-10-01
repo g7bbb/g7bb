@@ -121,7 +121,7 @@ export default function BadgesPage() {
             <DaejeonEmblem earned={earned.has('daejeon')} size={96} />
             <div>
               <p className="text-xs text-amber-300 font-bold">🎉 행사 기념 뱃지</p>
-              <p className="text-lg font-black leading-tight">2026 대전 곤충축제</p>
+              <p className="text-lg font-black leading-tight">2026 대전 곤충박람회</p>
               <p className="text-xs text-slate-400 mt-1">G7BB 배틀 시즌1에 참여한 친구만 받을 수 있어!</p>
             </div>
           </div>
