@@ -9,7 +9,7 @@
 // 카드에 박힌 QR 을 찍으면 원래 번호로 돌아오므로, 몇 번을 다시 와도 같은 아이로 이어집니다.
 // → 컬럼을 새로 만들 필요가 없어 마이그레이션 위험이 0 입니다.
 
-export type CardTier = 'basic' | 'silver' | 'gold' | 'holo';
+export type CardTier = 'basic' | 'silver' | 'gold' | 'holo' | 'diamond';
 
 export interface CardTierStyle {
   key: CardTier;
@@ -21,6 +21,8 @@ export interface CardTierStyle {
   ink: string;
   /** 무지개 홀로그램 무늬를 덧씌울지 */
   holographic: boolean;
+  /** 카드 아래쪽(필살기·능력치) 바탕. 없으면 기본 어두운 바탕 */
+  panel?: string;
 }
 
 export const CARD_TIERS: Record<CardTier, CardTierStyle> = {
@@ -34,17 +36,20 @@ export const CARD_TIERS: Record<CardTier, CardTierStyle> = {
   },
   silver: {
     key: 'silver',
-    label: '🥈 실버 카드 · 2회차',
+    label: '🥈 실버 카드',
     frame: 'linear-gradient(145deg, #f8fafc, #94a3b8 35%, #e2e8f0 55%, #64748b 80%, #f1f5f9)',
     ink: '#1e293b',
     holographic: false,
   },
   gold: {
     key: 'gold',
-    label: '🥇 골드 카드 · 3회차',
+    label: '🥇 골드 카드',
     frame: 'linear-gradient(145deg, #fff7c2, #d4a017 30%, #fde68a 52%, #b45309 78%, #fef3c7)',
     ink: '#3b2606',
     holographic: false,
+    // 금장식 바탕 (5만원 참가권은 첫 카드부터 — 2026-10-01 Jin)
+    panel:
+      'repeating-linear-gradient(45deg, rgba(253,230,138,0.07) 0 6px, transparent 6px 14px), linear-gradient(180deg, #2a1d06, #120c02)',
   },
   holo: {
     key: 'holo',
@@ -54,7 +59,34 @@ export const CARD_TIERS: Record<CardTier, CardTierStyle> = {
     ink: '#2b1240',
     holographic: true,
   },
+  // 💎 10만원 참가권 — 첫 카드부터 홀로그램 다이아 (2026-10-01 Jin)
+  diamond: {
+    key: 'diamond',
+    label: '💎 다이아 홀로그램 카드',
+    frame:
+      'linear-gradient(135deg, #ffffff, #a5f3fc 18%, #c4b5fd 36%, #f0abfc 54%, #bae6fd 72%, #e0f2fe 86%, #ffffff)',
+    ink: '#1e1b4b',
+    holographic: true,
+    panel:
+      'repeating-linear-gradient(60deg, rgba(165,243,252,0.08) 0 8px, rgba(240,171,252,0.06) 8px 16px, transparent 16px 24px), linear-gradient(180deg, #13163a, #070a1f)',
+  },
 };
+
+/**
+ * "몇 번째 곤충" 숫자에 **참가 금액**을 섞습니다 (2026-10-01).
+ *
+ * 화면마다 카드 등급을 `visit` 숫자 하나로 넘기고 있어서, 금액 때문에 바뀌는 등급도
+ * 같은 숫자에 실어 보냅니다. 그러면 카드·배틀·랭킹·갤러리를 하나도 안 고치고 다 따라옵니다.
+ *   - 5만원(골드)  → 첫 곤충부터 최소 금색(3). 4번째부터는 원래대로 홀로그램.
+ *   - 10만원(다이아) → 항상 다이아(DIAMOND_VISIT).
+ */
+export const DIAMOND_VISIT = 100;
+
+export function effectiveVisit(visit: number, cardStyle: 'normal' | 'gold' | 'diamond'): number {
+  if (cardStyle === 'diamond') return DIAMOND_VISIT;
+  if (cardStyle === 'gold') return Math.max(visit, 3);
+  return visit;
+}
 
 /**
  * 이 아이의 **몇 번째 곤충인지**로 카드 등급을 정합니다.
@@ -68,5 +100,6 @@ export function tierForVisit(visit: number): CardTierStyle {
   if (!Number.isFinite(visit) || visit <= 1) return CARD_TIERS.basic;
   if (visit === 2) return CARD_TIERS.silver;
   if (visit === 3) return CARD_TIERS.gold;
+  if (visit >= DIAMOND_VISIT) return CARD_TIERS.diamond;
   return CARD_TIERS.holo;
 }

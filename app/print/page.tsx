@@ -11,6 +11,7 @@ import { COLORS, MOODS } from '@/lib/appearance';
 import { ticketAt } from '@/lib/ticket';
 import { SITE_URL, ticketUrl } from '@/lib/site';
 import { BRAND, GAME_TITLE } from '@/lib/brand';
+import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/tiers';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
 //
@@ -20,6 +21,10 @@ import { BRAND, GAME_TITLE } from '@/lib/brand';
 //
 // 사용법: /print?count=400 으로 열고 브라우저 인쇄(Ctrl+P) → "PDF로 저장"
 // 이어서 더 뽑을 때는 /print?count=100&start=400 처럼 start 를 주면 A-401 부터 나옵니다.
+//
+// 💰 **금액별로 따로 뽑습니다 (2026-10-01).** 번호 앞 글자가 곧 금액입니다 (`lib/tiers.ts`).
+//   /print?tier=B&count=100 → B-001 ~ B-100 (3만원 종이)
+// `start` 는 그 금액 안에서 몇 번째부터인지입니다 (?tier=B&start=100 → B-101 부터).
 
 /**
  * 주소에 적힌 숫자를 읽어옵니다.
@@ -38,9 +43,17 @@ function PrintInner() {
   const searchParams = useSearchParams();
   // 주소로 넘어온 값은 첫 화면의 기본값으로만 씁니다. 그 뒤로는 화면의 입력칸이 주인입니다.
   const [count, setCount] = useState(() => readNumberParam(searchParams.get('count'), 400, 1, 2000));
+  const [tier, setTier] = useState<TierKey>(() => {
+    const raw = (searchParams.get('tier') ?? 'A').toUpperCase() as TierKey;
+    return TIER_ORDER.includes(raw) ? raw : 'A';
+  });
+  // 그 금액 안에서 몇 번째부터 뽑을지. 999를 넘으면 다음 글자(다른 금액)로 넘어가므로 막습니다.
   const [startIndex, setStartIndex] = useState(() =>
-    readNumberParam(searchParams.get('start'), 0, 0, 9_000)
+    readNumberParam(searchParams.get('start'), 0, 0, 998)
   );
+  const firstIndex = tierStartIndex(tier) + startIndex;
+  // 한 금액은 999장까지입니다. 넘치면 다음 금액의 번호가 찍히므로 잘라냅니다.
+  const printable = Math.min(count, 999 - startIndex);
   const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
 
@@ -49,9 +62,9 @@ function PrintInner() {
 
     async function build() {
       const codes: string[] = [];
-      for (let i = 0; i < count; i += 1) {
+      for (let i = 0; i < printable; i += 1) {
         if (cancelled) return;
-        const ticket = ticketAt(startIndex + i);
+        const ticket = ticketAt(firstIndex + i);
         // QR을 찍으면 번호가 채워진 시작 화면이 열립니다.
         //
         // 🔴 **이 화면을 연 주소가 아니라 `SITE_URL` 을 씁니다.**
@@ -62,7 +75,7 @@ function PrintInner() {
       }
       if (!cancelled) {
         setQrCodes(codes);
-        setProgress(count);
+        setProgress(printable);
       }
     }
 
@@ -72,9 +85,10 @@ function PrintInner() {
     return () => {
       cancelled = true;
     };
-  }, [count, startIndex]);
+  }, [printable, firstIndex]);
 
-  const ready = qrCodes.length === count;
+  const ready = qrCodes.length === printable;
+  const tierInfo = TIERS[tier];
 
   return (
     <div className="print-root">
@@ -82,6 +96,16 @@ function PrintInner() {
       <div className="controls">
         <h1>🖨️ 참가 용지 인쇄</h1>
         <div className="row">
+          <label>
+            금액
+            <select value={tier} onChange={(e) => setTier(e.target.value as TierKey)}>
+              {TIER_ORDER.map((key) => (
+                <option key={key} value={key}>
+                  {key} · {TIERS[key].price} ({gamesLabel(TIERS[key])})
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             장수
             <input
@@ -98,16 +122,23 @@ function PrintInner() {
               type="number"
               value={startIndex}
               min={0}
-              onChange={(e) => setStartIndex(Math.max(0, Number(e.target.value) || 0))}
+              onChange={(e) => setStartIndex(Math.max(0, Math.min(998, Number(e.target.value) || 0)))}
             />
-            <span className="hint">{ticketAt(startIndex)} 부터</span>
+            <span className="hint">
+              {ticketAt(firstIndex)} ~ {ticketAt(firstIndex + printable - 1)}
+            </span>
           </label>
           <button onClick={() => window.print()} disabled={!ready}>
-            {ready ? '인쇄 / PDF로 저장' : `QR 만드는 중... ${progress}/${count}`}
+            {ready ? '인쇄 / PDF로 저장' : `QR 만드는 중... ${progress}/${printable}`}
           </button>
         </div>
         <p className="hint">
           이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
+        </p>
+        <p className="hint">
+          💰 지금 고른 금액: <b>{tierInfo.emoji} {tierInfo.price} {tierInfo.name}</b> — 번호가{' '}
+          <b>{tier}-</b> 로 시작합니다. 금액마다 따로 뽑아 주세요.
+          {printable < count && ` (한 금액은 999장까지라 ${printable}장만 뽑힙니다)`}
         </p>
         <p className="hint">
           인쇄 설정에서 <b>용지 A4</b>, <b>여백 없음</b>, <b>배율 100%</b>, <b>배경 그래픽 켜기</b>로
@@ -116,7 +147,7 @@ function PrintInner() {
       </div>
 
       {qrCodes.map((qr, index) => {
-        const ticket = ticketAt(startIndex + index);
+        const ticket = ticketAt(firstIndex + index);
         return (
           <section className="sheet" key={ticket}>
             <header className="sheet-head">
@@ -133,6 +164,10 @@ function PrintInner() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt={ticket} className="qr" />
                 <div className="ticket">{ticket}</div>
+                {/* 부스에서 금액이 맞는 종이를 건넸는지 바로 보이게 */}
+                <div className="tier-chip">
+                  {tierInfo.price} · {gamesLabel(tierInfo)}
+                </div>
               </div>
             </header>
 
@@ -283,6 +318,21 @@ function PrintInner() {
           width: 24mm;
           height: 24mm;
           display: block;
+        }
+        .tier-chip {
+          margin-top: 1mm;
+          font-size: 8pt;
+          font-weight: 700;
+          border: 1px solid #000;
+          border-radius: 3mm;
+          padding: 0.3mm 2mm;
+          display: inline-block;
+          white-space: nowrap;
+        }
+        .controls select {
+          padding: 6px 8px;
+          border: 1px solid #bbb;
+          border-radius: 6px;
         }
         .ticket {
           font-size: 16pt;

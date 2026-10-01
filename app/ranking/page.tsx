@@ -5,6 +5,10 @@ import { supabase } from '@/lib/supabaseClient';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { BrandMark } from '@/app/brand-logo';
+import PlayStatusCard from '@/app/play-status';
+import { getCurrentPlayer } from '@/lib/session';
+import { awardBadges, playStatus } from '@/lib/game-state';
+import { Player } from '@/lib/types';
 
 interface RankRow {
   player_id: string;
@@ -37,10 +41,26 @@ export default function RankingPage() {
   // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리를 입히는 데 씁니다.
   const [visits, setVisits] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
+  // 내 참가권·남은 게임·30분 대기 시계 (Jin 요청: "랭킹 옆에 본인 참여 가능 시간").
+  const [me, setMe] = useState<Player | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    getCurrentPlayer().then(setMe).catch(() => {});
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     loadRanking(tab);
   }, [tab]);
+
+  // 전체 랭킹 1~3위에 들면 그 뱃지를 영원히 남깁니다 (나중에 순위가 내려가도 "달성"은 남음).
+  useEffect(() => {
+    if (!me || tab !== 'all' || loading) return;
+    const place = rows.findIndex((row) => row.player_id === me.id);
+    if (place >= 0 && place < 3) void awardBadges(me.id, [`rank${place + 1}`]);
+  }, [me, rows, tab, loading]);
 
   async function loadRanking(mode: 'today' | 'all') {
     setLoading(true);
@@ -111,6 +131,8 @@ export default function RankingPage() {
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
       <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />랭킹</h1>
 
+      {me && <PlayStatusCard status={playStatus(me, now)} />}
+
       <div className="flex gap-2">
         <button
           onClick={() => setTab('today')}
@@ -149,6 +171,7 @@ export default function RankingPage() {
                 >
                   <span className="font-bold">
                     {i + 1}. {row.nickname}
+                    {me?.id === row.player_id && <span className="ml-1 text-xs text-emerald-300">(나)</span>}
                   </span>
                   <span className="text-emerald-400 font-bold">{row.best_score}점</span>
                 </li>

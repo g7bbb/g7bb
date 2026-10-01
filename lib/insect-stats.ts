@@ -8,6 +8,7 @@ import {
 } from './types';
 import { MutationCounts, applyMutations } from './mutations';
 import { ORIGIN_EFFECTS } from './origins';
+import { applyAlloc, readAlloc } from './alloc';
 
 // ─────────────────────────────────────────────────────────────
 // 능력치 계산 (2026-09-30 Jin 재설계)
@@ -234,13 +235,15 @@ export function statsForInsect(
   insect: Pick<Insect, 'body_parts' | 'age_stage' | 'mutations' | 'species' | 'origin' | 'stats'>
 ): CoreStats {
   if (insect.body_parts) {
-    return calculateStats(
+    const base = calculateStats(
       insect.body_parts,
       insect.age_stage,
       (insect.mutations ?? undefined) as MutationCounts | undefined,
       insect.species,
       insect.origin
     );
+    // 다시 와서 레벨업할 때 아이가 직접 나눠 준 포인트 (lib/alloc.ts)
+    return applyAlloc(base, readAlloc(insect.stats));
   }
   const old = (insect.stats ?? {}) as Partial<CoreStats> & { surv?: number };
   return {

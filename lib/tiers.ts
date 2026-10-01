@@ -1,0 +1,100 @@
+// ─────────────────────────────────────────────────────────────
+// 참가 금액(등급) — 2026-10-01 Jin 확정
+//
+// **앱은 아이가 얼마를 냈는지 알 방법이 종이 번호밖에 없다.** 그래서 번호 앞 글자로 구분한다.
+//   A-001 → 1만원 / B-001 → 3만원 / C-001 → 5만원 / D-001 → 10만원
+// 종이를 금액별로 따로 뽑아서, 부스에서 돈을 받고 그 금액의 종이를 건네주면 된다.
+// (`/print` 에서 금액을 고르면 그 글자부터 뽑힌다.)
+//
+// 금액·횟수·혜택을 바꾸려면 이 파일만 고치면 된다.
+// ─────────────────────────────────────────────────────────────
+
+export type TierKey = 'A' | 'B' | 'C' | 'D';
+
+/** 카드 바탕 꾸밈 — 5만원은 금장식, 10만원은 홀로그램 다이아 (첫 카드부터) */
+export type TierCardStyle = 'normal' | 'gold' | 'diamond';
+
+export interface Tier {
+  key: TierKey;
+  price: string;
+  name: string;
+  emoji: string;
+  /** 참여할 수 있는 게임 수 (랭킹 도전 1번 = 1게임). 무제한이면 Infinity */
+  games: number;
+  card: TierCardStyle;
+  /** 아이·부모님에게 보여줄 혜택 */
+  perks: string[];
+}
+
+export const TIERS: Record<TierKey, Tier> = {
+  A: {
+    key: 'A',
+    price: '1만원',
+    name: '참가권',
+    emoji: '🎟️',
+    games: 1,
+    card: 'normal',
+    perks: ['1게임 참여', '랭킹 상품 도전'],
+  },
+  B: {
+    key: 'B',
+    price: '3만원',
+    name: '레벨업권',
+    emoji: '⬆️',
+    games: 2,
+    card: 'normal',
+    perks: ['2게임 참여', '랭킹 상품 도전', '다시 오면 레벨업'],
+  },
+  C: {
+    key: 'C',
+    price: '5만원',
+    name: '골드',
+    emoji: '🥇',
+    games: 5,
+    card: 'gold',
+    perks: [
+      '2일간 5게임 참여',
+      '랭킹 상품 도전 (랭킹 선물은 별도)',
+      '내 곤충 피규어·포스터 배송',
+      '게임 데이터 계속 보관',
+      '첫 카드부터 금장식 카드',
+    ],
+  },
+  D: {
+    key: 'D',
+    price: '10만원',
+    name: '다이아',
+    emoji: '💎',
+    games: Infinity,
+    card: 'diamond',
+    perks: [
+      '2일간 무제한 참여',
+      '랭킹 상품 도전 (랭킹 선물은 별도)',
+      '내 곤충 피규어·포스터 배송',
+      '게임 데이터 계속 보관',
+      '4분기(10~12월) 전국 곤충체험 실내·실외 2회',
+      '첫 카드부터 홀로그램 다이아 카드',
+    ],
+  },
+};
+
+export const TIER_ORDER: TierKey[] = ['A', 'B', 'C', 'D'];
+
+/**
+ * 종이 번호 → 등급. 번호 앞 글자로 정한다.
+ * 모르는 글자(E 이후, 옛 테스트 번호 등)는 **가장 낮은 1만원**으로 본다 —
+ * 더 많이 주는 쪽으로 틀리면 공짜로 게임을 더 하게 되기 때문이다.
+ */
+export function tierForTicket(ticket: string | null | undefined): Tier {
+  const letter = (ticket ?? '').trim().toUpperCase().charAt(0) as TierKey;
+  return TIERS[letter] ?? TIERS.A;
+}
+
+/** `/print` 에서 이 등급 종이를 뽑기 시작할 위치. `ticketAt` 은 999장마다 글자가 바뀐다. */
+export function tierStartIndex(key: TierKey): number {
+  return TIER_ORDER.indexOf(key) * 999;
+}
+
+export function gamesLabel(tier: Tier): string {
+  return Number.isFinite(tier.games) ? `${tier.games}게임` : '무제한';
+}

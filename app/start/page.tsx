@@ -9,6 +9,7 @@ import { normalizeTicket } from '@/lib/ticket';
 import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
+import Returning from './returning';
 import {
   COLLECTING_OPTIONS,
   COLLECTING_QUESTION,
@@ -73,13 +74,6 @@ function StartInner() {
     };
   }, [params]);
 
-  // 이어서 하기: 이미 있는 아이이므로 저장할 것이 없습니다. 바로 곤충 만들기로 보냅니다.
-  function continueAsReturning() {
-    if (!returning) return;
-    rememberPlayer(returning.id);
-    router.push('/upload');
-  }
-
 /**
  * 저장이 실패했을 때 화면에 띄울 문구를 고릅니다 (2026-09-29).
  *
@@ -132,10 +126,12 @@ function friendlyError(message?: string): string {
     rememberInsectName(insectName.trim());
 
     // 같은 번호로 다시 들어온 경우에는 새로 만들지 않고 원래 곤충으로 이어집니다.
+    // 손으로 번호를 쳐서 들어와도 QR 로 온 것과 똑같이 "다시 온 아이" 화면으로 보냅니다.
+    // (바로 곤충 만들기로 보내면 게임 횟수·30분 규칙을 건너뛰게 됩니다)
     const existing = await findPlayerByTicket(code);
     if (existing) {
-      rememberPlayer(existing.id);
-      router.push('/upload');
+      setSaving(false);
+      setReturning(existing);
       return;
     }
 
@@ -180,50 +176,10 @@ function friendlyError(message?: string): string {
   }
 
   // ── 다시 온 아이 ─────────────────────────────────────────
-  // 카드 QR 을 찍고 온 경우입니다. 이름도 설문도 이미 받아뒀으니 다시 묻지 않습니다.
+  // 카드·종이의 QR 을 찍고 온 경우입니다. 이름도 설문도 이미 받아뒀으니 다시 묻지 않습니다.
+  // 새 곤충 / 레벨업 / 30분 대기는 returning.tsx 가 맡습니다 (2026-10-01).
   if (returning) {
-    return (
-      <main className="max-w-md mx-auto min-h-screen px-6 py-10 flex flex-col gap-6 justify-center">
-        <div className="text-center">
-          <BrandLogo size={100} className="mb-3" />
-          <h1 className="text-2xl font-bold">
-            <span className="text-amber-400">{returning.display_name}</span> 다시 왔구나!
-          </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            내 번호 <b className="text-slate-200">{returning.ticket_code}</b> 로 이어서 할게.
-            <br />
-            이름이랑 질문은 다시 안 물어볼게 😉
-          </p>
-        </div>
-
-        <button
-          onClick={continueAsReturning}
-          className="bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl text-lg flex items-center justify-center gap-2"
-        >
-          <BrandMark size={30} tone="black" />새 곤충 만들러 가기
-        </button>
-
-        <div className="flex gap-2">
-          <a href="/card" className="flex-1 text-center bg-slate-800 font-semibold py-3 rounded-xl">
-            🃏 내 카드 보기
-          </a>
-          <a
-            href="/battle"
-            className="flex-1 text-center bg-slate-800 font-semibold py-3 rounded-xl"
-          >
-            ⚔️ 배틀하기
-          </a>
-        </div>
-
-        {/* 번호가 잘못 읽혔을 수도 있으니 빠져나갈 길을 둡니다. */}
-        <button
-          onClick={() => setReturning(null)}
-          className="text-xs text-slate-500 underline"
-        >
-          내가 아니에요 (번호 직접 입력하기)
-        </button>
-      </main>
-    );
+    return <Returning player={returning} onNotMe={() => setReturning(null)} />;
   }
 
   return (

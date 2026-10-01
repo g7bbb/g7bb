@@ -1,5 +1,7 @@
 'use client';
 
+import { effectiveVisit } from '@/lib/card';
+import { tierForTicket } from '@/lib/tiers';
 import { statsForInsect } from '@/lib/insect-stats';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -84,7 +86,8 @@ function CardInner() {
         image: row.image_base64,
         mime: row.mime_type || 'image/jpeg',
         ticketCode: player!.ticket_code ?? null,
-        visit: i + 1, // 만든 순서 = 회차
+        // 만든 순서 = 회차. 5만원·10만원 참가권은 첫 카드부터 금색·다이아 (lib/card.ts)
+        visit: effectiveVisit(i + 1, tierForTicket(player!.ticket_code).card),
       }));
 
       setCards(built);
@@ -137,7 +140,7 @@ function CardInner() {
 
           <p className="text-center text-sm text-slate-400 leading-relaxed">
             📸 <b className="text-slate-200">화면을 사진으로 찍으면</b> 카드를 가져갈 수 있어!
-            <br />또 만들고 싶으면 카드의 QR을 찍어줘.
+            <br />다시 올 때(30분 뒤)는 카드의 QR 을 찍어줘. 레벨업하거나 새 곤충을 만들 수 있어!
           </p>
 
           <div className="flex gap-2">
@@ -145,13 +148,19 @@ function CardInner() {
               href="/battle"
               className="flex-1 text-center bg-sky-500 text-slate-900 font-bold py-3 rounded-xl"
             >
-              ⚔️ 배틀하러 가기
+              ⚔️ 배틀
             </Link>
             <Link
               href="/ranking"
               className="flex-1 text-center bg-slate-800 font-bold py-3 rounded-xl"
             >
               🏆 랭킹
+            </Link>
+            <Link
+              href="/badges"
+              className="flex-1 text-center bg-slate-800 font-bold py-3 rounded-xl"
+            >
+              🏅 뱃지
             </Link>
           </div>
         </>

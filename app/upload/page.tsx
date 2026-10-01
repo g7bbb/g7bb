@@ -1,5 +1,7 @@
 'use client';
 
+import { effectiveVisit } from '@/lib/card';
+import { tierForTicket } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentPlayer, readInsectName, rememberInsectName } from '@/lib/session';
@@ -14,6 +16,7 @@ import { readSheetPhoto } from '@/lib/sheet-read';
 import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import { countInsectsForPlayer } from '@/lib/visit-count';
+import { canMakeNewInsect, markInsectMade } from '@/lib/game-state';
 import InsectCard from '@/app/card/insect-card';
 import {
   MUTATIONS,
@@ -90,6 +93,8 @@ export default function UploadPage() {
   const [error, setError] = useState('');
 
   const [player, setPlayer] = useState<Player | null>(null);
+  // 이번 게임에서 곤충을 더 만들 수 없는 경우 (이미 만들었음)
+  const [blocked, setBlocked] = useState(false);
   const [showHowTo, setShowHowTo] = useState(true);
 
   // 종이 마킹 자동 인식 (순서표 6번)
@@ -108,7 +113,12 @@ export default function UploadPage() {
       if (fromStart) setInsectName((current) => current || fromStart);
       // 이미 만들어둔 곤충 개수를 세어 카드 등급(회차)을 미리 맞춰둡니다.
       // 실패해도 0 이 돌아와 첫 카드로 보일 뿐이라 체험은 막히지 않습니다.
-      countInsectsForPlayer(p.id).then(setSavedCount);
+      countInsectsForPlayer(p.id).then((n) => {
+        setSavedCount(n);
+        // 곤충은 첫 방문 때 하나, 다시 와서 "새 곤충"을 고른 게임마다 하나씩만 (2026-10-01).
+        // 그냥 이 화면을 다시 열어서 곤충을 계속 만들면 참가권 규칙과 AI 비용이 둘 다 새어 나갑니다.
+        setBlocked(!canMakeNewInsect(p, n));
+      });
     });
   }, [router]);
 
@@ -266,6 +276,8 @@ export default function UploadPage() {
       if (insertError) throw insertError;
       // 다음 곤충에 같은 이름이 또 채워지지 않게 비웁니다.
       rememberInsectName('');
+      // 이번 게임의 곤충은 만들었다고 적어둡니다 (한 게임에 곤충 하나).
+      await markInsectMade(player.id).catch(() => {});
       // 저장 직후에는 배틀보다 **카드**를 먼저 보여줍니다.
       // 10~20초 기다려 만든 결과라 여기가 제일 짜릿한 순간이고, 카드에 박힌 QR 이
       // 다음에 또 올 때의 신분증이라 아이가 한 번은 꼭 봐야 합니다. (배틀 버튼은 카드 화면에 있습니다)
@@ -275,6 +287,24 @@ export default function UploadPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (blocked) {
+    return (
+      <main className="max-w-md mx-auto min-h-screen flex flex-col gap-4 justify-center px-6 py-10 text-center" style={{ wordBreak: 'keep-all' }}>
+        <p className="text-5xl">🐛</p>
+        <p className="text-lg font-bold">이번 게임의 곤충은 이미 만들었어!</p>
+        <p className="text-sm text-slate-400">
+          새 곤충은 30분 뒤에 카드의 QR 로 다시 들어와서 &quot;새로운 곤충&quot;을 고르면 만들 수 있어.
+        </p>
+        <button onClick={() => router.push('/battle')} className="bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl">
+          ⚔️ 배틀하러 가기
+        </button>
+        <button onClick={() => router.push('/card')} className="bg-slate-800 font-bold py-3 rounded-2xl">
+          🃏 내 카드 보기
+        </button>
+      </main>
+    );
   }
 
   return (
@@ -621,7 +651,8 @@ export default function UploadPage() {
                 image: result.image,
                 mime: result.mime,
                 ticketCode: player?.ticket_code ?? null,
-                visit: savedCount + 1, // 지금 만드는 것이 몇 번째인지
+                // 지금 만드는 것이 몇 번째인지. 5만원·10만원은 첫 카드부터 금색·다이아.
+                visit: effectiveVisit(savedCount + 1, tierForTicket(player?.ticket_code).card),
               }}
             />
             {/* 다시 만드는 동안에도 지금 카드를 계속 보여줍니다.

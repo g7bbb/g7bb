@@ -73,3 +73,26 @@ console.log('── 성장단계 (vs 아무나)');
 for (const a of AGES) console.log(' ', a.padEnd(8), rate({ age: a }, rnd));
 console.log('── 곤충 종류 (vs 아무나)');
 for (const s of SPECIES) console.log(' ', s.label.padEnd(6), rate({ species: s.label }, rnd));
+
+// ── 레벨업 포인트: 3포인트를 한 곳에 몰아준 곤충 vs 똑같은 곤충(포인트 없음) ──
+// 어디에 몰아줘도 비슷해야 한다 (한 곳만 압도적이면 다들 거기에만 몰아준다).
+import { ALLOC_STATS, applyAlloc } from '../../lib/alloc';
+console.log('── 레벨업 포인트 3개 몰아주기 (vs 같은 곤충, 포인트 없음)');
+for (const { key, label } of ALLOC_STATS) {
+  let win = 0;
+  let lose = 0;
+  for (let i = 0; i < N; i++) {
+    const p = parts();
+    const species = pick(SPECIES).label;
+    const age = pick(AGES);
+    const origin = pick(ORIGINS);
+    const base = calculateStats(p, age, undefined, species, origin);
+    const moves = movesFor(species, 1).map((m) => m.key);
+    const A: BattleSide = { stats: applyAlloc(base, { [key]: 3 }), level: 1, origin };
+    const B: BattleSide = { stats: base, level: 1, origin };
+    const r = resolveBattle(...(Object.values(rollBattle(A, B)) as [any, any]), moves, moves, 1);
+    if (r.winner === 'A') win++;
+    else if (r.winner === 'B') lose++;
+  }
+  console.log(`  ${label.padEnd(4)} +3: ${((win / (win + lose)) * 100).toFixed(1)}%`);
+}

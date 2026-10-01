@@ -126,7 +126,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
           </div>
 
           {/* ── 필살기 + 능력치 ── */}
-          <div className="px-3 pt-2.5 pb-3 bg-slate-950">
+          <div className="px-3 pt-2.5 pb-3 bg-slate-950" style={tier.panel ? { background: tier.panel } : undefined}>
             <div className="flex flex-col gap-1 mb-2">
               {[move, move2].filter(Boolean).map((m, i) => (
                 <div
@@ -186,7 +186,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                     {data.ticketCode}
                   </div>
                   <div className="text-[9px] text-slate-500 leading-tight">
-                    또 만들고 싶으면 이 QR을 찍어줘
+                    다시 올 때 이 QR을 찍어줘
                   </div>
                 </div>
                 {qr && (

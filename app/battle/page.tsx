@@ -6,6 +6,8 @@ import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
+import { awardBadges, blockedMessage, claimSlot, playStatus } from '@/lib/game-state';
+import PlayStatusCard from '@/app/play-status';
 import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { levelFromXp, statsForInsect, xpGainForBattle } from '@/lib/insect-stats';
 import {
@@ -138,6 +140,11 @@ export default function BattlePage() {
 
   // ─── 랭킹 도전 ───
   const [ladder, setLadder] = useState<LadderState | null>(null);
+  // 연습 게임(랭커와 1판)인지. 연습은 점수·경험치를 남기지 않습니다.
+  // 연출 루프(runFight)가 시작할 때의 값을 봐야 해서 state 가 아니라 ref 로 둡니다.
+  const practiceRef = useRef(false);
+  // 30분 대기 시계를 1초마다 다시 그립니다.
+  const [now, setNow] = useState(() => Date.now());
 
   // ─── 배틀 진행 ───
   const [opponent, setOpponent] = useState<Insect | null>(null);
@@ -170,6 +177,11 @@ export default function BattlePage() {
   const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
   // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
   const myMove = myInsect ? baseMoveFor(myInsect.species) : null;
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     getCurrentPlayer().then((p) => {
@@ -432,6 +444,23 @@ export default function BattlePage() {
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
     const savePromise = saveResult(foe, final);
 
+    // 이번 배틀에서 생긴 뱃지 (lib/badges.ts). 실패해도 배틀은 그대로 갑니다.
+    const iWon = final.winner === 'A';
+    const earned = ['firstBattle'];
+    if (iWon) earned.push('firstWin');
+    if (bestTier?.key === 'perfect') earned.push('perfect');
+    if (final.a.dodged) earned.push('dodge');
+    if (iWon && final.a.crit) earned.push('critWin');
+    if (iWon && final.a.matchup === 1) earned.push('matchupWin');
+    if (iWon && foe.level > myInsect.level) earned.push('giantSlayer');
+    if (practiceRef.current) earned.push('practice');
+    if (ladder && iWon) {
+      const target = ladder.targets[ladder.index];
+      if (target?.rank === 1) earned.push('beatTop1');
+      if (ladder.index + 1 >= ladder.targets.length) earned.push('ladderClear');
+    }
+    void awardBadges(player.id, earned);
+
     setPhase('final');
     for (const move of foeMoves) await playSpecial('B', move, rolls.a.dodged);
 
@@ -488,6 +517,8 @@ export default function BattlePage() {
 
   async function saveResult(foe: Insect, final: BattleResult) {
     if (!player || !myInsect) return { xpGained: 0, leveledUp: false };
+    // 연습 게임은 기록을 남기지 않습니다 (랭킹 점수·경험치 둘 다).
+    if (practiceRef.current) return { xpGained: 0, leveledUp: false };
 
     const won = final.winner === 'A';
     const gained = xpGainForBattle(won, myInsect.age_stage);
@@ -519,14 +550,38 @@ export default function BattlePage() {
 
   // 랭킹 도전 시작: 지금 순위표의 위쪽 3명을 뽑아 **고정**합니다.
   // 도중에 다른 아이가 점수를 올려 순위가 바뀌어도 사다리는 흔들리지 않습니다.
-  function startLadder() {
-    if (opponents.length === 0) return;
+  async function startLadder() {
+    if (!player || opponents.length === 0) return;
+    // 랭킹 도전 1번 = 1게임. 시작하는 순간 게임 하나를 씁니다 (lib/game-state.ts).
+    setError('');
+    try {
+      setPlayer(await claimSlot(player.id, 'ladder'));
+    } catch (err: any) {
+      setError(err.message || '지금은 랭킹 도전을 할 수 없어요.');
+      return;
+    }
+    practiceRef.current = false;
     // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전하도록 뒤집습니다.
     // 상대가 3명보다 적으면 있는 만큼만 도전합니다. (행사 초반에는 참가자가 몇 명 없습니다.)
     const targets = opponents.slice(0, LADDER_SIZE).reverse();
     const run: LadderState = { targets, index: 0, used: 0, log: [] };
     setLadder(run);
     startBattle(targets[0]);
+  }
+
+  /** 랭커와 연습 게임 — 게임당 1판, 기록은 안 남습니다 (Jin 요청 2026-10-01). */
+  async function startPractice(target: OpponentSummary) {
+    if (!player) return;
+    setError('');
+    try {
+      setPlayer(await claimSlot(player.id, 'practice'));
+    } catch (err: any) {
+      setError(err.message || '지금은 연습 게임을 할 수 없어요.');
+      return;
+    }
+    practiceRef.current = true;
+    setLadder(null);
+    startBattle(target);
   }
 
   function nextLadderBattle() {
@@ -756,9 +811,13 @@ export default function BattlePage() {
                   ? '💀 내 곤충이 버티지 못했어요'
                   : '🤝 무승부'}
             </p>
-            <p className="text-sm text-emerald-400">
-              +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
-            </p>
+            {practiceRef.current ? (
+              <p className="text-sm text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임이라 점수·경험치는 안 남아. 실력만 쑥쑥!</p>
+            ) : (
+              <p className="text-sm text-emerald-400">
+                +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
+              </p>
+            )}
             {usedSpecial && timing && myMove && (
               <p className={`text-xs ${timing.textColor}`}>
                 {timing.emoji} {timing.label} {myMove.name}
@@ -818,7 +877,7 @@ export default function BattlePage() {
                   onClick={backToSetup}
                   className="flex-1 bg-sky-500 text-slate-900 font-bold py-3 rounded-xl"
                 >
-                  {ladder ? '처음부터 다시' : '다른 상대와 배틀'}
+                  {ladder ? '처음으로' : '돌아가기'}
                 </button>
               )}
               <button
@@ -841,6 +900,7 @@ export default function BattlePage() {
   const picked = opponents.find((o) => o.id === pickedId) ?? null;
   // 도전 순서대로(3위 → 2위 → 1위) 미리 보여줍니다.
   const ladderTargets = opponents.slice(0, LADDER_SIZE).reverse();
+  const status = player ? playStatus(player, now) : null;
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
@@ -850,6 +910,8 @@ export default function BattlePage() {
         <span>내 곤충 Lv.{myInsect.level}</span>
         <span className="text-slate-400">XP {myInsect.xp} · 배틀 {myInsect.battle_count}회</span>
       </div>
+
+      {status && <PlayStatusCard status={status} />}
 
       {/* 내 필살기 안내 — 배틀 중에 버튼이 뜬다는 것을 미리 알려줘야 놓치지 않습니다. */}
       {myMove && (
@@ -904,29 +966,35 @@ export default function BattlePage() {
 
             <button
               onClick={startLadder}
-              disabled={starting}
+              disabled={starting || !status?.canLadder}
               className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
             >
               {starting
                 ? '상대를 데려오는 중...'
                 : `⚔️ ${rankMedal(ladderTargets[0].rank)} ${ladderTargets[0].nickname}부터 도전!`}
             </button>
+            {status && !status.canLadder && (
+              <p className="text-xs text-amber-300 text-center" style={{ wordBreak: 'keep-all' }}>
+                {blockedMessage(status)}
+              </p>
+            )}
           </>
         )}
       </div>
 
-      {/* 친구를 지정해서 붙고 싶을 때. 랭킹 도전과 달리 횟수 제한이 없습니다. */}
+      {/* 랭커와 연습 게임 — 게임당 1판, 점수·경험치는 안 남습니다 (2026-10-01 Jin).
+          예전에는 횟수 제한 없는 "친구랑 붙기"였는데, 그대로 두면 게임 횟수 제한을 피해 가는 구멍이 됩니다. */}
       {!showPicker ? (
         <button
           onClick={() => setShowPicker(true)}
-          className="text-sm text-slate-400 underline self-center"
+          className="text-sm text-slate-300 underline self-center"
         >
-          친구를 직접 골라서 붙기
+          🎯 랭커와 연습 게임 (게임당 1판)
         </button>
       ) : (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm text-slate-400">누구랑 붙을까요? (랭킹 순)</p>
+          <p className="text-sm text-slate-400">누구랑 연습할까? (랭킹 순 · 기록 안 남음)</p>
           <button
             onClick={() => {
               const pool = filtered.length > 0 ? filtered : opponents;
@@ -1003,16 +1071,21 @@ export default function BattlePage() {
         )}
 
         <button
-          onClick={() => picked && startBattle(picked)}
-          disabled={!picked || starting}
+          onClick={() => picked && startPractice(picked)}
+          disabled={!picked || starting || !status?.canPractice}
           className="w-full mt-3 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
         >
           {starting
             ? '상대를 데려오는 중...'
             : picked
-              ? `⚔️ ${picked.nickname}와(과) 배틀!`
+              ? `🎯 ${picked.nickname}와(과) 연습 게임!`
               : '상대를 골라주세요'}
         </button>
+        {status && !status.canPractice && (
+          <p className="mt-2 text-xs text-amber-300 text-center" style={{ wordBreak: 'keep-all' }}>
+            이번 게임의 연습은 이미 했어. {blockedMessage(status)}
+          </p>
+        )}
       </div>
       )}
 
@@ -1181,3 +1254,4 @@ function OriginInfo({ origin }: { origin: EnvironmentKey | null | undefined }) {
     </div>
   );
 }
+

@@ -86,6 +86,12 @@ function HomeInner() {
           >
             🏆 랭킹 보기
           </Link>
+          <Link
+            href="/badges"
+            className="block text-center bg-violet-400 hover:bg-violet-300 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          >
+            🏅 내 뱃지
+          </Link>
         </div>
       )}
 

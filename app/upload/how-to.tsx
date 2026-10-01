@@ -75,6 +75,21 @@ const SLIDES: Slide[] = [
     title: '이제 배틀하러 가요!',
     description: '만든 곤충으로 친구들과 배틀하고\n랭킹에 도전해보세요.',
   },
+  // 마지막 장 — Jin 문구 (2026-10-01)
+  {
+    emoji: '🏅',
+    title: '뱃지를 모아요!',
+    description: '뱃지를 모을수록 재미있고\n멋진 선물을 받을 수 있어!!',
+    visual: (
+      <div className="flex justify-center gap-2 text-3xl">
+        <span>🥇</span>
+        <span>✨</span>
+        <span>💨</span>
+        <span>👑</span>
+        <span>🎡</span>
+      </div>
+    ),
+  },
 ];
 
 export default function HowTo({ onClose }: { onClose: () => void }) {
