@@ -554,8 +554,8 @@ export default function BattlePage() {
     // 연습 게임은 기록을 남기지 않습니다 (랭킹 점수·경험치 둘 다).
     if (practiceRef.current) return { xpGained: 0, leveledUp: false };
 
-    // 경험치: 이기든 지든 같다. LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … (lib/leveling.ts)
-    const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level));
+    // 경험치: LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … LV3 부터는 지면 절반 (lib/leveling.ts)
+    const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level, final.winner === 'A'));
     const gained = gain.gained;
     const newXp = gain.xp;
     const newLevel = gain.level;

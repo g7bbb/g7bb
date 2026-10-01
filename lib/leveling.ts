@@ -8,8 +8,9 @@
 // 레벨 하나 = 경험치 100. (`insects.xp` 는 지금까지 모은 경험치 합계, `insects.level` 은 그대로 저장)
 //
 //   배틀 한 판   LV1 100% · LV2 70% · LV3 49% · LV4 34% · LV5 24% … (레벨마다 ×0.7)
-//                → LV1 곤충은 첫 배틀만 해도 바로 LV2. 이기든 지든 똑같이 받는다.
-//   다시 왔을 때 LV4 까지는 100%(= 한 번에 레벨업) · LV5 50% · LV6 부터 30%
+//                → LV1 곤충은 첫 배틀만 해도 바로 LV2.
+//                LV2 까지는 이기든 지든 똑같이, **LV3 부터는 지면 절반**.
+//   다시 왔을 때 LV5 까지는 올 때마다 한 번에 레벨업 · LV5→6 50% · LV6→7 45% · LV7→8 40% …
 //
 //   역전 찬스    레벨이 낮을수록 "필살기 한 번 더!" 확률이 높다 (LV1 50%).
 //                상대보다 레벨이 낮으면 크리티컬 확률이 올라간다.
@@ -25,16 +26,25 @@ export const BATTLE_XP_DECAY = 0.7;
 /** 아무리 높아도 배틀 한 판에 이만큼은 받는다 (5%) */
 const BATTLE_XP_MIN = 0.05;
 
+/** 이 레벨부터는 지면 경험치를 덜 받는다 (Jin: "레벨 3 전까진 이기든 지든 똑같이") */
+export const LOSS_XP_FROM_LEVEL = 3;
+/** 졌을 때 받는 비율 */
+export const LOSS_XP_RATE = 0.5;
+
 /** 배틀 한 판으로 얻는 경험치 (레벨 하나의 몇 %인지) */
-export function battleXpRate(level: number): number {
-  return Math.max(BATTLE_XP_MIN, Math.pow(BATTLE_XP_DECAY, Math.max(0, level - 1)));
+export function battleXpRate(level: number, won = true): number {
+  const base = Math.max(BATTLE_XP_MIN, Math.pow(BATTLE_XP_DECAY, Math.max(0, level - 1)));
+  return level >= LOSS_XP_FROM_LEVEL && !won ? base * LOSS_XP_RATE : base;
 }
 
-/** 다시 와서 "내 곤충 키우기" 를 골랐을 때 얻는 경험치 (레벨 하나의 몇 %인지) */
+/**
+ * 다시 와서 "내 곤충 키우기" 를 골랐을 때 얻는 경험치 (레벨 하나의 몇 %인지)
+ * LV5 까지는 올 때마다 한 번에 레벨업. LV5→6 50% · LV6→7 45% · LV7→8 40% … 5%씩 줄고 최소 10%.
+ * (Jin 10/1: "다회차 아이들이 너무 세면 재미가 없어질 것 같아서")
+ */
 export function revisitXpRate(level: number): number {
-  if (level < 5) return 1; // LV5 까지는 올 때마다 한 번에 레벨업
-  if (level === 5) return 0.5;
-  return 0.3;
+  if (level < 5) return 1;
+  return Math.max(0.1, 0.5 - 0.05 * (level - 5));
 }
 
 export function levelFromXp(xp: number): number {

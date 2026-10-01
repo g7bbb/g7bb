@@ -27,7 +27,7 @@ const parts = (): BodyPartScores => {
 const LADDER = 3; // 한 게임 = 랭킹 도전 3판
 
 /** n 번째로 온 아이가 그 게임에서 치르는 배틀들의 레벨 · 받은 포인트 수 */
-function journey(visits: number): { levels: number[]; points: number } {
+function journeyOnce(visits: number): { levels: number[]; points: number } {
   let level = 1;
   let xp = 0;
   let points = 0;
@@ -42,12 +42,25 @@ function journey(visits: number): { levels: number[]; points: number } {
     levels = [];
     for (let b = 0; b < LADDER; b++) {
       levels.push(level);
-      const g = addXp(level, xp, battleXpRate(level));
+      // 이길 확률은 반반으로 본다 (LV3 부터는 지면 경험치 절반)
+      const g = addXp(level, xp, battleXpRate(level, Math.random() < 0.5));
       level = g.level;
       xp = g.xp;
     }
   }
   return { levels, points };
+}
+
+/** 이기고 지는 게 무작위라 여러 번 굴려서 제일 흔한 경우를 쓴다 */
+function journey(visits: number): { levels: number[]; points: number } {
+  const seen = new Map<string, { n: number; j: ReturnType<typeof journeyOnce> }>();
+  for (let i = 0; i < 400; i++) {
+    const j = journeyOnce(visits);
+    const key = j.levels.join(',') + '|' + j.points;
+    const prev = seen.get(key);
+    seen.set(key, { n: (prev?.n ?? 0) + 1, j });
+  }
+  return Array.from(seen.values()).sort((a, b) => b.n - a.n)[0].j;
 }
 
 function randomAlloc(points: number): Alloc {
@@ -89,7 +102,7 @@ function rate(makeA: () => ReturnType<typeof make>, makeB: () => ReturnType<type
 }
 
 console.log('── 회차별로 아이가 배틀하는 레벨 (항상 "내 곤충 키우기" 를 골랐을 때)');
-for (let v = 1; v <= 6; v++) {
+for (let v = 1; v <= 8; v++) {
   const j = journey(v);
   console.log(`  ${v}회차: 배틀 레벨 ${j.levels.join(' → ')} · 레벨업 포인트 ${j.points}`);
 }
