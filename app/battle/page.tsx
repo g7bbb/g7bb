@@ -6,7 +6,7 @@ import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
-import { awardBadges, blockedMessage, claimSlot, playStatus, readGameState, saveBadgeCount } from '@/lib/game-state';
+import { awardBadges, blockedMessage, claimSlot, friendXpMultiplier, hasFriendBuff, playStatus, readGameState, saveBadgeCount } from '@/lib/game-state';
 import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
@@ -739,7 +739,12 @@ export default function BattlePage() {
     if (practiceRef.current) return unchanged;
 
     // 경험치: LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … LV3 부터는 지면 절반 (lib/leveling.ts)
-    const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level, final.winner === 'A'));
+    // 친구·가족 버프면 × 1.1 (lib/game-state.ts)
+    const gain = addXp(
+      myInsect.level,
+      myInsect.xp,
+      battleXpRate(myInsect.level, final.winner === 'A') * friendXpMultiplier(playerRef.current ?? player)
+    );
     const gained = gain.shown; // 화면에 보여줄 XP 숫자 (레벨이 높을수록 커짐)
     const newXp = gain.xp;
     const newLevel = gain.level;
@@ -1199,6 +1204,9 @@ export default function BattlePage() {
           </p>
           <PerkChips count={badgeCount} />
         </button>
+      )}
+      {player && hasFriendBuff(player) && (
+        <p className="-mt-3 text-center text-sm font-bold text-pink-300">👨‍👩‍👧 친구 버프! 경험치 +10%</p>
       )}
 
       {/* 곤충 이름 (안 지었으면 "내 곤충") + 레벨 + XP 숫자 (Jin 10/1) */}

@@ -13,12 +13,33 @@ const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
 // 첫 화면 공지 · 다음 시리즈 예고 (2026-10-01 Jin). 문구는 여기만 고치면 된다.
 const HOME_NOTICE = '친구나 가족과 함께하면 더 강해져!!';
-const COMING_SOON = '커밍순! (26년 초 예정)';
-const NEXT_SERIES: { emoji: string; name: string; from: string; to: string }[] = [
-  { emoji: '🌱', name: '식물 버전', from: '#22c55e', to: '#14532d' },
-  { emoji: '🐟', name: '어류 버전', from: '#38bdf8', to: '#1e3a8a' },
-  { emoji: '🦖', name: '공룡 버전', from: '#f97316', to: '#7c2d12' },
+const COMING_SOON = '커밍순! (27년 1월 예정)';
+// 로고 그림은 public/series/ 에 넣으면 바로 그 그림이 나온다 (없으면 이모지 동그라미).
+const NEXT_SERIES: { emoji: string; name: string; from: string; to: string; img: string }[] = [
+  { emoji: '🌱', name: '식물 버전', from: '#22c55e', to: '#14532d', img: '/series/plant.jpg' },
+  { emoji: '🐟', name: '어류 버전', from: '#38bdf8', to: '#1e3a8a', img: '/series/fish.jpg' },
+  { emoji: '🦖', name: '공룡 버전', from: '#f97316', to: '#7c2d12', img: '/series/dino.jpg' },
 ];
+
+function SeriesLogo({ v }: { v: (typeof NEXT_SERIES)[number] }) {
+  const [hasImg, setHasImg] = useState(true);
+  return (
+    <div
+      className="relative w-20 h-20 rounded-full overflow-hidden flex flex-col items-center justify-center shadow-lg ring-2 ring-white/25"
+      style={{ background: `radial-gradient(circle at 35% 30%, ${v.from}, ${v.to})` }}
+    >
+      {hasImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={v.img} alt={v.name} className="absolute inset-0 w-full h-full object-cover" onError={() => setHasImg(false)} />
+      ) : (
+        <>
+          <span className="text-4xl leading-none">{v.emoji}</span>
+          <span className="mt-0.5 text-[0.5625rem] font-black text-white/90 tracking-wider">G7BB</span>
+        </>
+      )}
+    </div>
+  );
+}
 
 function HomeInner() {
   const router = useRouter();
@@ -154,13 +175,7 @@ function HomeInner() {
         <div className="mt-3 grid grid-cols-3 gap-3">
           {NEXT_SERIES.map((v) => (
             <div key={v.name} className="flex flex-col items-center gap-1.5">
-              <div
-                className="w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-lg ring-2 ring-white/20"
-                style={{ background: `radial-gradient(circle at 35% 30%, ${v.from}, ${v.to})` }}
-              >
-                <span className="text-4xl leading-none">{v.emoji}</span>
-                <span className="mt-0.5 text-[0.5625rem] font-black text-white/90 tracking-wider">G7BB</span>
-              </div>
+              <SeriesLogo v={v} />
               <span className="text-xs font-bold text-slate-200">{v.name}</span>
             </div>
           ))}

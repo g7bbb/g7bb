@@ -46,6 +46,11 @@ export interface GameState {
    * 상대의 뱃지를 배틀마다 처음부터 세면 조회가 너무 많아서, 본인이 뱃지·배틀 화면을 열 때 갱신한다.
    */
   badgeCount?: number;
+  /**
+   * 친구·가족 번호 (2026-10-01 Jin: "친구나 가족과 함께하면 레벨업 속도 +10%").
+   * 아이가 친구 번호를 적으면 **양쪽 다** 서로의 번호가 들어간다. 하나라도 있으면 버프.
+   */
+  friends?: string[];
 }
 
 export function readGameState(player: Pick<Player, 'survey'> | null | undefined): GameState {
@@ -55,6 +60,7 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
     badges: raw.badges && typeof raw.badges === 'object' ? raw.badges : {},
     ...(raw.tier && TIERS[raw.tier as TierKey] ? { tier: raw.tier as TierKey } : {}),
     ...(Number.isFinite(raw.badgeCount) ? { badgeCount: Number(raw.badgeCount) } : {}),
+    ...(Array.isArray(raw.friends) ? { friends: raw.friends.filter((t: unknown) => typeof t === 'string') } : {}),
   };
 }
 
@@ -205,6 +211,45 @@ export async function saveBadgeCount(playerId: string, count: number): Promise<v
   } catch {
     // 장식에 가까운 기록이라 실패해도 넘어갑니다.
   }
+}
+
+// ── 친구·가족 버프 ─────────────────────────────────────
+/** 친구 버프: 배틀·다시 왔을 때 받는 경험치 × 1.1 */
+export const FRIEND_XP_BONUS = 1.1;
+
+export function hasFriendBuff(player: Pick<Player, 'survey'> | null | undefined): boolean {
+  return (readGameState(player).friends ?? []).length > 0;
+}
+
+/** 경험치 배수 (친구 버프가 있으면 1.1) */
+export function friendXpMultiplier(player: Pick<Player, 'survey'> | null | undefined): number {
+  return hasFriendBuff(player) ? FRIEND_XP_BONUS : 1;
+}
+
+/**
+ * 친구 번호를 적었을 때. 그 번호가 **이미 등록된 아이**면 양쪽에 서로의 번호를 적는다.
+ * 같이 시작하지 않았어도 된다 (번호만 알고 오면 됨). 돌려주는 값은 친구 이름.
+ * 안 되면 아이에게 보여줄 문구로 에러를 던진다.
+ */
+export async function linkFriend(playerId: string, friendTicket: string): Promise<{ name: string; me: Player }> {
+  const me = await freshPlayer(playerId);
+  if (!me) throw new Error('내 번호를 못 찾았어. 처음 화면에서 다시 들어와줘!');
+  if (friendTicket === me.ticket_code) throw new Error('그건 내 번호야! 친구나 가족 번호를 적어줘.');
+  const { data: friend } = await supabase.from('players').select('*').eq('ticket_code', friendTicket).maybeSingle();
+  if (!friend || isPending(friend as Player)) {
+    throw new Error(`${friendTicket} 번호는 아직 등록이 안 됐어. 친구가 먼저 시작해야 해!`);
+  }
+  const add = (list: string[] | undefined, t: string) => Array.from(new Set([...(list ?? []), t])).slice(0, 10);
+  const myState = readGameState(me);
+  const saved = await saveGameState(me, { ...myState, friends: add(myState.friends, friendTicket) });
+  // 친구 쪽에도 적는다. 실패해도 내 버프는 그대로.
+  try {
+    const theirState = readGameState(friend as Player);
+    await saveGameState(friend as Player, { ...theirState, friends: add(theirState.friends, me.ticket_code ?? '') });
+  } catch {
+    // 친구 쪽 기록은 덤
+  }
+  return { name: (friend as Player).display_name || friendTicket, me: saved };
 }
 
 export function formatCountdown(ms: number): string {

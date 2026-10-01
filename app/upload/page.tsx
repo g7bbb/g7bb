@@ -17,7 +17,8 @@ import { readSheetPhoto } from '@/lib/sheet-read';
 import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import { countInsectsForPlayer } from '@/lib/visit-count';
-import { canMakeNewInsect, markInsectMade } from '@/lib/game-state';
+import { canMakeNewInsect, linkFriend, markInsectMade, readGameState } from '@/lib/game-state';
+import { normalizeTicket } from '@/lib/ticket';
 import InsectCard from '@/app/card/insect-card';
 import {
   MUTATIONS,
@@ -94,6 +95,10 @@ export default function UploadPage() {
   const [error, setError] = useState('');
 
   const [player, setPlayer] = useState<Player | null>(null);
+  // 친구·가족 번호 (경험치 +10% 버프, lib/game-state.ts linkFriend)
+  const [friendInput, setFriendInput] = useState('');
+  const [friendMsg, setFriendMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [friendBusy, setFriendBusy] = useState(false);
   // 이번 게임에서 곤충을 더 만들 수 없는 경우 (이미 만들었음)
   const [blocked, setBlocked] = useState(false);
   const [showHowTo, setShowHowTo] = useState(true);
@@ -377,6 +382,58 @@ export default function UploadPage() {
               maxLength={12}
               className="w-full bg-slate-800 rounded-xl px-4 py-3 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
             />
+          </div>
+
+          {/* 친구·가족 버프 (2026-10-01 Jin) — 친구 번호를 알면 적는다. 같이 시작 안 했어도 된다. */}
+          <div className="bg-pink-500/10 border-2 border-pink-400/40 rounded-2xl p-3" style={{ wordBreak: 'keep-all' }}>
+            <p className="text-sm font-bold text-pink-200">👨‍👩‍👧 친구·가족 번호 <span className="font-normal text-slate-400">— 안 적어도 돼!</span></p>
+            <p className="text-xs text-slate-300 mt-0.5">친구나 가족 번호를 적으면 둘 다 <b className="text-pink-300">경험치 +10%</b>!</p>
+            {player && (readGameState(player).friends ?? []).length > 0 ? (
+              <p className="mt-2 text-sm font-bold text-emerald-300">
+                ✅ 친구 버프 받는 중! ({(readGameState(player).friends ?? []).join(', ')})
+              </p>
+            ) : (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={friendInput}
+                  onChange={(e) => {
+                    setFriendInput(e.target.value.slice(0, 6));
+                    setFriendMsg(null);
+                  }}
+                  placeholder="예: 14"
+                  className="flex-1 min-w-0 bg-slate-800 rounded-xl px-4 py-2.5 text-base font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+                <button
+                  disabled={friendBusy || !friendInput.trim()}
+                  onClick={async () => {
+                    if (!player) return;
+                    const ticket = normalizeTicket(friendInput);
+                    if (!ticket) {
+                      setFriendMsg({ ok: false, text: '번호를 다시 확인해줘! (예: 14 또는 A-014)' });
+                      return;
+                    }
+                    setFriendBusy(true);
+                    try {
+                      const { name, me } = await linkFriend(player.id, ticket);
+                      setPlayer(me);
+                      setFriendMsg({ ok: true, text: `${name}(${ticket})랑 친구 버프! 둘 다 경험치 +10%` });
+                    } catch (err: any) {
+                      setFriendMsg({ ok: false, text: err?.message || '지금은 안 돼. 조금 있다 다시 해줘!' });
+                    } finally {
+                      setFriendBusy(false);
+                    }
+                  }}
+                  className="shrink-0 bg-pink-400 disabled:opacity-40 text-slate-900 font-bold px-4 rounded-xl"
+                >
+                  {friendBusy ? '...' : '확인'}
+                </button>
+              </div>
+            )}
+            {friendMsg && (
+              <p className={`mt-2 text-xs font-bold ${friendMsg.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{friendMsg.text}</p>
+            )}
           </div>
 
           <div>

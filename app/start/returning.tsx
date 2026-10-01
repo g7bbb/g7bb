@@ -8,7 +8,7 @@ import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
 import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
 import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
-import { awardBadges, blockedMessage, checkIn, playStatus } from '@/lib/game-state';
+import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { playSound, unlockAudio } from '@/lib/sfx';
@@ -99,6 +99,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
     return (
       <LevelUp
         insect={insect}
+        xpBonus={friendXpMultiplier(player)}
         onCancel={() => setLeveling(false)}
         onDone={async (alloc, gain) => {
           // 먼저 게임을 엽니다(30분·횟수 확인). 막히면 레벨업도 하지 않습니다.
@@ -214,10 +215,13 @@ function BigButton({ onClick, children }: { onClick: () => void; children: React
 /** "환영해!! 더 강해진 뒤, 수액을 차지하자!!" — 레벨업 + 포인트 나누기 */
 function LevelUp({
   insect,
+  xpBonus = 1,
   onCancel,
   onDone,
 }: {
   insect: LatestInsect;
+  /** 친구·가족 버프 (경험치 × 1.1) */
+  xpBonus?: number;
   onCancel: () => void;
   onDone: (alloc: Alloc, gain: XpGain) => Promise<void>;
 }) {
@@ -225,7 +229,7 @@ function LevelUp({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   // 이번에 얻는 경험치. 레벨이 올라야 포인트를 받는다 (오른 레벨 × 3개).
-  const gain = addXp(insect.level, insect.xp, revisitXpRate(insect.level));
+  const gain = addXp(insect.level, insect.xp, revisitXpRate(insect.level) * xpBonus);
   const points = gain.levelsUp * POINTS_PER_LEVELUP;
   const left = points - allocTotal(alloc);
 
