@@ -190,8 +190,8 @@ export default function UploadPage() {
 
       setReadNote(
         result.read === 0
-          ? '표시한 곳을 하나도 못 찾았어요. 밝은 곳에서 종이 전체가 나오게 다시 찍어주세요.'
-          : `${result.total}칸 중 ${result.read}칸을 읽었어요. 아래에서 맞는지 확인하고 틀린 건 눌러서 고쳐주세요!`
+          ? '표시한 곳을 하나도 못 찾았어. 밝은 곳에서 종이 전체가 나오게 다시 찍어줘!'
+          : `${result.total}칸 중 ${result.read}칸을 읽었어! 아래에서 맞는지 확인하고 틀린 건 눌러서 고쳐줘!`
       );
     } catch (err: any) {
       setError(err.message);
@@ -202,11 +202,11 @@ export default function UploadPage() {
 
   async function handleConvert() {
     if (!file) {
-      setError('먼저 곤충 그림 사진을 골라주세요.');
+      setError('먼저 곤충 그림 사진을 골라줘!');
       return;
     }
     if (!species.trim()) {
-      setError('곤충종류를 골라주세요.');
+      setError('곤충 종류를 골라줘!');
       return;
     }
     if (attempts.length >= MAX_ATTEMPTS) {
@@ -238,7 +238,7 @@ export default function UploadPage() {
       });
       // 서버가 JSON 이 아닌 걸 돌려줘도 화면이 깨지지 않게 합니다.
       const data = await readJsonOrExplain(res);
-      if (!res.ok) throw new Error(data.error || '변환에 실패했어요.');
+      if (!res.ok) throw new Error(data.error || '변신에 실패했어. 한 번 더 눌러줘!');
       // DB 용량 때문에 여기서 바로 JPEG로 바꿔둡니다. (자세한 이유는 lib/shrink-image.ts)
       // 화면에 보여주는 것과 저장되는 것이 같은 그림이어야 "고른 거랑 다르다"가 생기지 않습니다.
       const stored = await shrinkForStorage(data.imageBase64, data.mimeType || 'image/png');
@@ -398,7 +398,7 @@ export default function UploadPage() {
             </div>
             {species === 'other' && (
               <div className="mt-3 bg-slate-800/60 border border-sky-500/40 rounded-xl p-3 flex flex-col gap-2">
-                <p className="text-sm font-bold text-sky-300">🔍 어떤 곤충을 그렸어?</p>
+                <p className="text-sm font-bold text-sky-300">🔍 어떤 곤충을 그릴 거야?</p>
                 <input
                   type="text"
                   value={customSpecies}
@@ -407,16 +407,18 @@ export default function UploadPage() {
                   placeholder="예: 물방개, 장수말벌, 반딧불이"
                   className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
-                <input
-                  type="text"
+                {/* 생김새는 칸을 따로 크게 (Jin 10/1). AI 프롬프트에만 쓰고 저장은 안 한다. */}
+                <p className="mt-1 text-sm font-bold text-sky-300">✏️ 어떻게 생겼어?</p>
+                <textarea
                   value={customLook}
-                  onChange={(e) => setCustomLook(e.target.value.slice(0, 60))}
-                  maxLength={60}
-                  placeholder="생김새도 알려줘! 예: 꼬리에서 빛이 나, 뿔이 3개야"
-                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  onChange={(e) => setCustomLook(e.target.value.slice(0, 120))}
+                  maxLength={120}
+                  rows={3}
+                  placeholder="예: 꼬리에서 빛이 나, 뿔이 3개야, 등에 빨간 점무늬가 있어"
+                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
                 />
-                <p className="text-[11px] text-slate-400" style={{ wordBreak: 'keep-all' }}>
-                  자세히 적을수록 AI 가 내 곤충을 더 똑같이 그려줘. 몰라도 괜찮아!
+                <p className="text-xs text-amber-200/90" style={{ wordBreak: 'keep-all' }}>
+                  안 써도 돼! 자세히 쓸수록 더 정확하고 멋있는 곤충을 그려줄 거야!
                 </p>
               </div>
             )}
@@ -550,9 +552,10 @@ export default function UploadPage() {
             <p className="text-sm text-slate-400">신체 부위 강화 (1~5점)</p>
             {BODY_PARTS.map((part) => (
               <div key={part.key} className="bg-slate-800 rounded-xl px-4 py-3">
-                <div className="text-sm mb-2">
-                  <span className="font-semibold">{part.label}</span>
-                  <p className="text-slate-400 text-xs mt-0.5">{part.hint}</p>
+                {/* Jin 10/1: 설명을 조금 크고 두껍게 */}
+                <div className="text-[0.9375rem] mb-2">
+                  <span className="font-bold">{part.label}</span>
+                  <p className="text-slate-300 text-[0.8125rem] font-semibold mt-0.5" style={{ wordBreak: 'keep-all' }}>{part.hint}</p>
                 </div>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((v) => (
@@ -776,7 +779,7 @@ function Delta({ label, value }: { label: string; value: number }) {
   const up = value > 0;
   return (
     <span
-      className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${
+      className={`inline-block rounded-md px-2.5 py-1 text-sm font-bold ${
         up ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
       }`}
     >
@@ -795,17 +798,18 @@ function OriginExplain({ origin }: { origin: EnvironmentKey }) {
   const loserKey = weakTo(origin);
   const loses = ENVIRONMENTS.find((e) => e.key === loserKey);
   return (
-    <div className="mt-2 bg-slate-800/60 border border-sky-500/30 rounded-xl p-3 text-sm" style={{ wordBreak: 'keep-all' }}>
-      <p className="font-bold">
+    // Jin 10/1: 부모님이 같이 읽으니 2배쯤 크게
+    <div className="mt-3 bg-slate-800/60 border border-sky-500/30 rounded-2xl p-4 text-base" style={{ wordBreak: 'keep-all' }}>
+      <p className="font-black text-xl">
         {me.emoji} {me.label}
       </p>
-      <p className="mt-1 text-xs text-slate-300">{effect.story}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <p className="mt-2 text-base leading-relaxed text-slate-200">{effect.story}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
         <Delta label="HP" value={effect.hp} />
         <Delta label="수비력" value={effect.def} />
         <Delta label="필살기 회피력" value={effect.eva} />
       </div>
-      <div className="mt-2 flex flex-col gap-1 text-xs">
+      <div className="mt-3 flex flex-col gap-1.5 text-base font-semibold">
         {beats ? (
           <p className="text-emerald-300">
             💪 {beats.emoji} {beats.label}한테 강해! <span className="text-slate-400">{effect.beatsWhy}</span>
@@ -830,11 +834,12 @@ function AgeExplain({ ageStage }: { ageStage: AgeStageKey }) {
   if (!stage) return null;
   const changes = [stage.hp, stage.atk, stage.def, stage.eva].some((v) => v !== 0);
   return (
-    <div className="mt-2 bg-slate-800/60 border border-sky-500/30 rounded-xl p-3 text-sm" style={{ wordBreak: 'keep-all' }}>
-      <p className="font-bold">{stage.label}</p>
-      <p className="mt-1 text-xs text-slate-300">{stage.story}</p>
+    // Jin 10/1: 2배쯤 크게
+    <div className="mt-3 bg-slate-800/60 border border-sky-500/30 rounded-2xl p-4 text-base" style={{ wordBreak: 'keep-all' }}>
+      <p className="font-black text-xl">{stage.label}</p>
+      <p className="mt-2 text-base leading-relaxed text-slate-200">{stage.story}</p>
       {changes && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Delta label="HP" value={stage.hp} />
           <Delta label="공격력" value={stage.atk} />
           <Delta label="수비력" value={stage.def} />

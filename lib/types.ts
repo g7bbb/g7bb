@@ -78,4 +78,5 @@ export interface MutationCountsRecord {
   wings?: number;
   legs?: number;
   antennae?: number;
+  claws?: number;
 }

@@ -13,7 +13,7 @@ import { findSpecies } from './species';
 // 나비·벌·사마귀는 원래 날개가 4장이므로, 4장을 그려도 진화가 아닙니다.
 // 종별 기준값은 lib/species.ts 의 normalWings 에 있습니다.
 
-export type MutationKey = 'mandibles' | 'wings' | 'legs' | 'antennae';
+export type MutationKey = 'mandibles' | 'wings' | 'legs' | 'antennae' | 'claws';
 
 export interface MutationOption {
   key: MutationKey;
@@ -25,6 +25,8 @@ export interface MutationOption {
   penalty: { stat: StatKey; perStep: number }[];
   // 부스에서 아이에게 읽어줄 한 줄 설명
   hint: string;
+  /** AI 에게 넘길 때 쓰는 말 (예: "다리 끝 발톱 2개씩"). 없으면 `label 개수` */
+  promptLabel?: (choiceLabel: string) => string;
 }
 
 export const MUTATIONS: MutationOption[] = [
@@ -32,9 +34,9 @@ export const MUTATIONS: MutationOption[] = [
     key: 'mandibles',
     label: '큰턱 (집게)',
     normal: 2,
+    // 2026-10-01 Jin: 3개 선택지 삭제 → 2개 / 4개 이상
     choices: [
       { value: 2, label: '2개' },
-      { value: 3, label: '3개' },
       { value: 4, label: '4개 이상' },
     ],
     bonus: { stat: 'atk', perStep: 0.12 },
@@ -64,9 +66,9 @@ export const MUTATIONS: MutationOption[] = [
     key: 'legs',
     label: '다리',
     normal: 6,
+    // 2026-10-01 Jin: 7개 선택지 삭제 → 6개 / 8개 이상
     choices: [
       { value: 6, label: '6개' },
-      { value: 7, label: '7개' },
       { value: 8, label: '8개 이상' },
     ],
     bonus: { stat: 'hp', perStep: 0.12 }, // 예전 생존능력 → HP
@@ -77,13 +79,29 @@ export const MUTATIONS: MutationOption[] = [
     key: 'antennae',
     label: '더듬이',
     normal: 2,
+    // 2026-10-01 Jin: 3개 이상 → 4개 이상
     choices: [
       { value: 2, label: '2개' },
-      { value: 3, label: '3개 이상' },
+      { value: 4, label: '4개 이상' },
     ],
     bonus: { stat: 'int', perStep: 0.18 },
     penalty: [{ stat: 'def', perStep: 0.1 }],
     hint: '잘 느끼지만 약점이 늘어나',
+  },
+  {
+    // 2026-10-01 Jin 이 새로 만든 줄. 다리 끝 발톱이 1개(보통) / 2개.
+    // 숫자는 Claude 가 정함: 꽉 붙잡아 공격 ↑, 대신 무거워서 필살기를 덜 피함 (시뮬레이션으로 맞춤)
+    key: 'claws',
+    label: '발톱',
+    normal: 1,
+    choices: [
+      { value: 1, label: '1개' },
+      { value: 2, label: '2개' },
+    ],
+    bonus: { stat: 'atk', perStep: 0.08 },
+    penalty: [{ stat: 'eva', perStep: 0.25 }],
+    hint: '꽉 붙잡아서 세지만 무거워서 잘 못 피해',
+    promptLabel: (choice) => `다리 끝 발톱이 ${choice}씩 (날카롭고 크게)`,
   },
 ];
 
@@ -169,6 +187,17 @@ export function describeMutations(counts: MutationCounts, species?: string | nul
       const value = counts[option.key];
       const choice = option.choices.find((item) => item.value === value);
       return `${option.label} ${choice?.label ?? value}`;
+    })
+    .join(', ');
+}
+
+/** AI 프롬프트용 설명. 발톱처럼 그냥 개수만 말하면 헷갈리는 부위는 풀어서 쓴다. */
+export function describeMutationsForPrompt(counts: MutationCounts, species?: string | null): string {
+  return MUTATIONS.filter((option) => stepsAbove(option, counts, species) > 0)
+    .map((option) => {
+      const value = counts[option.key];
+      const label = option.choices.find((item) => item.value === value)?.label ?? String(value);
+      return option.promptLabel ? option.promptLabel(label) : `${option.label} ${label}`;
     })
     .join(', ');
 }

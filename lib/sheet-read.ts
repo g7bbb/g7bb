@@ -117,6 +117,6 @@ export async function readSheetPhoto(file: File): Promise<SheetReadResult> {
     body: JSON.stringify({ imageBase64: base64, mimeType }),
   });
   const data = await readJsonOrExplain(res);
-  if (!res.ok) throw new Error(data.error || '종이를 읽지 못했어요.');
+  if (!res.ok) throw new Error(data.error || '종이를 못 읽었어.');
   return mapSheetResult(data.result);
 }

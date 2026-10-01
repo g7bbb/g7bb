@@ -93,7 +93,7 @@ function StartInner() {
  * (컬럼이 없다거나 하는 건 원문이 있어야 고칠 수 있다).
  */
 function friendlyError(message?: string): string {
-  if (!message) return '저장에 실패했어요. 다시 한 번 눌러주세요.';
+  if (!message) return '저장이 안 됐어. 한 번 더 눌러줘!';
 
   // 브라우저마다 문구가 다르다: 크롬 "Failed to fetch", 사파리 "Load failed", 파이어폭스 "NetworkError".
   const looksOffline = /failed to fetch|load failed|networkerror|network request failed/i.test(
@@ -101,8 +101,8 @@ function friendlyError(message?: string): string {
   );
   if (looksOffline) {
     return (
-      '서버에 연결하지 못했어요. 와이파이나 데이터가 켜져 있는지 확인하고 다시 눌러주세요. ' +
-      '계속 안 되면 진행 요원에게 알려주세요. (서버 연결 실패)'
+      '서버에 연결이 안 됐어. 와이파이나 데이터가 켜져 있는지 보고 다시 눌러줘! ' +
+      '계속 안 되면 진행 선생님한테 알려줘. (서버 연결 실패)'
     );
   }
 
@@ -113,17 +113,17 @@ function friendlyError(message?: string): string {
     unlockAudio(['next']); // 누른 순간에 소리를 깨워둡니다 (폰 정책)
     const code = normalizeTicket(ticket);
     if (!code) {
-      setError('번호를 다시 확인해주세요. 종이 위쪽에 적힌 A-014 같은 번호예요.');
+      setError('번호를 다시 확인해줘! 종이 위쪽에 적힌 번호 숫자만 써도 돼 (예: 14)');
       return;
     }
     if (!nickname.trim()) {
-      setError('배틀에서 쓸 이름을 적어주세요.');
+      setError('배틀에서 쓸 이름을 적어줘!');
       return;
     }
 
     const favoriteAnswer = favorite === OTHER_INSECT_KEY ? favoriteOther.trim() : favorite;
     if (!favoriteAnswer || !prize || !collecting || !game) {
-      setError('질문 4개에 모두 답해주세요!');
+      setError('질문 4개에 모두 답해줘!');
       return;
     }
 
@@ -221,20 +221,20 @@ function friendlyError(message?: string): string {
       <header className="text-center">
         <BrandLogo size={120} />
         <h1 className="mt-3 text-2xl font-bold">{GAME_TITLE}</h1>
-        <p className="mt-2 text-sm text-slate-400">질문 4개만 답하면 바로 시작해요!</p>
+        <p className="mt-2 text-sm text-slate-400">질문 4개만 답하면 바로 시작해!</p>
       </header>
 
       <section className="flex flex-col gap-2">
-        <label className="text-sm text-slate-400">내 번호 (종이 위쪽에 적혀 있어요)</label>
+        <label className="text-sm text-slate-400">내 번호 (종이 위쪽에 적혀 있어 · 숫자만 써도 돼!)</label>
         <input
           className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-widest text-center font-bold"
-          placeholder="A-014"
+          placeholder="14"
           value={ticket}
           onChange={(e) => setTicket(e.target.value)}
-          inputMode="text"
+          inputMode="numeric"
           autoCapitalize="characters"
         />
-        {fromQr && <p className="text-xs text-emerald-400 text-center">✓ QR에서 번호를 읽었어요</p>}
+        {fromQr && <p className="text-xs text-emerald-400 text-center">✓ QR에서 번호를 읽었어</p>}
         {prepaid && (
           <p className="text-sm font-bold text-amber-300 text-center">
             {tierForPlayer(prepaid).emoji} {tierForPlayer(prepaid).price} {tierForPlayer(prepaid).name} 참가권이 적용됐어!
@@ -243,7 +243,7 @@ function friendlyError(message?: string): string {
       </section>
 
       <section className="flex flex-col gap-2">
-        <label className="text-sm text-slate-400">내 닉네임 (랭킹에 표시돼요)</label>
+        <label className="text-sm text-slate-400">내 닉네임 (랭킹에 나와!)</label>
         <input
           className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
           placeholder="예: 장수풍뎅이왕"
@@ -311,13 +311,13 @@ function friendlyError(message?: string): string {
         <ChoiceGrid options={GAME_OPTIONS} selected={game} onSelect={setGame} />
       </Question>
 
-      {/* 시즌1 안내 (2026-09-30 Jin 문구 그대로) */}
+      {/* 시즌1 안내 (Jin 문구 그대로, 10/1 끝말 수정) */}
       <div className="bg-amber-400/10 border border-amber-400/40 rounded-2xl px-4 py-4 text-center text-sm leading-relaxed" style={{ wordBreak: 'keep-all' }}>
         <p className="font-bold text-amber-300">
-          이번에 참여한 친구들은 G7BB배틀 시즌1에 참여한거야!
+          이번에 참여한 친구들은 G7BB배틀 시즌1에 참여했어!
         </p>
         <p className="mt-1 text-slate-200">
-          꼭 1등이 아니더라도, 선물 많이 받을 수 있을거야!!
+          꼭 1등이 아니더라도, 선물을 많이 준비할게!! 화이팅!!
         </p>
       </div>
 

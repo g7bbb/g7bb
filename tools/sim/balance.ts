@@ -102,3 +102,27 @@ for (const { key, label } of ALLOC_STATS) {
   }
   console.log(`  ${label.padEnd(4)} +3: ${((win / (win + lose)) * 100).toFixed(1)}%`);
 }
+
+// ── 특별 진화: 진화한 곤충 vs 똑같은 곤충(진화 없음) ── 2026-10-01 발톱 추가
+import { MUTATIONS, defaultMutations } from '../../lib/mutations';
+console.log('── 특별 진화 (그 줄만 제일 많이 vs 정상)');
+for (const option of MUTATIONS) {
+  let win = 0;
+  let lose = 0;
+  for (let i = 0; i < N; i++) {
+    const p = parts();
+    const species = pick(SPECIES).label;
+    const age = pick(AGES);
+    const origin = pick(ORIGINS);
+    const normal = defaultMutations(species);
+    const evolved = { ...normal, [option.key]: option.choices[option.choices.length - 1].value };
+    if (evolved[option.key] === normal[option.key]) continue; // 이미 최대가 정상인 종 (예: 나비 날개)
+    const moves = movesFor(species, 1).map((m) => m.key);
+    const A: BattleSide = { stats: calculateStats(p, age, evolved, species, origin), level: 1, origin };
+    const B: BattleSide = { stats: calculateStats(p, age, normal, species, origin), level: 1, origin };
+    const r = resolveBattle(...(Object.values(rollBattle(A, B)) as [any, any]), moves, moves, 1);
+    if (r.winner === 'A') win++;
+    else if (r.winner === 'B') lose++;
+  }
+  console.log(`  ${option.label.padEnd(8)} ${option.choices[option.choices.length - 1].label}: ${((win / (win + lose)) * 100).toFixed(1)}%`);
+}

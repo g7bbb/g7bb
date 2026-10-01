@@ -8,7 +8,10 @@ import { BrandMark } from '@/app/brand-logo';
 import PlayStatusCard from '@/app/play-status';
 import { getCurrentPlayer } from '@/lib/session';
 import { awardBadges, playStatus } from '@/lib/game-state';
-import { Player } from '@/lib/types';
+import { EnvironmentKey, Player } from '@/lib/types';
+import { baseMoveFor } from '@/lib/special-moves';
+import { ORIGIN_EFFECTS } from '@/lib/origins';
+import { ENVIRONMENTS } from '@/lib/environments';
 
 interface RankRow {
   player_id: string;
@@ -33,6 +36,37 @@ const PODIUM_COUNT = 3;
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+/** TIP 을 계산할 때 볼 상위 등수 */
+const TIP_TOP = 10;
+
+interface RankTip {
+  count: number;
+  attackShare: number; // 공격형 필살기 곤충 비율 (0~1)
+  topOrigin: EnvironmentKey | null;
+  topOriginShare: number;
+  avgLevel: number;
+}
+
+/**
+ * 랭킹 아래 TIP (2026-10-01 Jin: "게임이 끝나면 랭킹 화면에서 설명을 볼 수 있게.
+ * 지금 랭킹에 있는 곤충들은 이런 속성이 70% 이상이야! 반대 속성을 올리면 이길 수 있어!!").
+ * **실제 랭킹 데이터로 계산한다** — 상위 곤충들의 필살기 형(공격/수비), 제일 많은 출신지, 평균 레벨.
+ */
+function buildTip(insects: { species: string | null; origin: EnvironmentKey | null; level: number | null }[]): RankTip | null {
+  if (insects.length === 0) return null;
+  const attack = insects.filter((x) => baseMoveFor(x.species).kind === 'attack').length;
+  const origins = new Map<EnvironmentKey, number>();
+  insects.forEach((x) => x.origin && origins.set(x.origin, (origins.get(x.origin) ?? 0) + 1));
+  const [topOrigin, topCount] = Array.from(origins.entries()).sort((a, b) => b[1] - a[1])[0] ?? [null, 0];
+  return {
+    count: insects.length,
+    attackShare: attack / insects.length,
+    topOrigin,
+    topOriginShare: topCount / insects.length,
+    avgLevel: insects.reduce((sum, x) => sum + (x.level ?? 1), 0) / insects.length,
+  };
+}
+
 export default function RankingPage() {
   const [tab, setTab] = useState<'today' | 'all'>('today');
   const [rows, setRows] = useState<RankRow[]>([]);
@@ -41,6 +75,7 @@ export default function RankingPage() {
   // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리를 입히는 데 씁니다.
   const [visits, setVisits] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [tip, setTip] = useState<RankTip | null>(null);
   // 내 참가권·남은 게임·30분 대기 시계 (Jin 요청: "랭킹 옆에 본인 참여 가능 시간").
   const [me, setMe] = useState<Player | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -107,6 +142,18 @@ export default function RankingPage() {
     void loadPodiumImages(ranked.slice(0, PODIUM_COUNT));
     // 등급 테두리는 없어도 되는 장식이라 순위표를 먼저 그린 뒤 따로 받아옵니다.
     void loadVisitMap().then(setVisits);
+    void loadTip(ranked.slice(0, TIP_TOP));
+  }
+
+  async function loadTip(top: RankRow[]) {
+    const ids = top.map((row) => row.insect_id).filter(Boolean);
+    if (ids.length === 0) {
+      setTip(null);
+      return;
+    }
+    // 그림은 빼고 필요한 칸만 (가볍게)
+    const { data } = await supabase.from('insects').select('id, species, origin, level').in('id', ids);
+    setTip(buildTip((data || []) as any));
   }
 
   async function loadPodiumImages(top: RankRow[]) {
@@ -155,7 +202,7 @@ export default function RankingPage() {
       {loading ? (
         <p className="text-center text-slate-400">불러오는 중...</p>
       ) : rows.length === 0 ? (
-        <p className="text-center text-slate-400">아직 배틀 기록이 없어요.</p>
+        <p className="text-center text-slate-400">아직 배틀 기록이 없어.</p>
       ) : (
         <ol className="flex flex-col gap-2">
           {rows.map((row, i) => {
@@ -207,6 +254,52 @@ export default function RankingPage() {
           })}
         </ol>
       )}
+
+      {/* TIP — 오늘의 랭킹·전체 랭킹 어느 쪽이든 아래에 보인다 */}
+      {!loading && tip && <TipBox tip={tip} />}
     </main>
+  );
+}
+
+function TipBox({ tip }: { tip: RankTip }) {
+  const pct = (n: number) => Math.round(n * 100);
+  const attackMost = tip.attackShare >= 0.5;
+  const share = attackMost ? tip.attackShare : 1 - tip.attackShare;
+  const origin = ENVIRONMENTS.find((e) => e.key === tip.topOrigin);
+  // 제일 많은 출신지를 이기는 출신지 (상성)
+  const counterKey = tip.topOrigin
+    ? (Object.keys(ORIGIN_EFFECTS) as EnvironmentKey[]).find((k) => ORIGIN_EFFECTS[k].beats === tip.topOrigin)
+    : undefined;
+  const counter = ENVIRONMENTS.find((e) => e.key === counterKey);
+  return (
+    <section className="bg-sky-500/10 border-2 border-sky-400/50 rounded-2xl p-4 flex flex-col gap-2" style={{ wordBreak: 'keep-all' }}>
+      <p className="text-lg font-black text-sky-300">💡 TIP!</p>
+      <p className="text-base leading-relaxed">
+        지금 랭킹 TOP{tip.count} 곤충들은{' '}
+        <b className={attackMost ? 'text-rose-300' : 'text-sky-300'}>
+          {attackMost ? '⚔️ 공격형' : '🛡️ 수비형'} 필살기가 {pct(share)}%
+        </b>
+        야!{' '}
+        {attackMost ? (
+          <>
+            레벨업을 해서 반대 속성인 <b className="text-sky-300">🛡️ 수비력</b>을 올리면 막아내고 이길 수 있어!!
+          </>
+        ) : (
+          <>
+            레벨업을 해서 반대 속성인 <b className="text-rose-300">⚔️ 공격력</b>을 올리면 뚫고 이길 수 있어!!
+          </>
+        )}
+      </p>
+      {origin && counter && tip.topOriginShare >= 0.4 && (
+        <p className="text-base leading-relaxed">
+          그리고 {pct(tip.topOriginShare)}%가 <b>{origin.emoji} {origin.label}</b> 출신이야.{' '}
+          <b className="text-emerald-300">{counter.emoji} {counter.label}</b> 곤충이 상성으로 더 세! (새 곤충 만들 때 골라봐)
+        </p>
+      )}
+      <p className="text-sm text-slate-300">
+        랭킹 곤충 평균 <b>LV.{tip.avgLevel.toFixed(1)}</b> — 레벨이 낮으면 🔥역전 찬스로 크리티컬이 더 잘 터져!
+      </p>
+      <p className="text-base font-black text-amber-300">⏳ 30분 뒤에 또 해보자!!</p>
+    </section>
   );
 }

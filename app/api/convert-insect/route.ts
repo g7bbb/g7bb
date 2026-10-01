@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { INSECT_ANATOMY_RULES, findSpecies } from '@/lib/species';
-import { describeMutations } from '@/lib/mutations';
+import { describeMutationsForPrompt } from '@/lib/mutations';
 import { appearancePrompt } from '@/lib/appearance';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       await req.json();
 
     if (!imageBase64 || !mimeType) {
-      return NextResponse.json({ error: '이미지가 없습니다.' }, { status: 400 });
+      return NextResponse.json({ error: '사진이 없어. 사진을 먼저 골라줘!' }, { status: 400 });
     }
     if (!GEMINI_API_KEY) {
       return NextResponse.json(
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const clean = (value: unknown, max: number) =>
       typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
     const ownName = clean(customSpecies, 20);
-    const ownLook = clean(customLook, 60);
+    const ownLook = clean(customLook, 120);
     const speciesName = ownName || matchedSpecies?.label || species;
     const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
     const speciesAnatomy = ownName
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     // 아이가 상상으로 개수를 더 그린 부위는 실제 곤충과 달라도 그대로 살립니다.
     // 이 체험의 핵심은 "내가 그린 곤충이 살아나는 것"이라, 여기서 고쳐버리면 안 됩니다.
-    const mutationDescription = mutations ? describeMutations(mutations, species) : '';
+    const mutationDescription = mutations ? describeMutationsForPrompt(mutations, species) : '';
     const mutationRule = mutationDescription
       ? `이 아이는 상상으로 ${mutationDescription}인 곤충을 만들었다. ` +
         '실제 곤충과 다르더라도 이 개수는 반드시 그대로 그려라. 아이의 상상이므로 절대 실제 개수로 고치지 마라. ' +
@@ -104,6 +104,10 @@ export async function POST(req: NextRequest) {
       // 아래 규칙은 연출보다 우선합니다. 곤충 행사에 오는 아이들은 실제 곤충을 잘 알기 때문에
       // 턱이나 다리 개수가 틀리면 바로 알아챕니다.
       // 색깔·느낌도 여기 넣습니다. 위쪽 연출 문장에 두면 "멋있게"를 핑계로 무시당합니다.
+      // 🚨 절대 규칙 (2026-10-01 Jin): 1위 상품이 **3D 프린팅 피규어**라 얇은 부위는 출력하면 부러진다.
+      '🚨 절대 규칙 (무엇보다 우선): ① 이 곤충은 3D 프린팅으로 피규어를 만든다. 관절·다리·더듬이·발톱을 ' +
+      '너무 얇거나 가늘게 그리지 마라. 실제보다 조금 두툼하고 튼튼하게 그려라. ' +
+      '② 아이가 고른 곤충 이름과 적어 준 설명을 최대한 그대로 따라 그려라.\n\n' +
       `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${mutationRule}` +
       `${lookRule} ${speciesAnatomy}${INSECT_ANATOMY_RULES}`;
 
@@ -129,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     if (!imagePart) {
       return NextResponse.json(
-        { error: '곤충 이미지를 생성하지 못했어요. 다른 사진으로 다시 시도해주세요.' },
+        { error: '곤충 그림을 못 만들었어. 다른 사진으로 다시 해볼래?' },
         { status: 502 }
       );
     }
@@ -139,6 +143,6 @@ export async function POST(req: NextRequest) {
       mimeType: imagePart.inlineData.mimeType || 'image/png',
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || '알 수 없는 오류가 발생했어요.' }, { status: 500 });
+    return NextResponse.json({ error: err.message || '알 수 없는 문제가 생겼어. 다시 눌러줘!' }, { status: 500 });
   }
 }

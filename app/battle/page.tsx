@@ -10,7 +10,7 @@ import { awardBadges, blockedMessage, claimSlot, playStatus } from '@/lib/game-s
 import PlayStatusCard from '@/app/play-status';
 import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
-import { BASE_CRIT, addXp, battleXpRate, critChance, levelProgress } from '@/lib/leveling';
+import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
   PERFECT_AT_MS,
   SpecialMove,
@@ -112,6 +112,8 @@ interface SpecialFx {
   move: SpecialMove;
   /** 맞는 쪽이 회피력으로 피했는지 */
   dodged: boolean;
+  /** 기술 이름 아래 한 줄 ("🛡️ 막았다! 되받아치기!") */
+  caption?: string;
 }
 
 const envOf = (key: EnvironmentKey | null | undefined) => ENVIRONMENTS.find((e) => e.key === key);
@@ -179,8 +181,8 @@ export default function BattlePage() {
 
   // 필살기 기회가 LV3부터 **두 번** 오므로, 지금 뜬 기회가 어떤 기술인지 따로 담습니다.
   const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
-  /** 지금 뜬 버튼이 "필살기 한 번 더!" (역전 찬스) 인지 */
-  const [chanceBonus, setChanceBonus] = useState(false);
+  /** 필살기 버튼 위에 띄울 안내 ("🎁 보너스! 필살기 한 번 더!", "🛡️ 상대가 공격해! 지금 막아!") */
+  const [chanceNote, setChanceNote] = useState<string | null>(null);
   /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
   const [underdogNote, setUnderdogNote] = useState('');
   // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
@@ -305,9 +307,9 @@ export default function BattlePage() {
   }
 
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
-  async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false) {
+  async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false, caption?: string) {
     playSound('special');
-    setSpecialFx({ id: nextFxId(), side, move, dodged });
+    setSpecialFx({ id: nextFxId(), side, move, dodged, caption });
     setShaking(true);
     await pause(500);
     setShaking(false);
@@ -372,13 +374,13 @@ export default function BattlePage() {
         .eq('id', summary.id)
         .maybeSingle();
       if (fetchError) throw fetchError;
-      if (!data) throw new Error('상대 곤충을 찾지 못했어요. 목록을 새로고침해 주세요.');
+      if (!data) throw new Error('상대 곤충을 못 찾았어. 화면을 새로고침해줘!');
 
       const foe = data as Insect;
       setOpponent(foe);
       await runFight(foe);
     } catch (err: any) {
-      setError(err.message || '배틀을 시작하지 못했어요.');
+      setError(err.message || '배틀을 시작 못 했어. 다시 눌러줘!');
       setPhase(null);
     } finally {
       setStarting(false);
@@ -436,50 +438,127 @@ export default function BattlePage() {
     await exchange('A', PROBE_DAMAGE_B, false);
     await exchange('B', PROBE_DAMAGE_A, false);
 
-    // 필살기 기회 — **기술 개수만큼** 옵니다 (LV1은 한 번, LV3부터 두 번).
-    // 누를 때마다 바로 연출이 터지게 해서 "눌렀더니 나갔다"가 즉시 느껴지게 합니다.
+    // ─────────────────────────────────────────────────────────────
+    // 필살기 순서 (2026-10-01 Jin: "수비 필살기는 상대가 공격할 때 터져야 하고,
+    // 공격 필살기를 쓰면 상대 HP 가 그때 달아야 해. 지금은 필살기 다 쓰고 HP 가 한 번에 달아")
+    //
+    //   ① 내 공격 차례: 공격형 필살기 버튼 → 터지면 **바로 상대 HP 가 깎인다**
+    //      (상대가 수비형이면 이때 상대 방패가 터져서 덜 깎이고)
+    //   ② 상대 공격 차례: 상대가 공격할 때 **내 수비형 필살기 버튼**이 뜬다 → 막고 되받아친다
+    //   ③ 마지막 한 방: 진 쪽 HP 가 0 이 된다
+    //
+    // ⚠️ 승패 계산(resolveBattle)은 예전과 똑같다. 바뀐 건 **보여주는 순서와 HP 바가 깎이는 때**뿐이다.
+    //    중간에 깎는 양은 연출용이라, 마지막에 진 쪽 0 / 이긴 쪽은 남은 만큼으로 맞춘다.
+    // ─────────────────────────────────────────────────────────────
     const usedKeys: SpecialMoveKey[] = [];
     let bestTier: TimingTier | null = null;
+    let extraA: SpecialMoveKey | null = null;
+    const extraB: SpecialMoveKey | null = rolls.b.bonus ? baseMoveFor(foe.species).key : null;
 
-    for (const move of myMoves) {
+    // 지금 HP 바 (연출용). 중간에는 15% 아래로 안 내려간다 — 0 은 마지막 한 방에서만.
+    const FLOOR = 15;
+    let curA = clampBar(100 - PROBE_DAMAGE_A);
+    let curB = clampBar(100 - PROBE_DAMAGE_B);
+    async function hit(attacker: 'A' | 'B', amount: number, crit: boolean) {
+      const target = attacker === 'A' ? curB : curA;
+      const dmg = Math.max(0, Math.min(Math.round(amount), target - FLOOR));
+      if (attacker === 'A') curB -= dmg;
+      else curA -= dmg;
+      await exchange(attacker, dmg, crit);
+    }
+    /** 필살기 한 방이 HP 를 얼마나 깎는 것처럼 보일지 (보통 25 안팎, 크리 37 안팎) */
+    const hitSize = (crit: boolean) => (crit ? 37 : 25);
+
+    /** 내가 누르는 필살기 버튼 한 번. 누르면 판정을 돌려준다. */
+    async function myChance(move: SpecialMove, note: string | null): Promise<TimingTier | null> {
+      setChanceNote(note);
       setChanceMove(move);
       setPhase('chance');
       const tier = await waitForChance();
-      if (!tier) continue;
-
-      usedKeys.push(move.key);
-      // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다.
-      // 두 번 다 곱하면 LV3 아이가 최대 1.8배가 되어 밸런스가 무너집니다.
-      if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
-
-      // 판정 글자(`퍼펙트!` 등)를 **끝까지** 보여주고 넘어갑니다.
-      // `judge-pop` 이 2초이므로 여기도 2초(=1000×BATTLE_PACE)여야 글자가
-      // 사라지는 것까지 다 보입니다. 짧게 잡으면 한창 떠 있을 때 뚝 끊깁니다.
-      await pause(1000);
+      setChanceNote(null);
       setPhase('final');
-      await playSpecial('A', move, rolls.b.dodged);
+      if (!tier) return null;
+      // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다 (두 번 다 곱하면 최대 1.8배가 되어 무너짐).
+      if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
+      // 판정 글자(`퍼펙트!` 등)를 끝까지 보여주고 넘어갑니다 (judge-pop 2초와 짝).
+      await pause(1000);
+      return tier;
     }
 
-    // 🎁 "필살기 한 번 더!" — 레벨이 낮을수록 잘 걸린다 (LV1 50%, lib/leveling.ts).
-    // 크리티컬은 없지만 회피로 못 피한다 (battle-engine 주석 참고).
-    let extraA: SpecialMoveKey | null = null;
-    if (rolls.a.bonus) {
-      const base = baseMoveFor(myInsect.species);
-      setChanceBonus(true);
-      setChanceMove(base);
-      setPhase('chance');
-      const tier = await waitForChance();
-      setChanceBonus(false);
-      if (tier) {
-        extraA = base.key;
-        if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
-        await pause(1000);
-        setPhase('final');
-        await playSpecial('A', base, false);
+    const myBase = baseMoveFor(myInsect.species);
+    const foeBase = baseMoveFor(foe.species);
+    // 🎁 "필살기 한 번 더!" — 레벨이 낮을수록 잘 걸린다 (LV1 50%). 기본기가 한 번 더. 크리 없음·회피 불가.
+    const myAttacks = [
+      ...myMoves.filter((m) => m.kind === 'attack').map((move) => ({ move, bonus: false })),
+      ...(rolls.a.bonus && myBase.kind === 'attack' ? [{ move: myBase, bonus: true }] : []),
+    ];
+    const myGuards = [
+      ...myMoves.filter((m) => m.kind === 'defense').map((move) => ({ move, bonus: false })),
+      ...(rolls.a.bonus && myBase.kind === 'defense' ? [{ move: myBase, bonus: true }] : []),
+    ];
+    const foeAttacks = [
+      ...foeMoves.filter((m) => m.kind === 'attack').map((move) => ({ move, bonus: false })),
+      ...(extraB && foeBase.kind === 'attack' ? [{ move: foeBase, bonus: true }] : []),
+    ];
+    const foeGuards = [
+      ...foeMoves.filter((m) => m.kind === 'defense').map((move) => ({ move, bonus: false })),
+      ...(extraB && foeBase.kind === 'defense' ? [{ move: foeBase, bonus: true }] : []),
+    ];
+
+    // ① 내 공격 차례 ─────────────────────────────
+    let foeGuardShown = false;
+    for (const { move, bonus } of myAttacks) {
+      const tier = await myChance(move, bonus ? '🎁 보너스! 필살기 한 번 더!' : null);
+      if (!tier) continue;
+      if (bonus) extraA = move.key;
+      else usedKeys.push(move.key);
+      const dodged = !bonus && rolls.b.dodged; // "한 번 더" 는 회피로 못 피한다
+      await playSpecial('A', move, dodged);
+      if (dodged) continue;
+      // 상대가 수비형이면 내 공격을 맞는 이 순간에 방패가 터진다
+      let guard = 1;
+      if (!foeGuardShown && foeGuards.length) {
+        foeGuardShown = true;
+        for (const g of foeGuards) await playSpecial('B', g.move, false, '🛡️ 상대가 막았다!');
+        guard = 0.5;
       }
+      await hit('A', hitSize(rolls.a.crit && !bonus) * guard, rolls.a.crit && !bonus);
     }
+    // 내가 공격을 못 했어도 상대 수비형은 되받아치기를 한다 (계산에도 들어가 있음)
+    if (!foeGuardShown && foeGuards.length) {
+      foeGuardShown = true;
+      for (const g of foeGuards) await playSpecial('B', g.move, false, '💥 상대가 되받아쳤다!');
+      await hit('B', 12, false);
+    }
+
+    // ② 상대 공격 차례 — 내 수비형 필살기는 **상대가 공격할 때** 버튼이 뜬다 ───
+    // 상대에게 공격형 필살기가 없으면 평범한 공격 한 번에 맞춰 막는다.
+    const incoming = foeAttacks.length ? foeAttacks : myGuards.length ? [{ move: null, bonus: false }] : [];
+    const guards = [...myGuards];
+    for (let i = 0; i < incoming.length; i++) {
+      const { move, bonus } = incoming[i];
+      const dodged = !!move && !bonus && rolls.a.dodged;
+      if (move) await playSpecial('B', move, dodged);
+      if (dodged) continue;
+      // 마지막 공격이면 남은 방패를 다 쓴다 (방패가 공격보다 많을 때)
+      const mine = i === incoming.length - 1 ? guards.splice(0) : guards.splice(0, 1);
+      let guard = 1;
+      for (const g of mine) {
+        const tier = await myChance(
+          g.move,
+          g.bonus ? '🎁 보너스! 한 번 더 막아!' : move ? '🛡️ 상대가 공격해! 지금 막아!' : '🛡️ 상대가 덤벼! 지금 막아!'
+        );
+        if (!tier) continue;
+        if (g.bonus) extraA = g.move.key;
+        else usedKeys.push(g.move.key);
+        await playSpecial('A', g.move, false, '🛡️ 막았다! 되받아치기!');
+        guard *= 0.5;
+      }
+      await hit('B', (move ? hitSize(rolls.b.crit && !bonus) : 14) * guard, !!move && rolls.b.crit && !bonus);
+      if (guard < 1) await hit('A', 10, false); // 막아낸 힘으로 되받아치기
+    }
+
     setUsedSpecial(usedKeys.length > 0 || !!extraA);
-    const extraB: SpecialMoveKey | null = rolls.b.bonus ? baseMoveFor(foe.species).key : null;
 
     // 상대는 자기 필살기를 항상 씁니다. (안 그러면 내가 쓰기만 하면 무조건 이김)
     const final = resolveBattle(
@@ -487,7 +566,7 @@ export default function BattlePage() {
       rolls.b,
       usedKeys,
       foeMoves.map((m) => m.key),
-      bestTier?.scoreMultiplier ?? 1,
+      (bestTier as TimingTier | null)?.scoreMultiplier ?? 1,
       undefined,
       { a: extraA, b: extraB }
     );
@@ -499,7 +578,7 @@ export default function BattlePage() {
     const iWon = final.winner === 'A';
     const earned = ['firstBattle'];
     if (iWon) earned.push('firstWin');
-    if (bestTier?.key === 'perfect') earned.push('perfect');
+    if ((bestTier as TimingTier | null)?.key === 'perfect') earned.push('perfect');
     if (final.a.dodged) earned.push('dodge');
     if (iWon && final.a.crit) earned.push('critWin');
     if (iWon && final.a.matchup === 1) earned.push('matchupWin');
@@ -512,22 +591,16 @@ export default function BattlePage() {
     }
     void awardBadges(player.id, earned);
 
-    setPhase('final');
-    for (const move of foeMoves) await playSpecial('B', move, rolls.a.dodged);
-    if (extraB) await playSpecial('B', baseMoveFor(foe.species), false);
-
-    // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
-    //
-    // 바에 그릴 값은 `barPercents` 가 따로 정합니다. **진 쪽은 0까지 내려갑니다.**
-    // (점수 비율을 그대로 쓰면 49% : 51% 처럼 진 쪽도 절반이 남아
-    //  "졌는데 왜 살아있지?" 가 됩니다 — Jin 지적, 2026-09-29)
+    // ③ 마지막 한 방 — 진 쪽은 0, 이긴 쪽은 이긴 만큼만 남는다 (`barPercents`).
+    // 중간에 이미 더 깎였으면 다시 올라가지 않게 지금 값과 비교해 낮은 쪽을 쓴다.
     const bars = barPercents(final);
     const winner = final.winner === 'B' ? 'B' : 'A';
     const loser = winner === 'A' ? 'B' : 'A';
-    const currentA = clampBar(100 - PROBE_DAMAGE_A);
-    const currentB = clampBar(100 - PROBE_DAMAGE_B);
-    const deltaLoser = loser === 'A' ? currentA - bars.a : currentB - bars.b;
+    const endA = final.winner === 'draw' ? Math.min(curA, bars.a) : winner === 'A' ? Math.min(curA, Math.max(1, bars.a)) : 0;
+    const endB = final.winner === 'draw' ? Math.min(curB, bars.b) : winner === 'B' ? Math.min(curB, Math.max(1, bars.b)) : 0;
+    const deltaLoser = loser === 'A' ? curA - endA : curB - endB;
 
+    setPhase('final');
     setAttackSide(winner);
     await pause(200);
     setHitSide(loser);
@@ -538,8 +611,8 @@ export default function BattlePage() {
       crit: winner === 'A' ? final.a.crit : final.b.crit,
     });
     setShaking(true);
-    setBarA(bars.a);
-    setBarB(bars.b);
+    setBarA(endA);
+    setBarB(endB);
     await pause(750);
     setAttackSide(null);
     setHitSide(null);
@@ -574,7 +647,7 @@ export default function BattlePage() {
 
     // 경험치: LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … LV3 부터는 지면 절반 (lib/leveling.ts)
     const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level, final.winner === 'A'));
-    const gained = gain.gained;
+    const gained = gain.shown; // 화면에 보여줄 XP 숫자 (레벨이 높을수록 커짐)
     const newXp = gain.xp;
     const newLevel = gain.level;
     const didLevelUp = gain.levelsUp > 0;
@@ -594,6 +667,24 @@ export default function BattlePage() {
         .update({ xp: newXp, level: newLevel, battle_count: myInsect.battle_count + 1 })
         .eq('id', myInsect.id);
       setMyInsect({ ...myInsect, xp: newXp, level: newLevel, battle_count: myInsect.battle_count + 1 });
+
+      // 수비한 곤충(상대)도 경험치를 조금 받는다 — 내 쪽의 20%, 하루 레벨 1개까지 (lib/leveling.ts)
+      // 실패해도 배틀 결과에는 영향이 없다.
+      try {
+        const { data: fresh } = await supabase.from('insects').select('level, xp, stats').eq('id', foe.id).maybeSingle();
+        if (fresh) {
+          const stats = (fresh as any).stats ?? {};
+          const d = defenseXpGain((fresh as any).level ?? 1, (fresh as any).xp ?? 0, final.winner === 'B', stats.defense);
+          if (d) {
+            await supabase
+              .from('insects')
+              .update({ level: d.gain.level, xp: d.gain.xp, stats: { ...stats, defense: d.record } })
+              .eq('id', foe.id);
+          }
+        }
+      } catch {
+        // 수비 경험치는 덤이라 실패해도 넘어갑니다.
+      }
     } catch {
       // 기록 저장이 실패해도 연출과 결과는 그대로 보여줍니다. (부스에서 흐름이 끊기지 않도록)
     }
@@ -612,7 +703,7 @@ export default function BattlePage() {
     try {
       setPlayer(await claimSlot(player.id, 'ladder'));
     } catch (err: any) {
-      setError(err.message || '지금은 랭킹 도전을 할 수 없어요.');
+      setError(err.message || '지금은 랭킹 도전을 할 수 없어.');
       return;
     }
     practiceRef.current = false;
@@ -632,7 +723,7 @@ export default function BattlePage() {
     try {
       setPlayer(await claimSlot(player.id, 'practice'));
     } catch (err: any) {
-      setError(err.message || '지금은 연습 게임을 할 수 없어요.');
+      setError(err.message || '지금은 연습 게임을 할 수 없어.');
       return;
     }
     practiceRef.current = true;
@@ -676,7 +767,7 @@ export default function BattlePage() {
   if (!myInsect) {
     return (
       <main className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center gap-4 px-6">
-        <p>아직 만든 곤충이 없어요.</p>
+        <p>아직 만든 곤충이 없어.</p>
         <button
           onClick={() => router.push('/upload')}
           className="bg-emerald-500 text-slate-900 font-bold py-3 px-6 rounded-2xl"
@@ -708,7 +799,7 @@ export default function BattlePage() {
               />
             ))}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className={`text-[58px] leading-none font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
+              <p className={`text-[3.625rem] leading-none font-black ${specialFx.move.textColor} animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]`}>
                 {specialFx.move.emoji}
               </p>
               <div className="mt-2 flex justify-center animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
@@ -722,6 +813,11 @@ export default function BattlePage() {
               <p className="mt-1 text-sm font-bold text-white animate-special-name">
                 {specialFx.side === 'A' ? '내 곤충의 필살기!' : '상대의 필살기!'}
               </p>
+              {specialFx.caption && (
+                <p className="mt-3 px-4 text-center text-2xl font-black text-amber-200 whitespace-nowrap animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                  {specialFx.caption}
+                </p>
+              )}
               {/* 회피 — 맞는 쪽의 회피력으로 필살기를 통째로 피했을 때 */}
               {specialFx.dodged && (
                 <p className="mt-4 px-4 text-center text-3xl font-black text-sky-300 whitespace-nowrap animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
@@ -763,7 +859,7 @@ export default function BattlePage() {
 
         <div className="text-center">
           {phase === 'intro' ? (
-            <p className="text-[58px] leading-none font-black italic text-amber-400 animate-vs-slam">VS</p>
+            <p className="text-[3.625rem] leading-none font-black italic text-amber-400 animate-vs-slam">VS</p>
           ) : (
             <p className="text-2xl font-black italic text-amber-400/70">VS</p>
           )}
@@ -804,12 +900,12 @@ export default function BattlePage() {
             onClick={pressSpecial}
             className="mt-2 w-full bg-slate-900/60 rounded-2xl py-4 select-none"
           >
-            {chanceBonus && (
-              <p className="text-base font-black text-amber-300 animate-pop">🎁 보너스! 필살기 한 번 더!</p>
+            {chanceNote && (
+              <p className="text-base font-black text-amber-300 animate-pop">{chanceNote}</p>
             )}
             <p className={`text-sm font-bold ${chanceMove.textColor}`}>
               {chanceMove.emoji} {chanceMove.name}
-              <span className="ml-1 text-[11px] text-slate-400">
+              <span className="ml-1 text-[0.6875rem] text-slate-400">
                 ({chanceMove.kind === 'attack' ? '공격' : '수비'})
               </span>
             </p>
@@ -873,14 +969,14 @@ export default function BattlePage() {
               {battle.winner === 'A'
                 ? '🎉 내 곤충 생존 성공!'
                 : battle.winner === 'B'
-                  ? '💀 내 곤충이 버티지 못했어요'
+                  ? '💀 내 곤충이 버티지 못했어…'
                   : '🤝 무승부'}
             </p>
             {practiceRef.current ? (
               <p className="text-sm text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임이라 점수·경험치는 안 남아. 실력만 쑥쑥!</p>
             ) : (
               <p className="text-sm text-emerald-400">
-                경험치 +{xpGained}%{leveledUp ? ' · 🆙 레벨업!' : ''}
+                +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
               </p>
             )}
             {usedSpecial && timing && myMove && (
@@ -893,7 +989,7 @@ export default function BattlePage() {
             )}
             {!usedSpecial && myMove && (
               <p className="text-xs text-amber-300">
-                이번엔 필살기({myMove.name})를 못 썼어요. 다음엔 고리가 겹칠 때 눌러봐!
+                이번엔 필살기({myMove.name})를 못 썼어. 다음엔 고리가 겹칠 때 눌러봐!
               </p>
             )}
             {/* 랭킹 도전 중이면 다음 상대를, 끝났으면 성적표를 보여줍니다. */}
@@ -971,26 +1067,48 @@ export default function BattlePage() {
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
       <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />G7BB 배틀</h1>
 
-      <div className="bg-slate-800 rounded-xl px-4 py-3 flex justify-between text-sm">
-        <span>내 곤충 Lv.{myInsect.level}</span>
-        <span className="text-slate-400">
-          다음 레벨까지 {100 - Math.round(levelProgress(myInsect.level, myInsect.xp) * 100)}% · 배틀 {myInsect.battle_count}회
-        </span>
+      {/* 곤충 이름 (안 지었으면 "내 곤충") + 레벨 + XP 숫자 (Jin 10/1) */}
+      <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-lg font-black truncate">
+            {myInsect.nickname && myInsect.nickname !== player?.display_name ? myInsect.nickname : '내 곤충'}{' '}
+            <span className="text-emerald-300">Lv.{myInsect.level}</span>
+          </span>
+          <span className="shrink-0 text-xs text-slate-400">배틀 {myInsect.battle_count}회</span>
+        </div>
+        {(() => {
+          const x = xpDisplay(myInsect.level, myInsect.xp);
+          return (
+            <div>
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-amber-300">XP {x.have} / {x.need}</span>
+                <span className="text-slate-400">다음 레벨까지 {x.left} XP</span>
+              </div>
+              <div className="mt-1 h-2.5 rounded-full bg-slate-900 overflow-hidden">
+                <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.round(levelProgress(myInsect.level, myInsect.xp) * 100)}%` }} />
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {status && <PlayStatusCard status={status} />}
 
       {/* 내 필살기 안내 — 배틀 중에 버튼이 뜬다는 것을 미리 알려줘야 놓치지 않습니다. */}
       {myMove && (
-        <div className="bg-slate-800 rounded-2xl px-4 py-3 border border-amber-400/40">
-          <p className="text-sm font-bold text-amber-300">
-            {myMove.emoji} 내 필살기 · {myMove.name}
+        // Jin 10/1: 2배 이상 크게
+        <div className="bg-slate-800 rounded-2xl px-5 py-5 border-2 border-amber-400/60" style={{ wordBreak: 'keep-all' }}>
+          <p className="text-sm font-bold text-amber-300/90">⚡ 내 필살기</p>
+          <p className={`mt-1 text-3xl font-black leading-tight ${myMove.textColor}`}>
+            {myMove.emoji} {myMove.name}
           </p>
-          <p className="text-xs text-slate-400 mt-1">{myMove.description}</p>
-          <p className="text-xs text-amber-200/80 mt-2">
-            배틀 중에 딱 한 번, 고리가 줄어드는 버튼이 떠.
-            <b className="text-amber-300"> 고리가 가운데 동그라미랑 겹칠 때</b> 누르면 ✨퍼펙트!
-            위력이 확 세져.
+          <p className="text-base text-slate-200 mt-2">
+            {myMove.description} <span className="text-slate-400">({myMove.kind === 'attack' ? '공격형' : '수비형'})</span>
+          </p>
+          <p className="text-sm text-amber-200/90 mt-3 leading-relaxed">
+            배틀 중에 고리가 줄어드는 버튼이 떠.
+            <b className="text-amber-300"> 고리가 가운데 동그라미랑 겹칠 때</b> 누르면 ✨퍼펙트! 위력이 확 세져.
+            {myMove.kind === 'defense' && ' 수비형은 상대가 공격할 때 버튼이 떠!'}
           </p>
         </div>
       )}
@@ -1013,7 +1131,7 @@ export default function BattlePage() {
           <p className="text-sm text-slate-400">순위 불러오는 중...</p>
         ) : ladderTargets.length === 0 ? (
           <p className="text-sm text-slate-400">
-            아직 상대할 다른 곤충이 없어요. 친구가 곤충을 만들면 도전할 수 있어!
+            아직 상대할 다른 곤충이 없어. 친구가 곤충을 만들면 도전할 수 있어!
           </p>
         ) : (
           <>
@@ -1089,8 +1207,8 @@ export default function BattlePage() {
         ) : filtered.length === 0 ? (
           <p className="text-center text-slate-400 py-6 text-sm">
             {opponents.length === 0
-              ? '아직 상대할 다른 곤충이 없어요. 친구가 곤충을 만들면 여기에 나타나요!'
-              : '그 이름을 가진 친구를 찾지 못했어요.'}
+              ? '아직 상대할 다른 곤충이 없어. 친구가 곤충을 만들면 여기에 나타나!'
+              : '그 이름을 가진 친구를 못 찾았어.'}
           </p>
         ) : (
           <>
@@ -1146,7 +1264,7 @@ export default function BattlePage() {
             ? '상대를 데려오는 중...'
             : picked
               ? `🎯 ${picked.nickname}와(과) 연습 게임!`
-              : '상대를 골라주세요'}
+              : '상대를 골라줘'}
         </button>
         {status && !status.canPractice && (
           <p className="mt-2 text-xs text-amber-300 text-center" style={{ wordBreak: 'keep-all' }}>
@@ -1298,12 +1416,14 @@ function OriginInfo({ origin }: { origin: EnvironmentKey | null | undefined }) {
   const beats = envOf(effect.beats);
   const loses = envOf(weakTo(origin));
   return (
-    <div className="bg-slate-800 rounded-2xl p-4 text-sm" style={{ wordBreak: 'keep-all' }}>
-      <p className="font-bold">
-        {me.emoji} 내 출신지 · {me.label}
+    // Jin 10/1: 크게
+    <div className="bg-slate-800 rounded-2xl px-5 py-4" style={{ wordBreak: 'keep-all' }}>
+      <p className="text-sm font-bold text-slate-400">🗺️ 내 출신지</p>
+      <p className="mt-1 text-2xl font-black">
+        {me.emoji} {me.label}
       </p>
       {beats || loses ? (
-        <div className="mt-2 flex flex-col gap-1 text-xs">
+        <div className="mt-2 flex flex-col gap-1 text-base font-semibold">
           {beats && (
             <p className="text-emerald-300">
               💪 {beats.emoji} {beats.label} 친구한테 강해!
@@ -1316,7 +1436,7 @@ function OriginInfo({ origin }: { origin: EnvironmentKey | null | undefined }) {
           )}
         </div>
       ) : (
-        <p className="mt-2 text-xs text-slate-300">누구한테도 강하지도 약하지도 않아. 든든한 선택!</p>
+        <p className="mt-2 text-base text-slate-300">누구한테도 강하지도 약하지도 않아. 든든한 선택!</p>
       )}
     </div>
   );

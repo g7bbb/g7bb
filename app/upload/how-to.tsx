@@ -8,19 +8,21 @@ interface Slide {
   emoji: string;
   title: string;
   description: string;
+  /** 설명 아래 한 줄 더 (노란 글씨로 강조) */
+  note?: string;
   visual?: React.ReactNode;
 }
 
 const SLIDES: Slide[] = [
   {
     emoji: '🖍️',
-    title: '종이에 곤충을 그려요',
-    description: '내가 만들고 싶은 곤충을 마음대로 그려보세요.\n잘 못 그려도 괜찮아요!',
+    title: '종이에 곤충을 그려!',
+    description: '내가 만들고 싶은 곤충을 마음대로 그려봐.\n잘 못 그려도 괜찮아!',
   },
   {
     emoji: '✏️',
-    title: '곤충 이름을 정해요',
-    description: '장수풍뎅이? 사슴벌레?\n어떤 곤충인지 적어주세요.',
+    title: '곤충 종류를 골라!',
+    description: '장수풍뎅이? 사슴벌레?\n어떤 곤충인지 알려줘.',
     visual: (
       <div className="bg-slate-800 rounded-xl px-4 py-3 text-slate-300 w-full text-left">
         예: 장수풍뎅이
@@ -29,8 +31,8 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: '🏞️',
-    title: '사는 곳과 나이를 골라요',
-    description: '어디에서 살던 곤충인지,\n얼마나 자란 곤충인지 골라주세요.',
+    title: '사는 곳과 나이를 골라!',
+    description: '어디에서 살던 곤충인지,\n얼마나 자란 곤충인지 골라줘.',
     visual: (
       <div className="grid grid-cols-3 gap-2 w-full">
         {ENVIRONMENTS.map((e) => (
@@ -43,8 +45,10 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: '💪',
-    title: '몸의 힘을 나눠줘요',
-    description: '7군데에 1~5점씩 점수를 주세요.\n높은 점수를 준 곳이 더 크고 멋지게 그려져요!',
+    title: '몸의 힘을 나눠줘!',
+    description: '7군데에 1~5점씩 점수를 줘.\n높은 점수를 준 곳이 더 크고 멋지게 그려져!',
+    // Jin 문구 (2026-10-01)
+    note: '너무 점수를 높게만 하면 느려지거나 약해질 수 있으니 생각을 잘해서 해야 해!!',
     visual: (
       <div className="flex flex-col gap-2 w-full">
         {BODY_PARTS.slice(0, 3).map((part, i) => (
@@ -68,17 +72,17 @@ const SLIDES: Slide[] = [
   {
     emoji: '📸',
     title: '사진을 찍으면 변신!',
-    description: '내가 그린 그림을 사진으로 찍으면\n진짜 같은 곤충으로 변신해요.',
+    description: '내가 그린 그림을 사진으로 찍으면\n진짜 같은 곤충으로 변신해!',
   },
   {
     emoji: '⚔️',
-    title: '이제 배틀하러 가요!',
-    description: '만든 곤충으로 친구들과 배틀하고\n랭킹에 도전해보세요.',
+    title: '이제 배틀하러 가자!',
+    description: '만든 곤충으로 친구들과 배틀하고\n랭킹에 도전해봐!',
   },
   // 마지막 장 — Jin 문구 (2026-10-01)
   {
     emoji: '🏅',
-    title: '뱃지를 모아요!',
+    title: '뱃지를 모아봐!',
     description: '뱃지를 모을수록 재미있고\n멋진 선물을 받을 수 있어!!',
     visual: (
       <div className="flex justify-center gap-2 text-3xl">
@@ -115,6 +119,11 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
         <p key={`desc-${index}`} className="text-slate-300 whitespace-pre-line animate-slide-up">
           {slide.description}
         </p>
+        {slide.note && (
+          <p key={`note-${index}`} className="text-amber-300 font-bold text-sm animate-slide-up" style={{ wordBreak: 'keep-all' }}>
+            ⚠️ {slide.note}
+          </p>
+        )}
         {slide.visual && (
           <div key={`visual-${index}`} className="w-full max-w-xs animate-slide-up">
             {slide.visual}

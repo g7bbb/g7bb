@@ -53,6 +53,8 @@ function buildPrompt(): string {
     '⚠️ 헷갈리기 쉬운 것: **"날개" 줄이 두 개 있다.**',
     '- "부위 점수" 칸의 날개 → 1~5 중 하나의 **점수**. bodyParts 에 넣는다.',
     '- "특별 진화" 칸의 날개 → 2장 / 4장 / 6장 이상 중 하나의 **장수**. mutations 에 넣는다.',
+    '"다리"·"발톱" 도 마찬가지다: "부위 점수" 칸의 "다리 (발톱)" 은 1~5 **점수**(bodyParts),',
+    '"특별 진화" 칸의 "다리"(6개 / 8개 이상)와 "발톱"(1개 / 2개)은 **개수**(mutations)다.',
     '두 칸은 용지에서 위아래로 떨어져 있고 각각 제목이 붙어 있으니 제목을 보고 구분하라.',
   ].join('\n');
 }
@@ -86,7 +88,7 @@ export async function POST(req: NextRequest) {
     const { imageBase64, mimeType } = await req.json();
 
     if (!imageBase64 || !mimeType) {
-      return NextResponse.json({ error: '사진이 없습니다.' }, { status: 400 });
+      return NextResponse.json({ error: '사진이 없어. 다시 찍어줘!' }, { status: 400 });
     }
     if (!GEMINI_API_KEY) {
       return NextResponse.json(
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       return NextResponse.json(
-        { error: '종이를 읽지 못했어요. 밝은 곳에서 종이 전체가 나오게 다시 찍어주세요.' },
+        { error: '종이를 못 읽었어. 밝은 곳에서 종이 전체가 나오게 다시 찍어줘!' },
         { status: 502 }
       );
     }
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
       parsed = JSON.parse(text);
     } catch {
       return NextResponse.json(
-        { error: '읽은 내용을 이해하지 못했어요. 다시 찍어주세요.' },
+        { error: '읽은 걸 이해 못 했어. 다시 찍어줘!' },
         { status: 502 }
       );
     }
@@ -141,7 +143,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ result: parsed });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || '알 수 없는 오류가 발생했어요.' },
+      { error: err.message || '알 수 없는 문제가 생겼어. 다시 눌러줘!' },
       { status: 500 }
     );
   }

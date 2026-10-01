@@ -4,7 +4,7 @@ import { GAME_NAME, GAME_TITLE } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: GAME_TITLE,
-  description: '사진으로 나만의 곤충을 만들고 배틀해보세요!',
+  description: '사진으로 나만의 곤충을 만들고 배틀해봐!',
   // 아이폰 "홈 화면에 추가" 때 아이콘 아래 붙는 이름
   appleWebApp: { title: GAME_NAME },
 };

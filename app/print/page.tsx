@@ -221,6 +221,10 @@ function PrintInner() {
         /* 앱 전체는 어두운 테마(layout.tsx 의 body className="bg-slate-950 text-slate-100")입니다.
            그 클래스가 우선순위에서 이겨서 종이까지 까맣게 인쇄되므로, 이 화면에서만 강제로 되돌립니다.
            !important 없이 body 선택자만 쓰면 Tailwind 클래스에 집니다. */
+        /* 태블릿 확대(globals.css)를 끈다 — 종이 크기가 바뀌면 안 된다. */
+        html {
+          font-size: 16px !important;
+        }
         html body {
           background: #fff !important;
           color: #000 !important;

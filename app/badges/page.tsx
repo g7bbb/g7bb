@@ -80,7 +80,7 @@ export default function BadgesPage() {
           stored: state.badges,
         })
       );
-    })().catch((err) => setError(err?.message || '뱃지를 불러오지 못했어요.'));
+    })().catch((err) => setError(err?.message || '뱃지를 못 불러왔어. 다시 열어줘!'));
   }, [router]);
 
   const total = BADGES.length;
@@ -165,10 +165,10 @@ function BadgeTile({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
           {earned ? badge.emoji : '🔒'}
         </div>
       )}
-      <p className={`text-[11px] font-bold leading-tight ${earned ? 'text-slate-100' : 'text-slate-400'}`}>
+      <p className={`text-[0.6875rem] font-bold leading-tight ${earned ? 'text-slate-100' : 'text-slate-400'}`}>
         {badge.name}
       </p>
-      {!earned && <p className="text-[9px] text-slate-500 leading-tight">{badge.how}</p>}
+      {!earned && <p className="text-[0.5625rem] text-slate-500 leading-tight">{badge.how}</p>}
     </div>
   );
 }

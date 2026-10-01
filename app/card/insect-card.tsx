@@ -66,7 +66,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
   }, [data.ticketCode]);
 
   return (
-    <div className="w-full max-w-[340px] mx-auto">
+    <div className="w-full max-w-[21.25rem] mx-auto">
       {/* 테두리 = 등급. 안쪽에 실제 카드를 얹습니다. */}
       <div
         className={`rounded-2xl p-[5px] shadow-2xl ${tier.holographic ? 'holo-frame' : ''}`}
@@ -89,7 +89,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
             <div
               // Jin 요청 (2026-09-29): "레벨 글씨가 한 20% 커져도 좋을 것 같은데"
               // text-sm(14px) → 17px 로 약 21% 키우고, 여백도 같이 올려 답답해 보이지 않게 함.
-              className="absolute top-2 left-2 rounded-lg px-3 py-1.5 font-black text-[17px] leading-none shadow-lg"
+              className="absolute top-2 left-2 rounded-lg px-3 py-1.5 font-black text-[1.0625rem] leading-none shadow-lg"
               style={{ background: tier.frame, color: tier.ink }}
             >
               LV.{data.level}
@@ -104,7 +104,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                 >
                   {env.emoji}
                 </div>
-                <span className="mt-0.5 text-[9px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                <span className="mt-0.5 text-[0.5625rem] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                   {env.label}
                 </span>
               </div>
@@ -117,7 +117,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
               </div>
               {/* 곤충 이름 아래 한 줄: `아이이름 · 종류`.
                   이름을 안 지어서 곤충 이름 = 아이 이름이면 같은 말을 두 번 쓰지 않습니다. */}
-              <div className="text-[11px] font-semibold text-slate-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+              <div className="text-[0.6875rem] font-semibold text-slate-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                 {[data.ownerName && data.ownerName !== data.nickname ? data.ownerName : null, data.species]
                   .filter(Boolean)
                   .join(' · ')}
@@ -135,19 +135,19 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                 >
                   <span className="text-lg leading-none">{m!.emoji}</span>
                   <div className="min-w-0 flex-1">
-                    <div className={`text-[13px] font-bold leading-tight ${m!.textColor}`}>
+                    <div className={`text-[0.8125rem] font-bold leading-tight ${m!.textColor}`}>
                       {m!.name}
                     </div>
-                    <div className="text-[10px] text-slate-400 leading-tight truncate">
+                    <div className="text-[0.625rem] text-slate-400 leading-tight truncate">
                       {m!.description}
                     </div>
                   </div>
                   {/* 공격형/수비형을 한눈에 구분해줍니다. */}
-                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                  <span className="shrink-0 text-[0.5625rem] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
                     {m!.kind === 'attack' ? '공격' : '수비'}
                   </span>
                   {i === 1 && (
-                    <span className="shrink-0 text-[9px] font-bold text-emerald-400">LV3</span>
+                    <span className="shrink-0 text-[0.5625rem] font-bold text-emerald-400">LV3</span>
                   )}
                 </div>
               ))}
@@ -156,7 +156,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
             <div className="flex flex-col gap-1">
               {STAT_ROWS.map((row) => (
                 <div key={row.key} className="flex items-center gap-1.5">
-                  <span className="w-11 shrink-0 text-[10px] font-semibold text-slate-400">
+                  <span className="w-11 shrink-0 text-[0.625rem] font-semibold text-slate-400">
                     {row.label}
                   </span>
                   <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
@@ -165,14 +165,14 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                       style={{ width: `${statBarPercent(row.key, data.stats[row.key])}%`, background: row.color }}
                     />
                   </div>
-                  <span className="w-7 shrink-0 text-right text-[10px] font-bold text-slate-200">
+                  <span className="w-7 shrink-0 text-right text-[0.625rem] font-bold text-slate-200">
                     {data.stats[row.key]}
                   </span>
                 </div>
               ))}
               {/* 성실함 — 육감이 낮을 때만 생기는 특별 능력치 */}
               {!!data.stats.grit && (
-                <div className="text-[10px] font-bold text-amber-300">
+                <div className="text-[0.625rem] font-bold text-amber-300">
                   💪 성실함 +{data.stats.grit} <span className="font-normal text-slate-400">맞아도 꾹 참아!</span>
                 </div>
               )}
@@ -185,7 +185,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                   <div className="text-base font-black tracking-wider text-slate-200">
                     {data.ticketCode}
                   </div>
-                  <div className="text-[9px] text-slate-500 leading-tight">
+                  <div className="text-[0.5625rem] text-slate-500 leading-tight">
                     다시 올 때 이 QR을 찍어줘
                   </div>
                 </div>

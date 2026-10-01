@@ -120,7 +120,7 @@ type Slot = 'ladder' | 'practice';
  */
 export async function claimSlot(playerId: string, slot: Slot): Promise<Player> {
   const player = await freshPlayer(playerId);
-  if (!player) throw new Error('참가 정보를 찾지 못했어요. 종이 QR 을 다시 찍어줘!');
+  if (!player) throw new Error('참가 정보를 못 찾았어. 종이 QR 을 다시 찍어줘!');
   const status = playStatus(player);
   const sessions = [...status.state.sessions];
   const last = sessions[sessions.length - 1];
@@ -144,7 +144,7 @@ export async function checkIn(
   choice: { newInsect?: boolean; leveled?: boolean }
 ): Promise<Player> {
   const player = await freshPlayer(playerId);
-  if (!player) throw new Error('참가 정보를 찾지 못했어요. 종이 QR 을 다시 찍어줘!');
+  if (!player) throw new Error('참가 정보를 못 찾았어. 종이 QR 을 다시 찍어줘!');
   const status = playStatus(player);
   if (!status.canStartNew) throw new Error(blockedMessage(status));
   const sessions = [...status.state.sessions, { at: new Date().toISOString(), ...choice }];
@@ -217,7 +217,7 @@ export function isPending(player: Pick<Player, 'display_name'> | null | undefine
  */
 export async function setTierForTicket(rawTicket: string, tier: TierKey): Promise<Player> {
   const ticket = normalizeTicket(rawTicket);
-  if (!ticket) throw new Error('번호를 다시 확인해 주세요 (예: A-014)');
+  if (!ticket) throw new Error('번호를 다시 확인해줘 (예: 14)');
   const { data: found, error: findError } = await supabase
     .from('players')
     .select('*')

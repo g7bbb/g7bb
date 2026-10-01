@@ -43,7 +43,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('사진을 읽지 못했어요. 다른 사진으로 해볼래?'));
+    img.onerror = () => reject(new Error('사진을 못 읽었어. 다른 사진으로 해볼래?'));
     img.src = url;
   });
 }
@@ -52,7 +52,7 @@ function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('사진을 읽지 못했어요. 다른 사진으로 해볼래?'));
+    reader.onerror = () => reject(new Error('사진을 못 읽었어. 다른 사진으로 해볼래?'));
     reader.readAsDataURL(file);
   });
 }
@@ -117,13 +117,13 @@ export async function readJsonOrExplain(res: Response): Promise<any> {
     return JSON.parse(text);
   } catch {
     if (res.status === 413) {
-      throw new Error('사진 용량이 너무 커요. 조금 더 작게 찍거나 다른 사진으로 해볼래?');
+      throw new Error('사진 용량이 너무 커. 조금 더 작게 찍거나 다른 사진으로 해볼래?');
     }
     if (res.status === 504 || res.status === 408) {
-      throw new Error('AI가 그림을 만드는 데 너무 오래 걸렸어요. 한 번만 더 눌러줄래?');
+      throw new Error('AI가 그림을 만드는 데 너무 오래 걸렸어. 한 번만 더 눌러줄래?');
     }
     throw new Error(
-      `서버에서 문제가 생겼어요. 다시 한 번 눌러주세요. 계속 안 되면 진행 요원에게 알려주세요. (오류 ${res.status})`
+      `서버에서 문제가 생겼어. 다시 한 번 눌러줘! 계속 안 되면 진행 선생님한테 알려줘. (오류 ${res.status})`
     );
   }
 }

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { rememberPlayer } from '@/lib/session';
 import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
-import { XpGain, addXp, levelProgress, revisitXpRate } from '@/lib/leveling';
+import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
 import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
 import { awardBadges, blockedMessage, checkIn, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
@@ -193,7 +193,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
 
       {/* 번호가 잘못 읽혔을 수도 있으니 빠져나갈 길을 둡니다. */}
       <button onClick={onNotMe} className="text-xs text-slate-500 underline">
-        내가 아니에요 (번호 직접 입력하기)
+        내가 아니야 (번호 직접 입력하기)
       </button>
     </main>
   );
@@ -253,7 +253,7 @@ function LevelUp({
     try {
       await onDone(alloc, gain);
     } catch (err: any) {
-      setError(err.message || '저장에 실패했어요. 다시 눌러줘!');
+      setError(err.message || '저장이 안 됐어. 다시 눌러줘!');
       setSaving(false);
     }
   }
@@ -288,7 +288,7 @@ function LevelUp({
           ) : (
             <p className="text-2xl font-black text-emerald-300">Lv.{insect.level}</p>
           )}
-          <p className="text-xs text-amber-300 font-bold">경험치 +{gain.gained}%</p>
+          <p className="text-xs text-amber-300 font-bold">경험치 +{gain.shown} XP</p>
         </div>
       </div>
 
@@ -296,7 +296,10 @@ function LevelUp({
       {gain.levelsUp === 0 && (
         <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2" style={{ wordBreak: 'keep-all' }}>
           <p className="text-center font-bold">
-            다음 레벨까지 <span className="text-amber-300">{100 - Math.round(levelProgress(gain.level, gain.xp) * 100)}%</span> 남았어!
+            다음 레벨까지 <span className="text-amber-300">{xpDisplay(gain.level, gain.xp).left} XP</span> 남았어!
+            <span className="block text-xs text-slate-400 font-normal">
+              XP {xpDisplay(gain.level, gain.xp).have} / {xpDisplay(gain.level, gain.xp).need}
+            </span>
           </p>
           <div className="h-3 rounded-full bg-slate-900 overflow-hidden">
             <div
@@ -324,7 +327,7 @@ function LevelUp({
                 <span className="flex-1 text-sm">
                   <span className="text-slate-400">{before[row.key]}</span>
                   {n > 0 && <span className="text-emerald-300 font-bold"> → {after[row.key]}</span>}
-                  <span className="block text-[11px] text-slate-500">{row.hint}</span>
+                  <span className="block text-[0.6875rem] text-slate-500">{row.hint}</span>
                 </span>
                 <button
                   onClick={() => change(row.key, -1)}

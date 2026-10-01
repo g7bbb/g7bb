@@ -90,7 +90,7 @@ export default function GalleryPage() {
       <header className="text-center">
         <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />친구들 곤충 구경하기</h1>
         <p className="mt-2 text-sm text-slate-400">
-          멋진 곤충에 하트를 눌러줘! 예쁜 곤충 상은 하트를 참고해서 정해져요.
+          멋진 곤충에 하트를 눌러줘! 예쁜 곤충 상은 하트를 참고해서 정해져!
         </p>
       </header>
 
@@ -136,7 +136,7 @@ export default function GalleryPage() {
                 >
                   {liked ? '❤️' : '🤍'} {counts.get(insect.id) ?? 0}
                 </button>
-                {isOwn && <p className="mt-1 text-[11px] text-slate-500 text-center">내 곤충이야!</p>}
+                {isOwn && <p className="mt-1 text-[0.6875rem] text-slate-500 text-center">내 곤충이야!</p>}
               </div>
               </div>
             </TierFrame>
@@ -147,7 +147,7 @@ export default function GalleryPage() {
       {loading && <p className="text-center text-slate-400">불러오는 중...</p>}
 
       {!loading && insects.length === 0 && (
-        <p className="text-center text-slate-400">아직 만들어진 곤충이 없어요.</p>
+        <p className="text-center text-slate-400">아직 만들어진 곤충이 없어.</p>
       )}
 
       {!loading && !done && insects.length > 0 && (

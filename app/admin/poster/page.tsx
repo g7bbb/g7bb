@@ -182,6 +182,10 @@ function PosterDesk() {
           size: A3 portrait;
           margin: 0;
         }
+        /* 태블릿 확대(globals.css)를 끈다 — 포스터 크기가 바뀌면 안 된다. */
+        html {
+          font-size: 16px !important;
+        }
         @media print {
           html body {
             background: #020617 !important;

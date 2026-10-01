@@ -57,11 +57,27 @@ export function levelProgress(level: number, xp: number): number {
   return Math.max(0, Math.min(1, into / LEVEL_XP));
 }
 
+// ── 화면에 보여주는 경험치 숫자 (2026-10-01 Jin: "%가 아니라 XP 수치로, 레벨이 오를수록 더 많이 필요하게") ──
+// 속은 위의 % 규칙 그대로다. 화면에서만 레벨마다 필요한 XP 를 키워서 숫자로 보여준다.
+//   LV1→2: 100 XP · LV2→3: 200 XP · LV3→4: 300 XP …
+export function xpToNext(level: number): number {
+  return 100 * Math.max(1, Math.floor(level || 1));
+}
+
+/** 지금 레벨에서 모은 XP / 다음 레벨까지 필요한 XP */
+export function xpDisplay(level: number, xp: number): { have: number; need: number; left: number } {
+  const need = xpToNext(level);
+  const have = Math.round(levelProgress(level, xp) * need);
+  return { have, need, left: need - have };
+}
+
 export interface XpGain {
   xp: number;
   level: number;
-  /** 이번에 얻은 경험치 */
+  /** 이번에 얻은 경험치 (속 단위, 레벨 하나 = 100) */
   gained: number;
+  /** 화면에 보여줄 XP 숫자 (레벨이 높을수록 커진다, xpToNext 기준) */
+  shown: number;
   /** 몇 레벨 올랐는지 (0 이면 안 오름) */
   levelsUp: number;
 }
@@ -76,7 +92,7 @@ export function addXp(level: number, xp: number, rate: number): XpGain {
   const gained = Math.round(LEVEL_XP * rate);
   const total = base + gained;
   const next = Math.max(start, levelFromXp(total));
-  return { xp: total, level: next, gained, levelsUp: next - start };
+  return { xp: total, level: next, gained, shown: Math.round(rate * xpToNext(start)), levelsUp: next - start };
 }
 
 // ── 배틀에서 레벨이 하는 일 ─────────────────────────────────
@@ -110,4 +126,37 @@ export function critChance(level: number, foeLevel: number): number {
  */
 export function bonusSpecialChance(level: number): number {
   return Math.max(0.1, 0.6 - 0.1 * Math.max(1, level));
+}
+
+// ── 수비하는 곤충도 경험치 (2026-10-01 Jin: "랭킹 곤충은 수비하는 입장이니 공격하는 쪽의 20% 정도") ──
+//
+// ⚠️ 한도가 없으면 무너진다 (Claude 계산): 랭킹 1~3위는 2일 동안 한 마리당 약 300번 도전을 받는다.
+//   한도 없이 20% 를 주면 LV5 곤충이 주인이 한 판도 안 해도 행사 끝에 LV10 이 된다 → 아무도 못 이김.
+//   그래서 **수비로 받는 경험치는 하루에 레벨 1개(100)까지만**. 그러면 2일에 +2 레벨 정도.
+//   레벨업 포인트는 안 준다 (포인트는 아이가 직접 와서 레벨업할 때만).
+export const DEFENSE_XP_SHARE = 0.2;
+export const DEFENSE_XP_DAILY_CAP = LEVEL_XP;
+
+/** 오늘 날짜 (한국 시간) — 수비 경험치 하루 한도를 세는 기준 */
+export function koreaDay(now = new Date()): string {
+  return now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+}
+
+/**
+ * 수비한 곤충이 받을 경험치. `defense` 는 `insects.stats.defense` 에 저장해 둔 오늘 받은 양.
+ * 한도를 넘으면 0.
+ */
+export function defenseXpGain(
+  level: number,
+  xp: number,
+  won: boolean,
+  defense: { day?: string; xp?: number } | undefined,
+  today = koreaDay()
+): { gain: XpGain; record: { day: string; xp: number } } | null {
+  const already = defense?.day === today ? Math.max(0, Number(defense.xp) || 0) : 0;
+  const want = Math.round(LEVEL_XP * DEFENSE_XP_SHARE * battleXpRate(level, won));
+  const allowed = Math.min(want, DEFENSE_XP_DAILY_CAP - already);
+  if (allowed <= 0) return null;
+  const gain = addXp(level, xp, allowed / LEVEL_XP);
+  return { gain, record: { day: today, xp: already + allowed } };
 }

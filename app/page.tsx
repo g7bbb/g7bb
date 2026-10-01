@@ -47,9 +47,9 @@ function HomeInner() {
           {GAME_TITLE}
         </h1>
         {player ? (
-          <p className="mt-2 text-slate-300">{player.display_name}님, 환영해요!</p>
+          <p className="mt-2 text-slate-300">{player.display_name}, 반가워!</p>
         ) : (
-          <p className="mt-2 text-slate-400">종이에 적힌 번호로 시작해요</p>
+          <p className="mt-2 text-slate-400">종이에 적힌 번호로 시작해!</p>
         )}
       </div>
 
@@ -99,9 +99,9 @@ function HomeInner() {
       {player && (
         <section className="bg-slate-800 rounded-2xl p-5 flex flex-col gap-3 text-center">
           <p className="text-sm text-slate-300">
-            🏅 상품 발표는 <span className="font-bold text-yellow-300">카카오톡 채널</span>에서 해요!
+            🏅 상품 발표는 <span className="font-bold text-yellow-300">카카오톡 채널</span>에서 해!
             <br />
-            채널을 추가하고 <span className="font-bold">내 번호</span>를 보내주세요.
+            채널을 추가하고 <span className="font-bold">내 번호</span>를 보내줘!
           </p>
 
           <button
@@ -110,7 +110,7 @@ function HomeInner() {
           >
             {player.ticket_code}
             <span className="block text-xs font-normal text-slate-400 tracking-normal mt-1">
-              {copied ? '✓ 복사됐어요!' : '눌러서 번호 복사'}
+              {copied ? '✓ 복사됐어!' : '눌러서 번호 복사'}
             </span>
           </button>
 
@@ -126,7 +126,7 @@ function HomeInner() {
           )}
 
           <p className="text-xs text-slate-500">
-            채널에 번호를 보내지 않으면 당첨돼도 연락을 드릴 수 없어요!
+            채널에 번호를 안 보내면 당첨돼도 연락을 못 해!
           </p>
         </section>
       )}

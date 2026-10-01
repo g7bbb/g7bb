@@ -56,8 +56,8 @@ function CardInner() {
       if (!player) {
         setError(
           fromUrl
-            ? `${fromUrl} 번호로 만든 곤충을 찾지 못했어요. 번호를 다시 확인해 주세요.`
-            : '아직 시작하지 않았어요. 종이의 QR을 찍어 시작해 주세요.'
+            ? `${fromUrl} 번호로 만든 곤충을 못 찾았어. 번호를 다시 확인해줘!`
+            : '아직 시작 안 했어. 종이의 QR을 찍어서 시작해줘!'
         );
         return;
       }
@@ -71,7 +71,7 @@ function CardInner() {
 
       const rows = (data || []) as InsectRow[];
       if (rows.length === 0) {
-        setError('아직 만든 곤충이 없어요. 곤충을 먼저 만들어 주세요!');
+        setError('아직 만든 곤충이 없어. 곤충을 먼저 만들어줘!');
         return;
       }
 
@@ -93,7 +93,7 @@ function CardInner() {
       setCards(built);
       setPicked(built.length - 1); // 제일 최근 카드를 먼저 보여줍니다
     } catch (err: any) {
-      setError(err.message || '카드를 불러오지 못했어요.');
+      setError(err.message || '카드를 못 불러왔어. 다시 열어줘!');
     } finally {
       setLoading(false);
     }
