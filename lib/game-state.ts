@@ -41,6 +41,11 @@ export interface GameState {
   badges: Record<string, string>;
   /** 직원이 올려준 참가권 (없으면 종이 번호 앞 글자로 정함) */
   tier?: TierKey;
+  /**
+   * 마지막으로 센 뱃지 개수 (2026-10-01 뱃지 버프). 이 아이 곤충이 **상대로 나올 때** 버프를 주려고 적어둔다.
+   * 상대의 뱃지를 배틀마다 처음부터 세면 조회가 너무 많아서, 본인이 뱃지·배틀 화면을 열 때 갱신한다.
+   */
+  badgeCount?: number;
 }
 
 export function readGameState(player: Pick<Player, 'survey'> | null | undefined): GameState {
@@ -49,6 +54,7 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
     sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
     badges: raw.badges && typeof raw.badges === 'object' ? raw.badges : {},
     ...(raw.tier && TIERS[raw.tier as TierKey] ? { tier: raw.tier as TierKey } : {}),
+    ...(Number.isFinite(raw.badgeCount) ? { badgeCount: Number(raw.badgeCount) } : {}),
   };
 }
 
@@ -185,6 +191,19 @@ export async function awardBadges(playerId: string, keys: string[]): Promise<voi
     await saveGameState(player, { ...state, badges });
   } catch {
     // 뱃지는 장식이라 실패해도 배틀을 멈추지 않습니다.
+  }
+}
+
+/** 뱃지 개수를 적어둡니다 (상대로 나올 때 버프용). 바뀌었을 때만 저장. 실패해도 그만. */
+export async function saveBadgeCount(playerId: string, count: number): Promise<void> {
+  try {
+    const player = await freshPlayer(playerId);
+    if (!player) return;
+    const state = readGameState(player);
+    if (state.badgeCount === count) return;
+    await saveGameState(player, { ...state, badgeCount: count });
+  } catch {
+    // 장식에 가까운 기록이라 실패해도 넘어갑니다.
   }
 }
 

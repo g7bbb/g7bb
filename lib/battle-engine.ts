@@ -64,6 +64,11 @@ export interface BattleSide {
   stats: CoreStats;
   level: number;
   origin: EnvironmentKey | null;
+  /**
+   * 뱃지 개수 버프 (lib/badges.ts badgePerks, 2026-10-01 Jin). 없으면 버프 없음.
+   * hp·def 는 능력치 배수, special 은 공격형 필살기 위력 배수.
+   */
+  perks?: { hp: number; def: number; special: number };
 }
 
 /**
@@ -83,10 +88,14 @@ export interface SideRoll {
    * 걸리면 기본 필살기를 한 번 더 쓸 수 있다. 레벨이 낮을수록 잘 걸린다 (LV1 50%).
    */
   bonus: boolean;
+  /** 공격형 필살기 위력 배수 (뱃지 20개 버프). 없으면 1 */
+  specialBoost?: number;
 }
 
 function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRoll {
-  const effective = statsWithLevelBonus(me.stats, me.level);
+  const perks = me.perks;
+  const boosted = perks ? { ...me.stats, hp: me.stats.hp * perks.hp, def: me.stats.def * perks.def } : me.stats;
+  const effective = statsWithLevelBonus(boosted, me.level);
   const edge = matchup(me.origin, foe.origin);
   const luck = 0.9 + random() * 0.2; // 운 요소 ±10%
   // 크리티컬은 레벨과 상관없이 같고, **상대보다 레벨이 낮으면** 더 잘 터진다 (역전 찬스).
@@ -100,6 +109,7 @@ function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRo
     grit: me.stats.grit ?? 0,
     matchup: edge,
     bonus,
+    specialBoost: perks?.special ?? 1,
   };
 }
 
@@ -129,7 +139,9 @@ export function rollBattle(
 function combineMoves(
   keys: SpecialMoveKey[],
   crit: boolean,
-  random?: () => number
+  random?: () => number,
+  /** 공격형 위력 배수 (뱃지 버프). 100% 를 넘지 않게 95% 에서 자른다. */
+  attackBoost = 1
 ): { attack: number; defense: number } {
   let attackLeft = 1;
   let defenseLeft = 1;
@@ -137,7 +149,7 @@ function combineMoves(
     const move = SPECIAL_MOVES[key];
     if (!move) return;
     const rate = rollMoveRate(move, crit, random);
-    if (move.kind === 'attack') attackLeft *= 1 - rate;
+    if (move.kind === 'attack') attackLeft *= 1 - Math.min(0.95, rate * attackBoost);
     else defenseLeft *= 1 - rate;
   });
   return { attack: 1 - attackLeft, defense: 1 - defenseLeft };
@@ -170,10 +182,10 @@ export function resolveBattle(
    */
   extra: { a?: SpecialMoveKey | null; b?: SpecialMoveKey | null } = {}
 ): BattleResult {
-  const moveA = combineMoves(specialsA, rollA.crit, random);
-  const moveB = combineMoves(specialsB, rollB.crit, random);
-  const bonusA = combineMoves(extra.a ? [extra.a] : [], false, random);
-  const bonusB = combineMoves(extra.b ? [extra.b] : [], false, random);
+  const moveA = combineMoves(specialsA, rollA.crit, random, rollA.specialBoost ?? 1);
+  const moveB = combineMoves(specialsB, rollB.crit, random, rollB.specialBoost ?? 1);
+  const bonusA = combineMoves(extra.a ? [extra.a] : [], false, random, rollA.specialBoost ?? 1);
+  const bonusB = combineMoves(extra.b ? [extra.b] : [], false, random, rollB.specialBoost ?? 1);
 
   // 상대의 공격은 내 수비만큼 무뎌집니다.
   //   내가 받는 실제 깎임 = 상대 공격률 × (1 − 내 수비율)

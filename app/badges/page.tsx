@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { getCurrentPlayer } from '@/lib/session';
 import { Player } from '@/lib/types';
-import { BADGES, BadgeDef, earnedBadges } from '@/lib/badges';
-import { awardBadges, readGameState } from '@/lib/game-state';
-import { tierForPlayer } from '@/lib/tiers';
-import { findSpecies } from '@/lib/species';
-import { hasAnyMutation } from '@/lib/mutations';
+import { BADGES, BADGE_MILESTONES, BadgeDef, COUNTED_TOTAL, countBadges, nextMilestone } from '@/lib/badges';
+import { loadBadgeSnapshot } from '@/lib/badge-state';
+import { awardBadges } from '@/lib/game-state';
 import { BrandMark } from '@/app/brand-logo';
+import { PerkChips } from './perk-chips';
 
 // 내 뱃지 모음 (2026-10-01 Jin). 카드·종이의 QR 로 들어오면 바로 볼 수 있다.
 // 뱃지 규칙은 lib/badges.ts.
@@ -26,6 +25,7 @@ export default function BadgesPage() {
   const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [earned, setEarned] = useState<Set<string> | null>(null);
+  const [count, setCount] = useState(0);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -37,54 +37,30 @@ export default function BadgesPage() {
       }
       setPlayer(p);
 
-      const { data: insects } = await supabase
-        .from('insects')
-        .select('id, species, mutations, level, judge_rank')
-        .eq('player_id', p.id);
-      const ids = (insects || []).map((row: any) => row.id);
-
-      const [{ count: battles }, { count: wins }, { count: hearts }, { data: scores }] = await Promise.all([
-        supabase.from('battles').select('id', { count: 'exact', head: true }).eq('player_id', p.id),
-        supabase.from('battles').select('id', { count: 'exact', head: true }).eq('player_id', p.id).eq('result', 'win'),
-        ids.length
-          ? supabase.from('hearts').select('insect_id', { count: 'exact', head: true }).in('insect_id', ids)
-          : Promise.resolve({ count: 0 } as any),
-        supabase.from('battles').select('player_id, score').order('score', { ascending: false }).limit(1000),
-      ]);
-
       // 전체 랭킹 1~3위면 그 자리에서 뱃지를 남깁니다 (랭킹 화면과 같은 방식: 아이별 최고 점수).
+      const { data: scores } = await supabase
+        .from('battles')
+        .select('player_id, score')
+        .order('score', { ascending: false })
+        .limit(1000);
       const order: string[] = [];
       (scores || []).forEach((row: any) => {
         if (!order.includes(row.player_id)) order.push(row.player_id);
       });
       const place = order.indexOf(p.id);
-      const state = readGameState(p);
-      if (place >= 0 && place < 3) {
-        const key = `rank${place + 1}`;
-        void awardBadges(p.id, [key]);
-        state.badges[key] = state.badges[key] ?? new Date().toISOString();
-      }
+      if (place >= 0 && place < 3) await awardBadges(p.id, [`rank${place + 1}`]);
 
-      setEarned(
-        earnedBadges({
-          insectCount: ids.length,
-          sessions: state.sessions.length,
-          battles: battles ?? 0,
-          wins: wins ?? 0,
-          maxLevel: Math.max(0, ...(insects || []).map((row: any) => row.level ?? 1)),
-          hearts: hearts ?? 0,
-          judged: (insects || []).some((row: any) => row.judge_rank),
-          evolved: (insects || []).some((row: any) => row.mutations && hasAnyMutation(row.mutations, row.species)),
-          mySpecies: (insects || []).some((row: any) => row.species && !findSpecies(row.species)),
-          tierKey: tierForPlayer(p).key,
-          stored: state.badges,
-        })
-      );
+      const fresh = (await getCurrentPlayer()) ?? p;
+      const snap = await loadBadgeSnapshot(fresh);
+      if (place >= 0 && place < 3) snap.earned.add(`rank${place + 1}`);
+      setEarned(snap.earned);
+      setCount(countBadges(snap.earned));
     })().catch((err) => setError(err?.message || '뱃지를 못 불러왔어. 다시 열어줘!'));
   }, [router]);
 
-  const total = BADGES.length;
-  const got = earned ? BADGES.filter((b) => earned.has(b.key)).length : 0;
+  const total = COUNTED_TOTAL;
+  const got = count;
+  const next = nextMilestone(got);
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-5 px-5 py-8">
@@ -103,17 +79,28 @@ export default function BadgesPage() {
 
       {earned && (
         <>
-          <div className="bg-slate-800 rounded-2xl p-4 text-center">
+          <div className="bg-slate-800 rounded-2xl p-4 text-center" style={{ wordBreak: 'keep-all' }}>
             <p className="text-3xl font-black">
               🏅 <span className="text-amber-300">{got}</span>
               <span className="text-slate-500 text-xl"> / {total}</span>
             </p>
-            <div className="mt-2 h-2 rounded-full bg-slate-900 overflow-hidden">
-              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${(got / total) * 100}%` }} />
-            </div>
-            <p className="mt-2 text-xs text-slate-300" style={{ wordBreak: 'keep-all' }}>
-              뱃지를 모을수록 재미있고 멋진 선물을 받을 수 있어!!
+            <MilestoneBar got={got} total={total} />
+            <p className="mt-3 text-sm text-slate-200">
+              {next ? (
+                <>
+                  다음 보상까지 <b className="text-amber-300">{next.count - got}개</b> 남았어! → {next.emoji} {next.title}
+                </>
+              ) : (
+                <b className="text-amber-300">👑 뱃지를 전부 모았어! 부스에 와서 선물 받아가!</b>
+              )}
             </p>
+            <PerkChips count={got} />
+            <button
+              onClick={() => router.push('/badges/guide?from=/badges')}
+              className="mt-3 w-full bg-amber-400 text-slate-900 font-black py-3 rounded-xl text-base"
+            >
+              📖 뱃지를 모아봐! (강력 설명서)
+            </button>
           </div>
 
           {/* 행사 뱃지는 따로 크게 — 이번 행사에 온 아이 모두가 받는 첫 뱃지 */}
@@ -143,6 +130,28 @@ export default function BadgesPage() {
         </button>
       </div>
     </main>
+  );
+}
+
+/** 10·15·20·전부 눈금이 있는 진행 막대 */
+function MilestoneBar({ got, total }: { got: number; total: number }) {
+  const marks = Array.from(new Set(BADGE_MILESTONES.map((m) => m.count)));
+  return (
+    <div className="relative mt-3 mb-5">
+      <div className="h-3 rounded-full bg-slate-900 overflow-hidden">
+        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, (got / total) * 100)}%` }} />
+      </div>
+      {marks.map((m) => (
+        <div key={m} className="absolute top-0" style={{ left: `${(m / total) * 100}%` }}>
+          <div className={`w-0.5 h-3 ${got >= m ? 'bg-slate-900' : 'bg-slate-500'}`} />
+          <span
+            className={`absolute -translate-x-1/2 top-3.5 text-[0.625rem] font-bold whitespace-nowrap ${got >= m ? 'text-amber-300' : 'text-slate-500'}`}
+          >
+            {m === total ? '전부' : m}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

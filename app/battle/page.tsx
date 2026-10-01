@@ -6,7 +6,10 @@ import { getCurrentPlayer } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
-import { awardBadges, blockedMessage, claimSlot, playStatus } from '@/lib/game-state';
+import { awardBadges, blockedMessage, claimSlot, playStatus, readGameState, saveBadgeCount } from '@/lib/game-state';
+import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
+import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
+import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
 import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
@@ -91,7 +94,7 @@ interface LadderState {
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
-const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver'];
+const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver', 'next'];
 
 function ladderFinished(ladder: LadderState): boolean {
   return ladder.used >= LADDER_BATTLES || ladder.index >= ladder.targets.length;
@@ -149,6 +152,23 @@ export default function BattlePage() {
   // 연습 게임(랭커와 1판)인지. 연습은 점수·경험치를 남기지 않습니다.
   // 연출 루프(runFight)가 시작할 때의 값을 봐야 해서 state 가 아니라 ref 로 둡니다.
   const practiceRef = useRef(false);
+  // 게임을 시작하면(claimSlot) player 가 바뀌는데, 배틀 함수 안에서는 옛 값이 보여서 최신 값을 따로 들고 있는다.
+  const playerRef = useRef<Player | null>(null);
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+  // 같은 이유로 사다리도 최신 값을 따로 든다. 첫 도전은 setLadder 직후 바로 배틀이 시작돼서
+  // 배틀 함수가 옛 값(null)을 보고 "1위 이기기 / 정상 정복" 뱃지를 놓치고 있었다 (10/1 테스트에서 발견).
+  const ladderRef = useRef<LadderState | null>(null);
+  useEffect(() => {
+    ladderRef.current = ladder;
+  }, [ladder]);
+  // 뱃지 (2026-10-01 Jin): 버프 계산 · 배틀 직후 "업적 달성!" · 게임 끝에 하나씩 보여주기
+  const badgeRef = useRef<BadgeSnapshot | null>(null);
+  const [badgeCount, setBadgeCount] = useState<number | null>(null);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
+  const gameBadges = useRef<{ keys: string[]; milestones: BadgeMilestone[] }>({ keys: [], milestones: [] });
+  const [recap, setRecap] = useState<{ keys: string[]; milestones: BadgeMilestone[]; shown: number } | null>(null);
   // 30분 대기 시계를 1초마다 다시 그립니다.
   const [now, setNow] = useState(() => Date.now());
 
@@ -201,6 +221,13 @@ export default function BattlePage() {
       }
       setPlayer(p);
       loadMyInsect(p.id);
+      // 뱃지는 버프·업적 표시에만 쓰여서, 실패해도 배틀은 그대로 된다.
+      loadBadgeSnapshot(p)
+        .then((snap) => {
+          badgeRef.current = snap;
+          setBadgeCount(snap.count);
+        })
+        .catch(() => undefined);
     });
   }, [router]);
 
@@ -276,7 +303,25 @@ export default function BattlePage() {
     if (leveledUp) playSound('levelUp', (at += 1000));
     const over = practiceRef.current || (ladder ? ladderFinished(ladder) : false);
     if (over) playSound('gameOver', at + 1300);
+    // 게임이 끝났으면 이번 게임에서 모은 업적을 하나씩 보여준다
+    if (over && (gameBadges.current.keys.length || gameBadges.current.milestones.length)) {
+      const got = { ...gameBadges.current, shown: 0 };
+      gameBadges.current = { keys: [], milestones: [] };
+      window.setTimeout(() => setRecap(got), at + 2600);
+    }
   }, [phase, battle, ladder, leveledUp]);
+
+  // 업적 정리 화면: 1.1초마다 하나씩 더 보여준다
+  useEffect(() => {
+    if (!recap) return;
+    const total = recap.keys.length + recap.milestones.length;
+    if (recap.shown >= total) return;
+    const id = window.setTimeout(() => {
+      setRecap((r) => (r ? { ...r, shown: r.shown + 1 } : r));
+      playSound('next');
+    }, recap.shown === 0 ? 400 : 1100);
+    return () => window.clearTimeout(id);
+  }, [recap]);
 
   // ───────────────────────────────────────────────
   // 연출 도우미
@@ -377,8 +422,16 @@ export default function BattlePage() {
       if (!data) throw new Error('상대 곤충을 못 찾았어. 화면을 새로고침해줘!');
 
       const foe = data as Insect;
+      // 상대 아이의 뱃지 개수 (버프). 그 아이가 마지막으로 센 값을 쓴다. 없으면 0.
+      let foeBadges = 0;
+      try {
+        const { data: owner } = await supabase.from('players').select('survey').eq('id', foe.player_id).maybeSingle();
+        foeBadges = readGameState(owner as any).badgeCount ?? 0;
+      } catch {
+        foeBadges = 0;
+      }
       setOpponent(foe);
-      await runFight(foe);
+      await runFight(foe, foeBadges);
     } catch (err: any) {
       setError(err.message || '배틀을 시작 못 했어. 다시 눌러줘!');
       setPhase(null);
@@ -387,7 +440,7 @@ export default function BattlePage() {
     }
   }
 
-  async function runFight(foe: Insect) {
+  async function runFight(foe: Insect, foeBadges = 0) {
     if (!player || !myInsect) return;
 
     // 필살기는 **곤충 종류**로 정해지고, LV3부터 반대 형 공통기가 하나 더 열립니다.
@@ -399,8 +452,14 @@ export default function BattlePage() {
     //
     // 능력치는 저장된 값이 아니라 **입력값에서 다시 계산**합니다 (공식이 바뀌어도 모두 같은 규칙으로 싸우게).
     const rolls: { a: SideRoll; b: SideRoll } = rollBattle(
-      { stats: statsForInsect(myInsect), level: myInsect.level, origin: myInsect.origin ?? null },
-      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null }
+      // 뱃지 버프: 10개 HP+10% · 15개 수비+15% · 20개 필살기 공격+10% (lib/badges.ts)
+      {
+        stats: statsForInsect(myInsect),
+        level: myInsect.level,
+        origin: myInsect.origin ?? null,
+        perks: badgePerks(badgeRef.current?.count ?? 0),
+      },
+      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null, perks: badgePerks(foeBadges) }
     );
 
     // 출신지 상성을 VS 화면에서 알려줍니다.
@@ -429,6 +488,7 @@ export default function BattlePage() {
     setBarB(100);
     setImpact(null);
     setSpecialFx(null);
+    setNewBadges([]);
 
     setPhase('intro');
     await pause(1100);
@@ -584,11 +644,14 @@ export default function BattlePage() {
     if (iWon && final.a.matchup === 1) earned.push('matchupWin');
     if (iWon && foe.level > myInsect.level) earned.push('giantSlayer');
     if (practiceRef.current) earned.push('practice');
-    if (ladder && iWon) {
-      const target = ladder.targets[ladder.index];
+    const run = ladderRef.current;
+    if (run && iWon) {
+      const target = run.targets[run.index];
       if (target?.rank === 1) earned.push('beatTop1');
-      if (ladder.index + 1 >= ladder.targets.length) earned.push('ladderClear');
+      if (run.index + 1 >= run.targets.length) earned.push('ladderClear');
     }
+    // 곤충 도장 깨기 — 이긴 상대의 곤충 종류 (연습 게임도 포함)
+    if (iWon) earned.push(`beat_${speciesBeatKey(foe.species)}`);
     void awardBadges(player.id, earned);
 
     // ③ 마지막 한 방 — 진 쪽은 0, 이긴 쪽은 이긴 만큼만 남는다 (`barPercents`).
@@ -621,6 +684,7 @@ export default function BattlePage() {
     const saved = await savePromise;
     setXpGained(saved.xpGained);
     setLeveledUp(saved.leveledUp);
+    noteNewBadges(earned, iWon, saved.level);
     setBattle(final);
 
     // 랭킹 도전 중이면 한 칸 올라가거나 제자리에 남습니다.
@@ -640,10 +704,39 @@ export default function BattlePage() {
     setPhase('done');
   }
 
+  /**
+   * 이번 배틀로 **새로** 생긴 뱃지를 찾아 "업적 달성!" 으로 보여준다.
+   * DB 를 다시 세지 않고, 배틀 전에 센 값(badgeRef)에 이번 배틀만 더해서 비교한다.
+   */
+  function noteNewBadges(stored: string[], won: boolean, level: number) {
+    const before = badgeRef.current;
+    if (!before || !player) return;
+    const now = new Date().toISOString();
+    const facts = { ...before.facts, stored: { ...before.facts.stored } };
+    facts.sessions = Math.max(facts.sessions, readGameState(playerRef.current ?? player).sessions.length);
+    if (!practiceRef.current) {
+      facts.battles += 1;
+      if (won) facts.wins += 1;
+    }
+    facts.maxLevel = Math.max(facts.maxLevel, level);
+    stored.forEach((key) => (facts.stored[key] = facts.stored[key] ?? now));
+    const after = earnedBadges(facts);
+    const fresh = BADGES.filter((b) => after.has(b.key) && !before.earned.has(b.key)).map((b) => b.key);
+    const count = countBadges(after);
+    const crossed = milestonesCrossed(before.count, count);
+    badgeRef.current = { facts, earned: after, count };
+    setBadgeCount(count);
+    setNewBadges(fresh);
+    gameBadges.current.keys.push(...fresh);
+    gameBadges.current.milestones.push(...crossed);
+    if (count !== before.count) void saveBadgeCount(player.id, count);
+  }
+
   async function saveResult(foe: Insect, final: BattleResult) {
-    if (!player || !myInsect) return { xpGained: 0, leveledUp: false };
+    const unchanged = { xpGained: 0, leveledUp: false, level: myInsect?.level ?? 1 };
+    if (!player || !myInsect) return unchanged;
     // 연습 게임은 기록을 남기지 않습니다 (랭킹 점수·경험치 둘 다).
-    if (practiceRef.current) return { xpGained: 0, leveledUp: false };
+    if (practiceRef.current) return unchanged;
 
     // 경험치: LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … LV3 부터는 지면 절반 (lib/leveling.ts)
     const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level, final.winner === 'A'));
@@ -689,7 +782,7 @@ export default function BattlePage() {
       // 기록 저장이 실패해도 연출과 결과는 그대로 보여줍니다. (부스에서 흐름이 끊기지 않도록)
     }
 
-    return { xpGained: gained, leveledUp: didLevelUp };
+    return { xpGained: gained, leveledUp: didLevelUp, level: newLevel };
   }
 
   // 랭킹 도전 시작: 지금 순위표의 위쪽 3명을 뽑아 **고정**합니다.
@@ -707,10 +800,12 @@ export default function BattlePage() {
       return;
     }
     practiceRef.current = false;
+    gameBadges.current = { keys: [], milestones: [] };
     // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전하도록 뒤집습니다.
     // 상대가 3명보다 적으면 있는 만큼만 도전합니다. (행사 초반에는 참가자가 몇 명 없습니다.)
     const targets = opponents.slice(0, LADDER_SIZE).reverse();
     const run: LadderState = { targets, index: 0, used: 0, log: [] };
+    ladderRef.current = run;
     setLadder(run);
     startBattle(targets[0]);
   }
@@ -727,6 +822,8 @@ export default function BattlePage() {
       return;
     }
     practiceRef.current = true;
+    gameBadges.current = { keys: [], milestones: [] };
+    ladderRef.current = null;
     setLadder(null);
     startBattle(target);
   }
@@ -827,6 +924,28 @@ export default function BattlePage() {
             </div>
           </div>
         )}
+
+        {/* 🏅 업적 달성! — 이번 배틀로 새로 생긴 뱃지 (결과가 뜨는 순간 위에 띄운다) */}
+        {phase === 'done' && newBadges.length > 0 && !recap && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-md pointer-events-none">
+            <div className="bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900 rounded-2xl px-4 py-3 shadow-2xl animate-pop text-center">
+              <p className="text-sm font-black">🏅 업적 달성!</p>
+              <div className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-1">
+                {newBadges.map((key) => {
+                  const b = BADGES.find((x) => x.key === key);
+                  return b ? (
+                    <span key={key} className="text-base font-black whitespace-nowrap">
+                      {b.emoji} {b.name}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 게임이 끝나면 이번 게임에서 모은 업적을 하나씩 */}
+        {recap && <BadgeRecap recap={recap} onClose={() => setRecap(null)} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
 
         {/* 랭킹 도전 중이면 지금 몇 번째 도전인지, 누구와 붙는지 위에 띄웁니다. */}
         {ladder && opponent && (
@@ -1066,6 +1185,21 @@ export default function BattlePage() {
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
       <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />G7BB 배틀</h1>
+
+      {/* 뱃지 버프 (2026-10-01 Jin) — 몇 개 모았고 지금 어떤 버프를 받는지 */}
+      {badgeCount !== null && (
+        <button
+          onClick={() => router.push('/badges/guide?from=/battle')}
+          className="-mt-3 bg-slate-800 rounded-2xl px-4 py-3 text-center"
+          style={{ wordBreak: 'keep-all' }}
+        >
+          <p className="text-sm">
+            🏅 내 뱃지 <b className="text-amber-300 text-lg">{badgeCount}</b>개
+            <span className="ml-2 text-xs text-sky-300 underline">📖 뱃지를 모아봐! (강력 설명서)</span>
+          </p>
+          <PerkChips count={badgeCount} />
+        </button>
+      )}
 
       {/* 곤충 이름 (안 지었으면 "내 곤충") + 레벨 + XP 숫자 (Jin 10/1) */}
       <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-col gap-2">
@@ -1442,3 +1576,66 @@ function OriginInfo({ origin }: { origin: EnvironmentKey | null | undefined }) {
   );
 }
 
+
+/** 게임이 끝났을 때 이번 게임에서 모은 업적을 하나씩 보여주는 화면 */
+function BadgeRecap({
+  recap,
+  onClose,
+  onSkip,
+  onGuide,
+}: {
+  recap: { keys: string[]; milestones: BadgeMilestone[]; shown: number };
+  onClose: () => void;
+  onSkip: () => void;
+  onGuide: () => void;
+}) {
+  const items = [
+    ...recap.keys.map((key) => {
+      const b = BADGES.find((x) => x.key === key);
+      return { id: key, emoji: b?.emoji ?? '🏅', title: b?.name ?? key, sub: '업적 달성!', tone: 'badge' as const };
+    }),
+    ...recap.milestones.map((m) => ({
+      id: `${m.count}-${m.title}`,
+      emoji: m.emoji,
+      title: `뱃지 ${m.count}개! ${m.title}`,
+      sub: m.text,
+      tone: m.kind,
+    })),
+  ];
+  const done = recap.shown >= items.length;
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center px-5" onClick={done ? undefined : onSkip}>
+      <div className="w-full max-w-md bg-slate-800 rounded-3xl p-5 flex flex-col gap-3 text-center" style={{ wordBreak: 'keep-all' }}>
+        <p className="text-xl font-black text-amber-300">🏅 이번 게임에서 모은 업적!</p>
+        <div className="flex flex-col gap-2">
+          {items.slice(0, recap.shown).map((it) => (
+            <div
+              key={it.id}
+              className={`rounded-2xl px-4 py-3 flex items-center gap-3 text-left animate-pop ${
+                it.tone === 'gift' ? 'bg-pink-500/25 ring-2 ring-pink-300' : it.tone === 'buff' ? 'bg-emerald-500/25 ring-2 ring-emerald-300' : 'bg-slate-900'
+              }`}
+            >
+              <span className="text-3xl">{it.emoji}</span>
+              <div>
+                <p className="font-black text-base">{it.title}</p>
+                <p className="text-xs text-slate-300">{it.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {done ? (
+          <div className="flex gap-2 mt-1">
+            <button onClick={onGuide} className="flex-1 bg-slate-700 font-bold py-3 rounded-xl text-sm">
+              📖 강력 설명서
+            </button>
+            <button onClick={onClose} className="flex-1 bg-emerald-500 text-slate-900 font-black py-3 rounded-xl">
+              좋아!
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400">화면을 누르면 한 번에 다 보여줘</p>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -7,11 +7,16 @@
 //      일어난 순간 `players.survey.game.badges` 에 적어둔다 (lib/game-state.ts `awardBadges`).
 //      랭킹은 나중에 내려가도 "달성" 은 남아야 해서 저장한다.
 //
-// ⚠️ 뱃지는 **자랑용**이다. 상품·랭킹 점수에는 반영하지 않는다.
+// 🔁 2026-10-01 저녁 Jin: 뱃지 개수에 **선물·버프**를 붙였다 (아래 BADGE_MILESTONES).
+//   10개 → 대전 뱃지 실물 선물 + HP +10% · 15개 → 수비력 +15% · 20개 → 필살기 공격 +10% · 전부 → 선물.
+//   ⚠️ 참가권 뱃지(골드·다이아)는 **개수에 안 센다** — 돈을 내면 버프가 빨리 오는 구조가 되고,
+//      "전부 모으기" 가 10만원 참가권 없이는 불가능해지기 때문.
 //
 // 뱃지를 더하고 싶으면 아래 BADGES 에 한 줄 넣고, 받는 조건을 `earnedBadges` 나
 // 배틀 화면의 `awardBadges([...])` 에 더하면 된다.
 // ─────────────────────────────────────────────────────────────
+
+import { findSpecies } from './species';
 
 export interface BadgeDef {
   key: string;
@@ -21,6 +26,8 @@ export interface BadgeDef {
   how: string;
   /** 특별 디자인 뱃지 (대전 행사 뱃지) */
   special?: 'daejeon';
+  /** 참가권 뱃지 — 보여주기만 하고 개수에는 안 센다 */
+  paid?: boolean;
 }
 
 export const BADGES: BadgeDef[] = [
@@ -50,14 +57,84 @@ export const BADGES: BadgeDef[] = [
   { key: 'level5', emoji: '🌈', name: '레벨 5', how: '곤충 레벨 5 되기' },
   { key: 'collector2', emoji: '🎨', name: '곤충 수집가', how: '곤충 2마리 만들기' },
   { key: 'collector3', emoji: '🖼️', name: '곤충 박사', how: '곤충 3마리 만들기' },
-  { key: 'evolved', emoji: '🧬', name: '상상 진화', how: '특별 진화(턱·날개·다리·더듬이 더 그리기) 하기' },
+  { key: 'evolved', emoji: '🧬', name: '상상 진화', how: '특별 진화(턱·날개·다리·더듬이·발톱 더 그리기) 하기' },
   { key: 'mySpecies', emoji: '🔍', name: '나만의 곤충', how: '목록에 없는 곤충을 직접 적어서 만들기' },
   { key: 'heart1', emoji: '💖', name: '첫 하트', how: '친구에게 하트 받기' },
   { key: 'heart10', emoji: '💘', name: '인기 곤충', how: '하트 10개 받기' },
   { key: 'beauty', emoji: '🌸', name: '예쁜 곤충 입상', how: '예쁜 곤충 랭킹 1~4위' },
-  { key: 'gold', emoji: '🥇', name: '골드 회원', how: '5만원 골드 참가권' },
-  { key: 'diamond', emoji: '💎', name: '다이아 회원', how: '10만원 다이아 참가권' },
+  // 곤충 도장 깨기 (2026-10-01 Jin: "자기 곤충으로 각 곤충을 이겼을 때도 업적") — 랭킹 도전·연습 모두
+  { key: 'beat_rhino', emoji: '🦏', name: '장수풍뎅이 격파', how: '장수풍뎅이를 배틀에서 이기기' },
+  { key: 'beat_stag', emoji: '🦌', name: '사슴벌레 격파', how: '사슴벌레를 배틀에서 이기기' },
+  { key: 'beat_mantis', emoji: '🥋', name: '사마귀 격파', how: '사마귀를 배틀에서 이기기' },
+  { key: 'beat_bee', emoji: '🐝', name: '벌 격파', how: '벌을 배틀에서 이기기' },
+  { key: 'beat_butterfly', emoji: '🦋', name: '나비 격파', how: '나비를 배틀에서 이기기' },
+  { key: 'beat_other', emoji: '🐞', name: '기타 곤충 격파', how: '목록에 없는 곤충(기타 곤충)을 이기기' },
+  { key: 'beatAll', emoji: '🏆', name: '곤충 도장 깨기', how: '여섯 종류 곤충을 모두 이기기' },
+  { key: 'gold', emoji: '🥇', name: '골드 회원', how: '5만원 이상 참가권 (개수에는 안 세)', paid: true },
+  { key: 'diamond', emoji: '💎', name: '다이아 회원', how: '10만원 다이아 참가권 (개수에는 안 세)', paid: true },
 ];
+
+/** 곤충 종류(저장된 한글 이름) → 도장 깨기 키. 목록에 없는 이름(물방개 등)은 기타 곤충. */
+export function speciesBeatKey(species: string | null | undefined): string {
+  return findSpecies(species)?.key ?? 'other';
+}
+
+/** 개수에 세는 뱃지 (참가권 뱃지 빼고) */
+export const COUNTED_BADGES = BADGES.filter((b) => !b.paid);
+export const COUNTED_TOTAL = COUNTED_BADGES.length;
+
+export function countBadges(earned: Set<string>): number {
+  return COUNTED_BADGES.filter((b) => earned.has(b.key)).length;
+}
+
+// ── 뱃지 개수 보상 (2026-10-01 Jin) ──────────────────────────────
+export interface BadgeMilestone {
+  count: number;
+  emoji: string;
+  title: string;
+  /** 선물(현장에서 받는 것)인지, 배틀 버프인지 */
+  kind: 'gift' | 'buff';
+  text: string;
+}
+
+export const BADGE_MILESTONES: BadgeMilestone[] = [
+  { count: 10, emoji: '🎁', title: '대전 뱃지 선물', kind: 'gift', text: '진짜 대전 뱃지를 부스에서 받을 수 있어!' },
+  { count: 10, emoji: '💚', title: 'HP +10%', kind: 'buff', text: '내 곤충 전체 HP 가 10% 올라가!' },
+  { count: 15, emoji: '🛡️', title: '수비력 +15%', kind: 'buff', text: '내 곤충 수비력이 15% 올라가!' },
+  { count: 20, emoji: '⚡', title: '필살기 공격 +10%', kind: 'buff', text: '공격 필살기가 10% 더 세져!' },
+  { count: COUNTED_TOTAL, emoji: '👑', title: '뱃지 올클리어 선물', kind: 'gift', text: '이번 행사 뱃지를 전부 모으면 특별한 선물이 있어!' },
+];
+
+/** 뱃지 개수로 받는 배틀 버프 (누적: 20개면 셋 다) */
+export interface BadgePerks {
+  hp: number;
+  def: number;
+  /** 공격형 필살기 위력 배수 */
+  special: number;
+}
+
+export const BADGE_PERK_HP = 0.1;
+export const BADGE_PERK_DEF = 0.15;
+export const BADGE_PERK_SPECIAL = 0.1;
+
+export function badgePerks(count: number): BadgePerks {
+  const n = Number.isFinite(count) ? count : 0;
+  return {
+    hp: n >= 10 ? 1 + BADGE_PERK_HP : 1,
+    def: n >= 15 ? 1 + BADGE_PERK_DEF : 1,
+    special: n >= 20 ? 1 + BADGE_PERK_SPECIAL : 1,
+  };
+}
+
+/** 이번에 넘은 보상들 (before 개수 → after 개수) */
+export function milestonesCrossed(before: number, after: number): BadgeMilestone[] {
+  return BADGE_MILESTONES.filter((m) => before < m.count && after >= m.count);
+}
+
+/** 다음 보상까지 */
+export function nextMilestone(count: number): BadgeMilestone | null {
+  return BADGE_MILESTONES.find((m) => m.count > count) ?? null;
+}
 
 /** 그때그때 계산하는 뱃지를 정하는 데 필요한 사실들 */
 export interface BadgeFacts {
@@ -71,6 +148,8 @@ export interface BadgeFacts {
   evolved: boolean;
   mySpecies: boolean;
   tierKey: string;
+  /** 이긴 상대 곤충 종류 키들 (rhino·stag…·other). 도장 깨기 뱃지 */
+  beatSpecies?: string[];
   /** 저장된 뱃지 (lib/game-state.ts) */
   stored: Record<string, string>;
 }
@@ -96,7 +175,9 @@ export function earnedBadges(f: BadgeFacts): Set<string> {
   if (f.judged) got.add('beauty');
   if (f.evolved) got.add('evolved');
   if (f.mySpecies) got.add('mySpecies');
-  if (f.tierKey === 'C') got.add('gold');
+  (f.beatSpecies ?? []).forEach((key) => got.add(`beat_${key}`));
+  if (['rhino', 'stag', 'mantis', 'bee', 'butterfly', 'other'].every((k) => got.has(`beat_${k}`))) got.add('beatAll');
+  if (f.tierKey === 'C' || f.tierKey === 'D') got.add('gold');
   if (f.tierKey === 'D') got.add('diamond');
   // 1위를 했으면 2위·3위 "안에 든" 것도 맞으므로 같이 켭니다.
   if (got.has('rank1')) got.add('rank2');

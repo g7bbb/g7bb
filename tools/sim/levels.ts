@@ -14,6 +14,7 @@ import { SPECIES } from '../../lib/species';
 import { ORIGIN_EFFECTS } from '../../lib/origins';
 import { ALLOC_STATS, POINTS_PER_LEVELUP, applyAlloc, Alloc } from '../../lib/alloc';
 import { addXp, battleXpRate, revisitXpRate } from '../../lib/leveling';
+import { badgePerks } from '../../lib/badges';
 import { BodyPartScores, EnvironmentKey } from '../../lib/types';
 
 const N = Number(process.env.N || 8000);
@@ -138,4 +139,23 @@ console.log('── 실제 랭킹 도전: 1회차 아이가 ⚡버튼을 잘 누
   for (const [label, t] of [['발동', 1], ['굿', 1.1], ['그레이트', 1.2], ['퍼펙트', 1.35]] as const) {
     console.log(`  1회차(${label}) vs 5회차: ${rate(() => make(pick(one.levels), 0), () => make(pick(j5.levels), j5.points), t)}`);
   }
+}
+
+// ── 뱃지 버프 (2026-10-01 Jin: 10개 HP+10% · 15개 수비+15% · 20개 필살기 공격+10%) ──
+console.log('── 뱃지 버프 — 같은 레벨, 버프만 다를 때');
+const withPerks = (level: number, points: number, badges: number) => () => {
+  const x = make(level, points);
+  return { ...x, side: { ...x.side, perks: badgePerks(badges) } };
+};
+for (const b of [10, 15, 20]) {
+  console.log(`  뱃지 ${b}개 vs 9개 이하 (LV3끼리): ${rate(withPerks(3, 0, b), withPerks(3, 0, 0))}`);
+}
+console.log('── 뱃지 버프 + 회차 (다회차는 뱃지도 많다고 가정)');
+for (const [v, b] of [[2, 10], [3, 15], [5, 20]] as const) {
+  const j = journey(v);
+  console.log(`  ${v}회차(뱃지 ${b}) vs 1회차(뱃지 0~9): ${rate(() => withPerks(pick(j.levels), j.points, b)(), () => make(pick(one.levels), 0))}`);
+}
+for (const t of [1.2, 1.35]) {
+  const j = journey(5);
+  console.log(`  1회차가 ⚡${t === 1.35 ? '퍼펙트' : '그레이트'} vs 5회차(뱃지 20): ${rate(() => make(pick(one.levels), 0), () => withPerks(pick(j.levels), j.points, 20)(), t)}`);
 }
