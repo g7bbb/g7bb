@@ -445,9 +445,9 @@ function Poster({ picked }: { picked: Picked }) {
       {/* 꼬리 */}
       <div
         className="absolute flex justify-between items-center"
-        style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '4.2mm', fontWeight: 700, color: '#94a3b8' }}
+        style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '5.25mm', fontWeight: 700, color: '#94a3b8' }}
       >
-        <span>2026 대전 곤충축제 · G7BB 배틀 시즌1</span>
+        <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
         <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{owner?.ticket_code ?? ''}</span>
       </div>
     </div>
@@ -474,15 +474,15 @@ function ImageOnly({ picked }: { picked: Picked }) {
         src={BRAND.logo.white}
         alt="곤충본부 로고"
         className="absolute"
-        style={{ top: '12mm', right: '16mm', height: '38mm', width: 'auto' }}
+        style={{ top: '12mm', right: '16mm', height: '41.8mm', width: 'auto' }}
       />
 
       {/* 왼쪽 아래 — 꾸민 포스터와 같은 꼬리 (시즌1 문구 + 번호) */}
       <div
         className="absolute flex justify-between items-center"
-        style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '4.2mm', fontWeight: 700, color: '#94a3b8' }}
+        style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '5.25mm', fontWeight: 700, color: '#94a3b8' }}
       >
-        <span>2026 대전 곤충축제 · G7BB 배틀 시즌1</span>
+        <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
         <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{owner?.ticket_code ?? ''}</span>
       </div>
     </div>
