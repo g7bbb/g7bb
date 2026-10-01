@@ -11,6 +11,15 @@ import { GAME_TITLE } from '@/lib/brand';
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
+// 첫 화면 공지 · 다음 시리즈 예고 (2026-10-01 Jin). 문구는 여기만 고치면 된다.
+const HOME_NOTICE = '친구나 가족과 함께하면 더 강해져!!';
+const COMING_SOON = '커밍순! (26년 초 예정)';
+const NEXT_SERIES: { emoji: string; name: string; from: string; to: string }[] = [
+  { emoji: '🌱', name: '식물 버전', from: '#22c55e', to: '#14532d' },
+  { emoji: '🐟', name: '어류 버전', from: '#38bdf8', to: '#1e3a8a' },
+  { emoji: '🦖', name: '공룡 버전', from: '#f97316', to: '#7c2d12' },
+];
+
 function HomeInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -95,6 +104,14 @@ function HomeInner() {
         </div>
       )}
 
+      {/* 공지 — 번호 있는 아이·없는 아이 모두 */}
+      <p
+        className="text-center text-lg font-black text-amber-300 bg-amber-400/10 border-2 border-amber-400/50 rounded-2xl px-4 py-3"
+        style={{ wordBreak: 'keep-all' }}
+      >
+        👨‍👩‍👧 {HOME_NOTICE}
+      </p>
+
       {/* 상품 발표는 카카오톡 채널로만 하므로, 번호를 채널로 보내도록 크게 안내합니다. */}
       {player && (
         <section className="bg-slate-800 rounded-2xl p-5 flex flex-col gap-3 text-center">
@@ -130,6 +147,25 @@ function HomeInner() {
           </p>
         </section>
       )}
+
+      {/* 다음 시리즈 예고 — 맨 아래 */}
+      <section className="mt-4 text-center" style={{ wordBreak: 'keep-all' }}>
+        <p className="text-sm font-black tracking-wide text-slate-300">🚀 {COMING_SOON}</p>
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          {NEXT_SERIES.map((v) => (
+            <div key={v.name} className="flex flex-col items-center gap-1.5">
+              <div
+                className="w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-lg ring-2 ring-white/20"
+                style={{ background: `radial-gradient(circle at 35% 30%, ${v.from}, ${v.to})` }}
+              >
+                <span className="text-4xl leading-none">{v.emoji}</span>
+                <span className="mt-0.5 text-[0.5625rem] font-black text-white/90 tracking-wider">G7BB</span>
+              </div>
+              <span className="text-xs font-bold text-slate-200">{v.name}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
