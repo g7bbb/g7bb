@@ -99,9 +99,9 @@ export interface BadgeMilestone {
 
 export const BADGE_MILESTONES: BadgeMilestone[] = [
   { count: 10, emoji: '🎁', title: '대전 뱃지 선물', kind: 'gift', text: '진짜 대전 뱃지를 부스에서 받을 수 있어!' },
-  { count: 10, emoji: '💚', title: 'HP +10%', kind: 'buff', text: '내 곤충 전체 HP 가 10% 올라가!' },
-  { count: 15, emoji: '🛡️', title: '수비력 +15%', kind: 'buff', text: '내 곤충 수비력이 15% 올라가!' },
-  { count: 20, emoji: '⚡', title: '필살기 공격 +10%', kind: 'buff', text: '공격 필살기가 10% 더 세져!' },
+  { count: 10, emoji: '💚', title: 'HP +10%', kind: 'buff', text: '내 곤충의 HP가 올라가!' },
+  { count: 15, emoji: '🛡️', title: '수비력 +15%', kind: 'buff', text: '내 곤충의 수비력이 올라가!' },
+  { count: 20, emoji: '⚡', title: '필살기 공격 +10%', kind: 'buff', text: '내 곤충의 필살기가 더 세져!' },
   { count: COUNTED_TOTAL, emoji: '👑', title: '뱃지 올클리어 선물', kind: 'gift', text: '이번 행사 뱃지를 전부 모으면 특별한 선물이 있어!' },
 ];
 
