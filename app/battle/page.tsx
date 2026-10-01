@@ -20,7 +20,7 @@ import {
   baseMoveFor,
   SpecialMoveKey,
 } from '@/lib/special-moves';
-import { playPerfect, playTap } from '@/lib/sfx';
+import { playPerfect, playSound, playTap, unlockAudio, SoundName } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import FxText, { FxImage } from './fx-text';
@@ -89,6 +89,9 @@ interface LadderState {
   used: number;
   log: { rank: number; nickname: string; won: boolean }[];
 }
+
+/** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
+const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver'];
 
 function ladderFinished(ladder: LadderState): boolean {
   return ladder.used >= LADDER_BATTLES || ladder.index >= ladder.targets.length;
@@ -259,6 +262,20 @@ export default function BattlePage() {
     if (player) loadOpponents(player.id);
   }, [player, loadOpponents]);
 
+  // 결과가 뜨면 효과음: 이김/짐 → (레벨업) → (게임이 끝났으면) 게임 끝
+  // 배틀 결과·사다리·레벨업이 한 번에 바뀌므로 여기서 한꺼번에 보고 한 배틀에 한 번만 틉니다.
+  const soundedBattle = useRef<BattleResult | null>(null);
+  useEffect(() => {
+    if (phase !== 'done' || !battle || soundedBattle.current === battle) return;
+    soundedBattle.current = battle;
+    let at = 0;
+    if (battle.winner === 'A') playSound('win');
+    else if (battle.winner === 'B') playSound('lose');
+    if (leveledUp) playSound('levelUp', (at += 1000));
+    const over = practiceRef.current || (ladder ? ladderFinished(ladder) : false);
+    if (over) playSound('gameOver', at + 1300);
+  }, [phase, battle, ladder, leveledUp]);
+
   // ───────────────────────────────────────────────
   // 연출 도우미
   // ───────────────────────────────────────────────
@@ -289,6 +306,7 @@ export default function BattlePage() {
 
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
   async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false) {
+    playSound('special');
     setSpecialFx({ id: nextFxId(), side, move, dodged });
     setShaking(true);
     await pause(500);
@@ -587,6 +605,8 @@ export default function BattlePage() {
   // 도중에 다른 아이가 점수를 올려 순위가 바뀌어도 사다리는 흔들리지 않습니다.
   async function startLadder() {
     if (!player || opponents.length === 0) return;
+    // 아이가 누른 바로 이 순간에 소리를 깨워둡니다 (폰은 터치 순간에만 소리를 켤 수 있음).
+    unlockAudio(BATTLE_SOUNDS);
     // 랭킹 도전 1번 = 1게임. 시작하는 순간 게임 하나를 씁니다 (lib/game-state.ts).
     setError('');
     try {
@@ -607,6 +627,7 @@ export default function BattlePage() {
   /** 랭커와 연습 게임 — 게임당 1판, 기록은 안 남습니다 (Jin 요청 2026-10-01). */
   async function startPractice(target: OpponentSummary) {
     if (!player) return;
+    unlockAudio(BATTLE_SOUNDS);
     setError('');
     try {
       setPlayer(await claimSlot(player.id, 'practice'));
@@ -621,6 +642,7 @@ export default function BattlePage() {
 
   function nextLadderBattle() {
     if (!ladder || ladderFinished(ladder)) return;
+    unlockAudio();
     // 여기서 화면을 비우면 상대 그림을 받아오는 동안 준비 화면이 한 번 번쩍입니다.
     // 결과 카드를 띄워둔 채로 다음 상대를 불러오고, 연출은 runFight 가 알아서 초기화합니다.
     startBattle(ladder.targets[ladder.index]);

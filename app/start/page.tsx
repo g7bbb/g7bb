@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { findPlayerByTicket, rememberInsectName, rememberPlayer } from '@/lib/session';
+import { playSound, unlockAudio } from '@/lib/sfx';
 import { Player } from '@/lib/types';
 import { normalizeTicket } from '@/lib/ticket';
 import { logToSheet } from '@/lib/sheet-log';
@@ -109,6 +110,7 @@ function friendlyError(message?: string): string {
 }
 
   async function handleSubmit() {
+    unlockAudio(['next']); // 누른 순간에 소리를 깨워둡니다 (폰 정책)
     const code = normalizeTicket(ticket);
     if (!code) {
       setError('번호를 다시 확인해주세요. 종이 위쪽에 적힌 A-014 같은 번호예요.');
@@ -200,6 +202,7 @@ function friendlyError(message?: string): string {
       참여시각: new Date().toLocaleString('ko-KR'),
     });
 
+    playSound('next'); // 설정을 마치고 다음 장으로 (Jin 효과음)
     router.push('/upload');
   }
 

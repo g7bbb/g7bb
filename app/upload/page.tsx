@@ -5,6 +5,7 @@ import { tierForPlayer } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentPlayer, readInsectName, rememberInsectName } from '@/lib/session';
+import { playSound, unlockAudio } from '@/lib/sfx';
 import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { AGE_STAGES, BODY_PARTS, calculateStats, defaultBodyParts } from '@/lib/insect-stats';
@@ -254,6 +255,7 @@ export default function UploadPage() {
 
   async function handleSave() {
     if (!player || !result) return;
+    unlockAudio(['next']);
     setSaving(true);
     setError('');
     try {
@@ -281,6 +283,7 @@ export default function UploadPage() {
       // 저장 직후에는 배틀보다 **카드**를 먼저 보여줍니다.
       // 10~20초 기다려 만든 결과라 여기가 제일 짜릿한 순간이고, 카드에 박힌 QR 이
       // 다음에 또 올 때의 신분증이라 아이가 한 번은 꼭 봐야 합니다. (배틀 버튼은 카드 화면에 있습니다)
+      playSound('next'); // 설정을 마치고 다음 장으로 (Jin 효과음)
       router.push('/card');
     } catch (err: any) {
       setError(err.message);

@@ -11,6 +11,7 @@ import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocTotal,
 import { awardBadges, blockedMessage, checkIn, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
+import { playSound, unlockAudio } from '@/lib/sfx';
 
 // ─────────────────────────────────────────────────────────────
 // 다시 온 아이 (카드·종이의 QR 을 찍고 들어온 경우) — 2026-10-01 Jin 설계
@@ -76,10 +77,12 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
 
   function go(path: string) {
     rememberPlayer(player.id);
+    playSound('next'); // 다음 장으로 (Jin 효과음)
     router.push(path);
   }
 
   async function chooseNewInsect() {
+    unlockAudio(['next']);
     setBusy(true);
     setError('');
     try {
@@ -137,7 +140,10 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
           응, 새로 만들래!
         </button>
         <button
-          onClick={() => setLeveling(true)}
+          onClick={() => {
+            unlockAudio(['levelUp', 'next']); // 누른 순간에 소리를 깨워둡니다 (폰 정책)
+            setLeveling(true);
+          }}
           disabled={busy || !insect}
           className="bg-emerald-500 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
         >
@@ -222,6 +228,12 @@ function LevelUp({
   const gain = addXp(insect.level, insect.xp, revisitXpRate(insect.level));
   const points = gain.levelsUp * POINTS_PER_LEVELUP;
   const left = points - allocTotal(alloc);
+
+  // 레벨이 오르는 화면이면 레벨업 소리 (한 번만)
+  useEffect(() => {
+    if (gain.levelsUp > 0) playSound('levelUp');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const before = statsForInsect(insect as Insect);
   const after = applyAlloc(before, alloc);
 
@@ -235,6 +247,7 @@ function LevelUp({
   }
 
   async function confirm() {
+    unlockAudio(['next']);
     setSaving(true);
     setError('');
     try {
