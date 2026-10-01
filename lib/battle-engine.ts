@@ -1,5 +1,6 @@
 import { CoreStats, EnvironmentKey } from './types';
-import { critChanceForLevel, statsWithLevelBonus } from './insect-stats';
+import { statsWithLevelBonus } from './insect-stats';
+import { bonusSpecialChance, critChance } from './leveling';
 import { MATCHUP_BONUS, matchup } from './origins';
 import { SPECIAL_MOVES, SpecialMoveKey, rollMoveRate } from './special-moves';
 
@@ -43,6 +44,8 @@ export interface BattleSideResult {
   crit: boolean;
   /** 이 배틀에서 실제로 쓴 필살기들 (LV3부터 두 개까지) */
   specials: SpecialMoveKey[];
+  /** "필살기 한 번 더!" 를 썼는지 */
+  bonus: boolean;
   /** 상대 필살기를 피했는지 */
   dodged: boolean;
   /** 출신지 상성: 1 이김 / 0 상관없음 / -1 짐 */
@@ -75,20 +78,28 @@ export interface SideRoll {
   dodged: boolean;
   grit: number;
   matchup: -1 | 0 | 1;
+  /**
+   * "필살기 한 번 더!" 가 걸렸는지 (역전 찬스, lib/leveling.ts).
+   * 걸리면 기본 필살기를 한 번 더 쓸 수 있다. 레벨이 낮을수록 잘 걸린다 (LV1 50%).
+   */
+  bonus: boolean;
 }
 
 function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRoll {
   const effective = statsWithLevelBonus(me.stats, me.level);
   const edge = matchup(me.origin, foe.origin);
   const luck = 0.9 + random() * 0.2; // 운 요소 ±10%
-  const crit = random() < critChanceForLevel(me.level);
+  // 크리티컬은 레벨과 상관없이 같고, **상대보다 레벨이 낮으면** 더 잘 터진다 (역전 찬스).
+  const crit = random() < critChance(me.level, foe.level);
   const dodged = random() < dodgeChance(me.stats);
+  const bonus = random() < bonusSpecialChance(me.level);
   return {
     base: power(effective) * luck * (crit ? 1.5 : 1) * (edge === 1 ? 1 + MATCHUP_BONUS : 1),
     crit,
     dodged,
     grit: me.stats.grit ?? 0,
     matchup: edge,
+    bonus,
   };
 }
 
@@ -112,24 +123,24 @@ export function rollBattle(
  * - 공격형: 상대 점수를 이만큼 깎는다 (Jin 표현으로 "상대 HP의 50% 감소")
  * - 수비형: 상대가 나를 깎는 것을 이만큼 막는다 ("내가 받는 피해의 50% 감소")
  *
- * 같은 형을 두 개 쓸 일은 없지만(기본기와 반대 형만 추가되므로), 혹시 겹치면
- * **더 센 쪽 하나만** 씁니다. 더해버리면 100%를 넘어 점수가 0이나 음수가 됩니다.
+ * 같은 형이 두 번 나오면 **남은 만큼에 또 적용**합니다.
+ * 30% 두 번이면 60% 가 아니라 1 − 0.7 × 0.7 = 51%. 그냥 더하면 100% 를 넘어 점수가 0 이 됩니다.
  */
 function combineMoves(
   keys: SpecialMoveKey[],
   crit: boolean,
   random?: () => number
 ): { attack: number; defense: number } {
-  let attack = 0;
-  let defense = 0;
+  let attackLeft = 1;
+  let defenseLeft = 1;
   keys.forEach((key) => {
     const move = SPECIAL_MOVES[key];
     if (!move) return;
     const rate = rollMoveRate(move, crit, random);
-    if (move.kind === 'attack') attack = Math.max(attack, rate);
-    else defense = Math.max(defense, rate);
+    if (move.kind === 'attack') attackLeft *= 1 - rate;
+    else defenseLeft *= 1 - rate;
   });
-  return { attack, defense };
+  return { attack: 1 - attackLeft, defense: 1 - defenseLeft };
 }
 
 /**
@@ -138,6 +149,9 @@ function combineMoves(
  */
 const DEFENSE_COUNTER = 0.75;
 
+/** "필살기 한 번 더!" 가 수비형일 때의 반격 비율 (아래 resolveBattle 주석 참고) */
+const EXTRA_COUNTER = 0.4;
+
 export function resolveBattle(
   rollA: SideRoll,
   rollB: SideRoll,
@@ -145,10 +159,21 @@ export function resolveBattle(
   specialsB: SpecialMoveKey[] = [],
   timingA = 1,
   /** 테스트에서 결과를 고정하고 싶을 때만 넘깁니다. */
-  random?: () => number
+  random?: () => number,
+  /**
+   * "필살기 한 번 더!" 로 쓴 기술 (역전 찬스, lib/leveling.ts). 없으면 null.
+   *
+   * ⚠️ **한 번 더는 일부러 약하게 둔다: 크리티컬이 없고(20~30%), 대신 회피로 못 피한다.**
+   * 처음엔 그냥 필살기를 한 번 더 쓰게 했더니 필살기 비중이 너무 커져서,
+   * 필살기를 통째로 피하는 회피력이 지나치게 세졌다 (전부5 vs 전부1 승률 58.9% → 45.3%,
+   * 부위 점수가 낮을수록 이기는 거꾸로 된 게임). 시뮬레이션으로 잡았다.
+   */
+  extra: { a?: SpecialMoveKey | null; b?: SpecialMoveKey | null } = {}
 ): BattleResult {
   const moveA = combineMoves(specialsA, rollA.crit, random);
   const moveB = combineMoves(specialsB, rollB.crit, random);
+  const bonusA = combineMoves(extra.a ? [extra.a] : [], false, random);
+  const bonusB = combineMoves(extra.b ? [extra.b] : [], false, random);
 
   // 상대의 공격은 내 수비만큼 무뎌집니다.
   //   내가 받는 실제 깎임 = 상대 공격률 × (1 − 내 수비율)
@@ -169,23 +194,34 @@ export function resolveBattle(
   const attackA = Math.max(moveA.attack, counterA);
   const attackB = Math.max(moveB.attack, counterB);
 
-  // 회피: 피한 쪽은 상대의 공격(반격 포함)을 **통째로** 안 맞는다.
-  const hitA = rollA.dodged ? 0 : attackB;
-  const hitB = rollB.dodged ? 0 : attackA;
+  // "한 번 더!" — 공격형은 한 번 더 때리고(회피로 못 피함), 수비형은 한 번 더 막고(아래 guard)
+  // 조금 되받아친다. 수비형 반격을 원래(0.75)대로 주면 수비형만 55%, 아예 빼면 43% 라서
+  // 그 사이 EXTRA_COUNTER 로 맞췄다 (시뮬레이션).
+  const extraHitA = Math.max(bonusA.attack, bonusA.defense * EXTRA_COUNTER);
+  const extraHitB = Math.max(bonusB.attack, bonusB.defense * EXTRA_COUNTER);
+
+  // 회피: 피한 쪽은 상대의 공격(반격 포함)을 **통째로** 안 맞는다. ("한 번 더!" 는 빼고)
+  const hitA = 1 - (1 - (rollA.dodged ? 0 : attackB)) * (1 - extraHitB);
+  const hitB = 1 - (1 - (rollB.dodged ? 0 : attackA)) * (1 - extraHitA);
+
+  // 수비도 "한 번 더!" 만큼 단단해진다.
+  const guardA = 1 - (1 - moveA.defense) * (1 - bonusA.defense);
+  const guardB = 1 - (1 - moveB.defense) * (1 - bonusB.defense);
 
   // 성실함: 맞은 만큼에서 조금 버틴다.
-  const takenByA = hitA * (1 - moveA.defense) * (1 - GRIT_GUARD * rollA.grit);
-  const takenByB = hitB * (1 - moveB.defense) * (1 - GRIT_GUARD * rollB.grit);
+  const takenByA = hitA * (1 - guardA) * (1 - GRIT_GUARD * rollA.grit);
+  const takenByB = hitB * (1 - guardB) * (1 - GRIT_GUARD * rollB.grit);
 
   // 타이밍 보너스는 기술과 무관하게 **내 점수에만** 곱합니다.
   // 기술 효과 자체를 키우면 수비형만 유독 세지는 등 밸런스가 틀어집니다.
-  const scoreA = rollA.base * (1 - takenByA) * (specialsA.length ? timingA : 1);
+  const scoreA = rollA.base * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1);
   const scoreB = rollB.base * (1 - takenByB);
 
   const a: BattleSideResult = {
     score: Math.round(scoreA),
     crit: rollA.crit,
     specials: specialsA,
+    bonus: !!extra.a,
     // 상대가 필살기를 안 썼으면 피할 것도 없었던 것
     dodged: rollA.dodged && specialsB.length > 0,
     matchup: rollA.matchup,
@@ -194,6 +230,7 @@ export function resolveBattle(
     score: Math.round(scoreB),
     crit: rollB.crit,
     specials: specialsB,
+    bonus: !!extra.b,
     dodged: rollB.dodged && specialsA.length > 0,
     matchup: rollB.matchup,
   };

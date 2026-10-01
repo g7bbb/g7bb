@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { rememberPlayer } from '@/lib/session';
 import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
+import { XpGain, addXp, levelProgress, revisitXpRate } from '@/lib/leveling';
 import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
 import { awardBadges, blockedMessage, checkIn, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
@@ -96,20 +97,18 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
       <LevelUp
         insect={insect}
         onCancel={() => setLeveling(false)}
-        onDone={async (alloc) => {
+        onDone={async (alloc, gain) => {
           // 먼저 게임을 엽니다(30분·횟수 확인). 막히면 레벨업도 하지 않습니다.
           const updated = await checkIn(player.id, { leveled: true });
           setPlayer(updated);
-          const newLevel = insect.level + 1;
-          // 레벨은 경험치로 계산되므로(XP 50당 1레벨) 다음 레벨 문턱까지 경험치를 채웁니다.
-          const xp = Math.max(insect.xp, insect.level * 50);
+          // LV5 까지는 올 때마다 한 번에 레벨업, 그 뒤로는 50% · 30% 씩 (lib/leveling.ts)
           const stats = { ...(insect.stats as any), alloc: addAlloc(readAlloc(insect.stats), alloc) };
           const { error: updateError } = await supabase
             .from('insects')
-            .update({ level: newLevel, xp, stats })
+            .update({ level: gain.level, xp: gain.xp, stats })
             .eq('id', insect.id);
           if (updateError) throw updateError;
-          void awardBadges(player.id, ['revisit', 'levelUp']);
+          void awardBadges(player.id, gain.levelsUp > 0 ? ['revisit', 'levelUp'] : ['revisit']);
           go('/battle');
         }}
       />
@@ -145,7 +144,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
           아니, {insect?.nickname ?? '내 곤충'} 키울래! ⬆️
         </button>
         <p className="text-xs text-slate-400 text-center">
-          키우면 레벨이 오르고, 강해질 능력치를 내가 직접 골라!
+          키우면 경험치를 받아! 레벨이 오르면 강해질 능력치를 내가 직접 골라!
         </p>
       </div>
     );
@@ -214,12 +213,15 @@ function LevelUp({
 }: {
   insect: LatestInsect;
   onCancel: () => void;
-  onDone: (alloc: Alloc) => Promise<void>;
+  onDone: (alloc: Alloc, gain: XpGain) => Promise<void>;
 }) {
   const [alloc, setAlloc] = useState<Alloc>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const left = POINTS_PER_LEVELUP - allocTotal(alloc);
+  // 이번에 얻는 경험치. 레벨이 올라야 포인트를 받는다 (오른 레벨 × 3개).
+  const gain = addXp(insect.level, insect.xp, revisitXpRate(insect.level));
+  const points = gain.levelsUp * POINTS_PER_LEVELUP;
+  const left = points - allocTotal(alloc);
   const before = statsForInsect(insect as Insect);
   const after = applyAlloc(before, alloc);
 
@@ -227,7 +229,7 @@ function LevelUp({
     setAlloc((prev) => {
       const next = Math.max(0, (prev[key] ?? 0) + delta);
       const total = allocTotal({ ...prev, [key]: next });
-      if (total > POINTS_PER_LEVELUP) return prev;
+      if (total > points) return prev;
       return { ...prev, [key]: next };
     });
   }
@@ -236,7 +238,7 @@ function LevelUp({
     setSaving(true);
     setError('');
     try {
-      await onDone(alloc);
+      await onDone(alloc, gain);
     } catch (err: any) {
       setError(err.message || '저장에 실패했어요. 다시 눌러줘!');
       setSaving(false);
@@ -264,52 +266,75 @@ function LevelUp({
         </div>
         <div className="min-w-0">
           <p className="font-bold truncate">{insect.nickname}</p>
-          <p className="text-2xl font-black">
-            <span className="text-slate-400">Lv.{insect.level}</span>
-            <span className="mx-1">→</span>
-            <span className="text-emerald-300">Lv.{insect.level + 1} 🆙</span>
-          </p>
+          {gain.levelsUp > 0 ? (
+            <p className="text-2xl font-black">
+              <span className="text-slate-400">Lv.{insect.level}</span>
+              <span className="mx-1">→</span>
+              <span className="text-emerald-300">Lv.{gain.level} 🆙</span>
+            </p>
+          ) : (
+            <p className="text-2xl font-black text-emerald-300">Lv.{insect.level}</p>
+          )}
+          <p className="text-xs text-amber-300 font-bold">경험치 +{gain.gained}%</p>
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-        <p className="text-center font-bold">
-          강해질 곳을 골라줘! 남은 포인트{' '}
-          <span className={left > 0 ? 'text-amber-300 text-xl' : 'text-emerald-300 text-xl'}>{left}</span>
-        </p>
-        {ALLOC_STATS.map((row) => {
-          const n = alloc[row.key] ?? 0;
-          return (
-            <div key={row.key} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 text-sm font-bold">
-                {row.emoji} {row.label}
-              </span>
-              <span className="flex-1 text-sm">
-                <span className="text-slate-400">{before[row.key]}</span>
-                {n > 0 && <span className="text-emerald-300 font-bold"> → {after[row.key]}</span>}
-                <span className="block text-[11px] text-slate-500">{row.hint}</span>
-              </span>
-              <button
-                onClick={() => change(row.key, -1)}
-                disabled={n === 0}
-                className="w-10 h-10 rounded-lg bg-slate-700 disabled:opacity-30 text-xl font-bold"
-                aria-label={`${row.label} 빼기`}
-              >
-                −
-              </button>
-              <span className="w-5 text-center font-black">{n}</span>
-              <button
-                onClick={() => change(row.key, +1)}
-                disabled={left === 0}
-                className="w-10 h-10 rounded-lg bg-emerald-500 text-slate-900 disabled:opacity-30 text-xl font-bold"
-                aria-label={`${row.label} 더하기`}
-              >
-                +
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {/* LV5 부터는 한 번에 안 오른다 — 얼마나 찼는지 막대로 보여준다 */}
+      {gain.levelsUp === 0 && (
+        <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2" style={{ wordBreak: 'keep-all' }}>
+          <p className="text-center font-bold">
+            다음 레벨까지 <span className="text-amber-300">{100 - Math.round(levelProgress(gain.level, gain.xp) * 100)}%</span> 남았어!
+          </p>
+          <div className="h-3 rounded-full bg-slate-900 overflow-hidden">
+            <div
+              className="h-full bg-amber-400 rounded-full"
+              style={{ width: `${Math.round(levelProgress(gain.level, gain.xp) * 100)}%` }}
+            />
+          </div>
+          <p className="text-center text-xs text-slate-400">배틀하면 경험치가 더 쌓여. 레벨이 오르면 강해질 곳을 고를 수 있어!</p>
+        </div>
+      )}
+
+      {points > 0 && (
+        <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+          <p className="text-center font-bold">
+            강해질 곳을 골라줘! 남은 포인트{' '}
+            <span className={left > 0 ? 'text-amber-300 text-xl' : 'text-emerald-300 text-xl'}>{left}</span>
+          </p>
+          {ALLOC_STATS.map((row) => {
+            const n = alloc[row.key] ?? 0;
+            return (
+              <div key={row.key} className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-sm font-bold">
+                  {row.emoji} {row.label}
+                </span>
+                <span className="flex-1 text-sm">
+                  <span className="text-slate-400">{before[row.key]}</span>
+                  {n > 0 && <span className="text-emerald-300 font-bold"> → {after[row.key]}</span>}
+                  <span className="block text-[11px] text-slate-500">{row.hint}</span>
+                </span>
+                <button
+                  onClick={() => change(row.key, -1)}
+                  disabled={n === 0}
+                  className="w-10 h-10 rounded-lg bg-slate-700 disabled:opacity-30 text-xl font-bold"
+                  aria-label={`${row.label} 빼기`}
+                >
+                  −
+                </button>
+                <span className="w-5 text-center font-black">{n}</span>
+                <button
+                  onClick={() => change(row.key, +1)}
+                  disabled={left === 0}
+                  className="w-10 h-10 rounded-lg bg-emerald-500 text-slate-900 disabled:opacity-30 text-xl font-bold"
+                  aria-label={`${row.label} 더하기`}
+                >
+                  +
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-400 text-center" style={{ wordBreak: 'keep-all' }}>{error}</p>}
 

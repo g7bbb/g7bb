@@ -9,6 +9,7 @@ import {
 import { MutationCounts, applyMutations } from './mutations';
 import { ORIGIN_EFFECTS } from './origins';
 import { applyAlloc, readAlloc } from './alloc';
+import { levelStatBonus } from './leveling';
 
 // ─────────────────────────────────────────────────────────────
 // 능력치 계산 (2026-09-30 Jin 재설계)
@@ -45,7 +46,6 @@ export interface AgeStage {
   atk: number;
   def: number;
   eva: number;
-  xpMultiplier: number;
   /** 아이에게 보여줄 설명 */
   story: string;
 }
@@ -63,7 +63,6 @@ export const AGE_STAGES: AgeStage[] = [
     atk: -3,
     def: -3,
     eva: 80,
-    xpMultiplier: 1.0,
     story: '이제 막 태어난 아기 곤충이야! 아직 힘은 약하지만 몸이 작고 재빨라서 잘 피해.',
   },
   {
@@ -73,7 +72,6 @@ export const AGE_STAGES: AgeStage[] = [
     atk: 0,
     def: 0,
     eva: 0,
-    xpMultiplier: 1.15,
     story: '1년 동안 쑥쑥 자란 곤충이야. 모든 능력치가 딱 기본이야!',
   },
   {
@@ -83,7 +81,6 @@ export const AGE_STAGES: AgeStage[] = [
     atk: 5,
     def: 5,
     eva: 10,
-    xpMultiplier: 1.3,
     story: '오랫동안 살아남은 베테랑 곤충이야! 체력은 조금 줄었지만 싸움 경험이 많아서 세고, 필살기도 잘 피해.',
   },
 ];
@@ -270,25 +267,14 @@ export function statBarPercent(key: keyof typeof STAT_BAR_MAX, value: number): n
   return Math.max(4, Math.min(100, Math.round((value / STAT_BAR_MAX[key]) * 100)));
 }
 
-export function levelFromXp(xp: number): number {
-  return 1 + Math.floor(xp / 50);
-}
+// 레벨·경험치 규칙은 lib/leveling.ts 한 곳에 있다 (2026-10-01 Jin 재설계).
+export { levelFromXp } from './leveling';
 
-export function critChanceForLevel(level: number): number {
-  return Math.min(0.5, 0.1 + (level - 1) * 0.02);
-}
-
-export function xpGainForBattle(won: boolean, ageStage: AgeStageKey): number {
-  const stage = ageStageOf(ageStage);
-  const base = 10 + (won ? 20 : 0);
-  return Math.round(base * stage.xpMultiplier);
-}
-
-// 레벨이 오를수록 배틀에서 실제로 쓰이는 능력치에 소폭 보너스가 붙습니다.
+// 레벨이 오를수록 배틀에서 실제로 쓰이는 능력치에 소폭 보너스가 붙습니다 (LV5 까지 +3%, 그 뒤 +1.5%).
 // 저장된 기본 스탯 자체는 바뀌지 않고, 배틀 계산 시점에만 적용됩니다.
 // 회피력은 확률이라 레벨로 키우지 않습니다 (계속 오르면 아무것도 안 맞게 됩니다).
 export function statsWithLevelBonus(stats: CoreStats, level: number): CoreStats {
-  const bonus = 1 + (level - 1) * 0.03;
+  const bonus = levelStatBonus(level);
   return {
     ...stats,
     atk: stats.atk * bonus,

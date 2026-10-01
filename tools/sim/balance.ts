@@ -4,11 +4,12 @@
  *   node -r sucrase/register tools/sim/balance.ts
  *
  * - 승률은 **무승부를 빼고** 잰다. (무승부를 패배로 세면 멀쩡한데도 44~48% 로 나와 헷갈린다)
- * - 양쪽 다 LV1, 둘 다 자기 필살기를 쓰고, 타이밍 보너스는 없다(1.0).
+ * - 양쪽 다 LV1, 둘 다 자기 필살기를 쓰고("한 번 더!" 포함), 타이밍 보너스는 없다(1.0).
+ * - 레벨·회차 밸런스는 tools/sim/levels.ts
  */
 import { calculateStats, AGE_STAGES } from '../../lib/insect-stats';
 import { rollBattle, resolveBattle, BattleSide } from '../../lib/battle-engine';
-import { movesFor } from '../../lib/special-moves';
+import { baseMoveFor, movesFor } from '../../lib/special-moves';
 import { SPECIES } from '../../lib/species';
 import { ORIGIN_EFFECTS } from '../../lib/origins';
 import { AgeStageKey, BodyPartScores, EnvironmentKey } from '../../lib/types';
@@ -35,7 +36,7 @@ function make(spec: Spec) {
   const age = spec.age ?? pick(AGES);
   const origin = spec.origin ?? pick(ORIGINS);
   const side: BattleSide = { stats: calculateStats(p, age, undefined, species, origin), level: 1, origin };
-  return { side, moves: movesFor(species, 1).map((m) => m.key) };
+  return { side, species, moves: movesFor(species, 1).map((m) => m.key) };
 }
 
 function rate(a: Spec, b: Spec): string {
@@ -45,7 +46,12 @@ function rate(a: Spec, b: Spec): string {
     const A = make(a);
     const B = make(b);
     const rolls = rollBattle(A.side, B.side);
-    const r = resolveBattle(rolls.a, rolls.b, A.moves, B.moves, 1);
+    // "필살기 한 번 더!" (lib/leveling.ts) 가 걸리면 기본기를 한 번 더 쓴다
+    const extra = {
+      a: rolls.a.bonus ? baseMoveFor(A.species).key : null,
+      b: rolls.b.bonus ? baseMoveFor(B.species).key : null,
+    };
+    const r = resolveBattle(rolls.a, rolls.b, A.moves, B.moves, 1, undefined, extra);
     if (r.winner === 'A') win++;
     else if (r.winner === 'B') lose++;
   }

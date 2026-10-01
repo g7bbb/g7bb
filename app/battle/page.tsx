@@ -9,7 +9,8 @@ import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
 import { awardBadges, blockedMessage, claimSlot, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
-import { levelFromXp, statsForInsect, xpGainForBattle } from '@/lib/insect-stats';
+import { statsForInsect } from '@/lib/insect-stats';
+import { BASE_CRIT, addXp, battleXpRate, critChance, levelProgress } from '@/lib/leveling';
 import {
   PERFECT_AT_MS,
   SpecialMove,
@@ -175,6 +176,10 @@ export default function BattlePage() {
 
   // 필살기 기회가 LV3부터 **두 번** 오므로, 지금 뜬 기회가 어떤 기술인지 따로 담습니다.
   const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
+  /** 지금 뜬 버튼이 "필살기 한 번 더!" (역전 찬스) 인지 */
+  const [chanceBonus, setChanceBonus] = useState(false);
+  /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
+  const [underdogNote, setUnderdogNote] = useState('');
   // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
   const myMove = myInsect ? baseMoveFor(myInsect.species) : null;
 
@@ -390,6 +395,12 @@ export default function BattlePage() {
           : null
     );
 
+    // 상대보다 레벨이 낮으면 크리티컬이 더 잘 터진다 (역전 찬스, lib/leveling.ts)
+    const myCrit = critChance(myInsect.level, foe.level);
+    setUnderdogNote(
+      myCrit > BASE_CRIT ? `🔥 역전 찬스! 레벨이 낮아서 크리티컬 확률 +${Math.round((myCrit - BASE_CRIT) * 100)}%` : ''
+    );
+
     // 화면 초기화
     setBattle(null);
     setUsedSpecial(false);
@@ -430,7 +441,27 @@ export default function BattlePage() {
       setPhase('final');
       await playSpecial('A', move, rolls.b.dodged);
     }
-    setUsedSpecial(usedKeys.length > 0);
+
+    // 🎁 "필살기 한 번 더!" — 레벨이 낮을수록 잘 걸린다 (LV1 50%, lib/leveling.ts).
+    // 크리티컬은 없지만 회피로 못 피한다 (battle-engine 주석 참고).
+    let extraA: SpecialMoveKey | null = null;
+    if (rolls.a.bonus) {
+      const base = baseMoveFor(myInsect.species);
+      setChanceBonus(true);
+      setChanceMove(base);
+      setPhase('chance');
+      const tier = await waitForChance();
+      setChanceBonus(false);
+      if (tier) {
+        extraA = base.key;
+        if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
+        await pause(1000);
+        setPhase('final');
+        await playSpecial('A', base, false);
+      }
+    }
+    setUsedSpecial(usedKeys.length > 0 || !!extraA);
+    const extraB: SpecialMoveKey | null = rolls.b.bonus ? baseMoveFor(foe.species).key : null;
 
     // 상대는 자기 필살기를 항상 씁니다. (안 그러면 내가 쓰기만 하면 무조건 이김)
     const final = resolveBattle(
@@ -438,7 +469,9 @@ export default function BattlePage() {
       rolls.b,
       usedKeys,
       foeMoves.map((m) => m.key),
-      bestTier?.scoreMultiplier ?? 1
+      bestTier?.scoreMultiplier ?? 1,
+      undefined,
+      { a: extraA, b: extraB }
     );
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
@@ -463,6 +496,7 @@ export default function BattlePage() {
 
     setPhase('final');
     for (const move of foeMoves) await playSpecial('B', move, rolls.a.dodged);
+    if (extraB) await playSpecial('B', baseMoveFor(foe.species), false);
 
     // 마지막 공방 — 남은 차이만큼 한 번에 반영합니다.
     //
@@ -520,11 +554,12 @@ export default function BattlePage() {
     // 연습 게임은 기록을 남기지 않습니다 (랭킹 점수·경험치 둘 다).
     if (practiceRef.current) return { xpGained: 0, leveledUp: false };
 
-    const won = final.winner === 'A';
-    const gained = xpGainForBattle(won, myInsect.age_stage);
-    const newXp = myInsect.xp + gained;
-    const newLevel = levelFromXp(newXp);
-    const didLevelUp = newLevel > myInsect.level;
+    // 경험치: 이기든 지든 같다. LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … (lib/leveling.ts)
+    const gain = addXp(myInsect.level, myInsect.xp, battleXpRate(myInsect.level));
+    const gained = gain.gained;
+    const newXp = gain.xp;
+    const newLevel = gain.level;
+    const didLevelUp = gain.levelsUp > 0;
 
     try {
       await supabase.from('battles').insert({
@@ -718,6 +753,11 @@ export default function BattlePage() {
               ⚡ 상성! {edgeNote.text}
             </p>
           )}
+          {underdogNote && phase !== 'done' && (
+            <p className="mt-1 text-xs font-bold text-amber-300" style={{ wordBreak: 'keep-all' }}>
+              {underdogNote}
+            </p>
+          )}
         </div>
 
         <Fighter
@@ -742,6 +782,9 @@ export default function BattlePage() {
             onClick={pressSpecial}
             className="mt-2 w-full bg-slate-900/60 rounded-2xl py-4 select-none"
           >
+            {chanceBonus && (
+              <p className="text-base font-black text-amber-300 animate-pop">🎁 보너스! 필살기 한 번 더!</p>
+            )}
             <p className={`text-sm font-bold ${chanceMove.textColor}`}>
               {chanceMove.emoji} {chanceMove.name}
               <span className="ml-1 text-[11px] text-slate-400">
@@ -815,7 +858,7 @@ export default function BattlePage() {
               <p className="text-sm text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임이라 점수·경험치는 안 남아. 실력만 쑥쑥!</p>
             ) : (
               <p className="text-sm text-emerald-400">
-                +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
+                경험치 +{xpGained}%{leveledUp ? ' · 🆙 레벨업!' : ''}
               </p>
             )}
             {usedSpecial && timing && myMove && (
@@ -908,7 +951,9 @@ export default function BattlePage() {
 
       <div className="bg-slate-800 rounded-xl px-4 py-3 flex justify-between text-sm">
         <span>내 곤충 Lv.{myInsect.level}</span>
-        <span className="text-slate-400">XP {myInsect.xp} · 배틀 {myInsect.battle_count}회</span>
+        <span className="text-slate-400">
+          다음 레벨까지 {100 - Math.round(levelProgress(myInsect.level, myInsect.xp) * 100)}% · 배틀 {myInsect.battle_count}회
+        </span>
       </div>
 
       {status && <PlayStatusCard status={status} />}

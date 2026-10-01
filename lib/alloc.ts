@@ -3,11 +3,14 @@ import { CoreStats } from './types';
 // ─────────────────────────────────────────────────────────────
 // 다시 온 아이의 레벨업 포인트 (2026-10-01 Jin: "아이가 올릴 걸 고름")
 //
-// QR 로 다시 와서 "내 곤충 키울래" 를 고르면 레벨이 1 오르고 포인트를 받는다.
+// QR 로 다시 와서 "내 곤충 키울래" 를 고르면 경험치를 받고(lib/leveling.ts), **레벨이 오르면**
+// 오른 레벨 × 3 포인트를 받는다. (LV5 까지는 올 때마다 오르고, 그 뒤로는 50%·30% 라 안 오를 때도 있다)
 // 아이가 HP·공격·수비·지능·회피 중 원하는 곳에 직접 나눠 준다.
 //
 // ⚠️ **어디에 몰아줘도 손해도 이득도 없게** 한 포인트의 값을 능력치마다 다르게 맞췄다.
 // 똑같이 +5% 로 두면 배틀 계산에서 HP 가 제일 크게 작용해서 다들 HP 에만 몰아준다.
+// 2026-10-01 레벨 재설계 때 **반으로 줄였다** (3포인트 몰아주기 vs 없음 59~61% → 55%).
+// 그대로 두면 2회차 아이가 1회차를 75% 넘게 이겨서 "다회차가 무조건 이김" 이 됐다.
 // 숫자는 시뮬레이션(`tools/sim/balance.ts`)으로 맞췄다. 고치면 다시 돌릴 것.
 //
 // 저장 위치: `insects.stats.alloc` (원래 있던 jsonb 칸 → 마이그레이션 불필요).
@@ -29,11 +32,11 @@ export const ALLOC_STATS: {
   percent: boolean;
   hint: string;
 }[] = [
-  { key: 'hp', label: 'HP', emoji: '💚', per: 0.04, percent: true, hint: '오래 버텨' },
-  { key: 'atk', label: '공격력', emoji: '⚔️', per: 0.05, percent: true, hint: '세게 때려' },
-  { key: 'def', label: '수비력', emoji: '🛡️', per: 0.05, percent: true, hint: '덜 아파' },
-  { key: 'int', label: '지능', emoji: '🧠', per: 6, percent: false, hint: '공격·수비 둘 다 조금씩' },
-  { key: 'eva', label: '회피력', emoji: '💨', per: 9, percent: false, hint: '필살기를 쏙 피해' },
+  { key: 'hp', label: 'HP', emoji: '💚', per: 0.02, percent: true, hint: '오래 버텨' },
+  { key: 'atk', label: '공격력', emoji: '⚔️', per: 0.025, percent: true, hint: '세게 때려' },
+  { key: 'def', label: '수비력', emoji: '🛡️', per: 0.025, percent: true, hint: '덜 아파' },
+  { key: 'int', label: '지능', emoji: '🧠', per: 3, percent: false, hint: '공격·수비 둘 다 조금씩' },
+  { key: 'eva', label: '회피력', emoji: '💨', per: 5, percent: false, hint: '필살기를 쏙 피해' },
 ];
 
 export function readAlloc(stats: unknown): Alloc {
