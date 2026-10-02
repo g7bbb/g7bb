@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { CoreStats } from '@/lib/types';
 import { ENVIRONMENTS } from '@/lib/environments';
-import { baseMoveFor, secondMoveFor } from '@/lib/special-moves';
+import { baseMoveFor, secondMoveFor, SECOND_MOVE_LEVEL } from '@/lib/special-moves';
 import { tierForVisit } from '@/lib/card';
 
 // 아이에게 보여주고 출력해 줄 곤충 카드 한 장입니다.
@@ -44,6 +44,10 @@ export interface InsectCardData {
   ticketCode: string | null;
   /** 그 아이의 몇 번째 곤충인지. 1이면 첫 카드. */
   visit: number;
+  /** 인쇄용 (직원 화면 `/admin/poster`): 고화질 그림 주소 · QR 주소 고정 · 아래 등급 글씨 숨김 */
+  imageSrc?: string;
+  qrOrigin?: string;
+  hideLabel?: boolean;
 }
 
 export default function InsectCard({ data }: { data: InsectCardData }) {
@@ -54,16 +58,19 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
   const move = baseMoveFor(data.species);
   // LV3부터 반대 형(공격↔수비)의 공통기가 하나 더 열립니다.
   const move2 = secondMoveFor(data.species, data.level);
+  // 아직 안 열렸으면 잠긴 버튼처럼 보여준다 — "LV3부터 열려!" (2026-10-02 Jin)
+  const locked = move2 ? null : secondMoveFor(data.species, SECOND_MOVE_LEVEL);
   const env = ENVIRONMENTS.find((e) => e.key === data.origin || e.label === data.origin);
 
   useEffect(() => {
     if (!data.ticketCode) return;
-    const url = `${window.location.origin}/start?t=${data.ticketCode}`;
+    // 인쇄용은 qrOrigin(SITE_URL)으로 고정한다 — 종이와 같은 규칙 (lib/site.ts 참고).
+    const url = `${data.qrOrigin ?? window.location.origin}/start?t=${data.ticketCode}`;
     // 카드를 들고 다시 오면 이 QR 하나로 원래 아이로 이어집니다. (회차가 자동으로 올라갑니다)
-    QRCode.toDataURL(url, { margin: 0, width: 160 })
+    QRCode.toDataURL(url, { margin: 0, width: data.qrOrigin ? 400 : 160 })
       .then(setQr)
       .catch(() => setQr(''));
-  }, [data.ticketCode]);
+  }, [data.ticketCode, data.qrOrigin]);
 
   return (
     <div className="w-full max-w-[21.25rem] mx-auto">
@@ -77,7 +84,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
           <div className="relative aspect-[4/5] bg-slate-900">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`data:${data.mime};base64,${data.image}`}
+              src={data.imageSrc ?? `data:${data.mime};base64,${data.image}`}
               alt={data.nickname}
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -151,6 +158,20 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
                   )}
                 </div>
               ))}
+              {locked && (
+                <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-600 bg-slate-900/40 px-2.5 py-1.5">
+                  <span className="text-lg leading-none">🔒</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[0.8125rem] font-bold leading-tight text-slate-500">{locked.name}</div>
+                    <div className="text-[0.625rem] font-bold text-amber-300/90 leading-tight">
+                      LV{SECOND_MOVE_LEVEL}부터 열려!
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[0.5625rem] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">
+                    {locked.kind === 'attack' ? '공격' : '수비'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -199,9 +220,11 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
         </div>
       </div>
 
-      <p className="mt-2 text-center text-xs font-semibold" style={{ color: '#94a3b8' }}>
-        {tier.label}
-      </p>
+      {!data.hideLabel && (
+        <p className="mt-2 text-center text-xs font-semibold" style={{ color: '#94a3b8' }}>
+          {tier.label}
+        </p>
+      )}
 
     </div>
   );

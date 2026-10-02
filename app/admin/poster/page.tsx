@@ -5,13 +5,15 @@ import { supabase } from '@/lib/supabaseClient';
 import { Insect, Player } from '@/lib/types';
 import { normalizeTicket } from '@/lib/ticket';
 import { statsForInsect, statBarPercent, ageStageOf } from '@/lib/insect-stats';
-import { baseMoveFor, secondMoveFor } from '@/lib/special-moves';
+import { baseMoveFor, secondMoveFor, SECOND_MOVE_LEVEL } from '@/lib/special-moves';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { effectiveVisit, tierForVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import { BRAND, GAME_NAME } from '@/lib/brand';
 import { BrandMark } from '@/app/brand-logo';
 import AdminGate from '../admin-gate';
+import InsectCard from '@/app/card/insect-card';
+import { SITE_URL } from '@/lib/site';
 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 곤충 찾기 → 원본 그림 받기 / A3 포스터 인쇄 (2026-10-01 Jin: "내 곤충 A3 포스터로 뽑아보려고")
@@ -68,7 +70,7 @@ function PosterDesk() {
   const [error, setError] = useState('');
   const [picked, setPicked] = useState<Picked | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
-  const [mode, setMode] = useState<'poster' | 'image'>('poster');
+  const [mode, setMode] = useState<'poster' | 'image' | 'card'>('poster');
   // 고화질 그림 끼우기 (2026-10-01 인쇄소: "A3 로는 화질이 부족해").
   // 저장된 그림은 1024px 이라 A3 에서 약 90dpi. 4배로 키운 그림(4096px ≈ 350dpi)을 PC 에서 골라 끼우면
   // 인쇄할 때만 그걸 쓴다. **DB 에는 저장하지 않는다** (용량 16배 + 아이 화면엔 필요 없음).
@@ -178,6 +180,40 @@ function PosterDesk() {
     img.src = url;
   }
 
+  // 🃏 카드 그림 저장 (2026-10-02 Jin: "카드로 이미지화된 거를 출력해보려고").
+  // 앱 카드 컴포넌트를 그대로 그려서 5배 크기 PNG 로 찍는다 → 앱 화면과 모양이 100% 같다.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [savingCard, setSavingCard] = useState(false);
+  async function saveCard() {
+    const node = cardRef.current;
+    if (!picked || !node) return;
+    setSavingCard(true);
+    setError('');
+    try {
+      // QR·그림이 다 그려진 뒤에 찍는다 (QR 은 비동기로 만들어진다).
+      for (let i = 0; i < 30; i++) {
+        const imgs = Array.from(node.querySelectorAll('img'));
+        const qrReady = !picked.owner?.ticket_code || imgs.length >= 2;
+        if (qrReady && imgs.every((im) => im.complete && im.naturalWidth > 0)) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const { toPng } = await import('html-to-image');
+      // 화면 가운데 맞춤 여백(mx-auto)이 그대로 복사되면 카드가 옆으로 밀려 찍힌다 → 여백을 0 으로.
+      const url = await toPng(node, { pixelRatio: 5, cacheBust: false, style: { margin: '0' } });
+      const a = document.createElement('a');
+      a.href = url;
+      // 영어·숫자 파일 이름 (한글 이름은 기기에 따라 "download" 로 바뀐다). 예: G7BB_card_A-007_1.png
+      a.download = `G7BB_card_${picked.owner?.ticket_code ?? 'insect'}_${picked.order}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      setError('카드 그림을 만들지 못했어. PC 크롬에서 다시 해보거나, 카드 화면을 캡처해줘.');
+    } finally {
+      setSavingCard(false);
+    }
+  }
+
   function downloadOriginal() {
     if (!picked) return;
     const { insect, owner, order } = picked;
@@ -277,19 +313,26 @@ function PosterDesk() {
                 ⬇️ 원본 그림 받기
                 <span className="block text-[11px] font-normal text-slate-400">글자 없는 그림 (피규어용)</span>
               </button>
-              <button onClick={() => window.print()} className="bg-emerald-500 text-slate-900 font-bold py-3 rounded-xl">
-                🖨️ A3 로 인쇄
-                <span className="block text-[11px] font-semibold opacity-80">→ “PDF로 저장”</span>
-              </button>
+              {mode === 'card' ? (
+                <button onClick={saveCard} disabled={savingCard} className="bg-emerald-500 text-slate-900 font-bold py-3 rounded-xl disabled:opacity-60">
+                  {savingCard ? '만드는 중...' : '🃏 카드 그림 저장'}
+                  <span className="block text-[11px] font-semibold opacity-80">고화질 PNG (인쇄용)</span>
+                </button>
+              ) : (
+                <button onClick={() => window.print()} className="bg-emerald-500 text-slate-900 font-bold py-3 rounded-xl">
+                  🖨️ A3 로 인쇄
+                  <span className="block text-[11px] font-semibold opacity-80">→ “PDF로 저장”</span>
+                </button>
+              )}
             </div>
             <div className="flex gap-2 text-sm">
-              {(['poster', 'image'] as const).map((m) => (
+              {(['poster', 'image', 'card'] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
                   className={`flex-1 py-2 rounded-xl ${mode === m ? 'bg-amber-400 text-slate-900 font-bold' : 'bg-slate-900'}`}
                 >
-                  {m === 'poster' ? '꾸민 포스터' : '그림만'}
+                  {m === 'poster' ? '꾸민 포스터' : m === 'image' ? '그림만' : '🃏 카드'}
                 </button>
               ))}
             </div>
@@ -302,13 +345,42 @@ function PosterDesk() {
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={(e) => pickHiRes(e.target.files?.[0])} />
             </label>
+            {mode === 'card' ? (
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                앱 카드와 똑같은 모양을 <b>5배 크기 PNG</b>로 저장해 (폭 약 1700px — 명함·엽서 크기로 뽑아도 선명해).
+                레벨·능력치는 지금 값, QR 은 <b>{SITE_URL}</b> 로 연결돼. 고화질 그림을 끼우면 그림도 더 선명해져.
+              </p>
+            ) : (
             <p className="text-[11px] text-slate-400 leading-relaxed">
               PC 크롬에서 인쇄 → 대상 <b>PDF로 저장</b> → 용지 <b>A3</b> 확인 → 더보기에서 <b>배경 그래픽</b> 체크 → 저장.
               그 PDF 를 인쇄소에 주면 돼요.
             </p>
+            )}
           </div>
 
-          <PosterPreview picked={picked} mode={mode} src={hiRes?.url ?? null} />
+          {mode === 'card' ? (
+            <div ref={cardRef} className="w-[21.25rem] mx-auto">
+              <InsectCard
+                data={{
+                  nickname: picked.insect.nickname,
+                  ownerName: picked.owner?.display_name,
+                  species: picked.insect.species,
+                  origin: picked.insect.origin,
+                  stats: statsForInsect(picked.insect),
+                  level: picked.insect.level ?? 1,
+                  image: picked.insect.image_base64,
+                  mime: picked.insect.mime_type || 'image/jpeg',
+                  ticketCode: picked.owner?.ticket_code ?? null,
+                  visit: picked.visit,
+                  imageSrc: hiRes?.url,
+                  qrOrigin: SITE_URL,
+                  hideLabel: true,
+                }}
+              />
+            </div>
+          ) : (
+            <PosterPreview picked={picked} mode={mode} src={hiRes?.url ?? null} />
+          )}
         </>
       )}
 
@@ -386,6 +458,8 @@ function Poster({ picked, src }: { picked: Picked; src: string | null }) {
   const stats = statsForInsect(insect);
   const level = insect.level ?? 1;
   const moves = [baseMoveFor(insect.species), secondMoveFor(insect.species, level)].filter(Boolean);
+  // 아직 안 열린 두 번째 필살기 — 잠긴 버튼처럼 (2026-10-02 Jin)
+  const locked = moves.length < 2 ? secondMoveFor(insect.species, SECOND_MOVE_LEVEL) : null;
   const env = ENVIRONMENTS.find((e) => e.key === insect.origin || e.label === insect.origin);
   const age = ageStageOf(insect.age_stage);
   const sub = [owner?.display_name && owner.display_name !== insect.nickname ? owner.display_name : null, insect.species, age.label]
@@ -466,6 +540,18 @@ function Poster({ picked, src }: { picked: Picked; src: string | null }) {
               <div style={{ fontSize: '4.6mm', color: '#94a3b8', marginTop: '1mm' }}>{m!.description}</div>
             </div>
           ))}
+          {locked && (
+            <div
+              className="flex items-center"
+              style={{ border: '0.6mm dashed #475569', borderRadius: '3mm', padding: '3.5mm 4.5mm', gap: '3mm', background: 'rgba(15,23,42,0.4)' }}
+            >
+              <span style={{ fontSize: '8mm' }}>🔒</span>
+              <div>
+                <div style={{ fontSize: '8mm', fontWeight: 900, color: '#64748b' }}>{locked.name}</div>
+                <div style={{ fontSize: '4.6mm', fontWeight: 800, color: '#fcd34d', marginTop: '1mm' }}>LV{SECOND_MOVE_LEVEL}부터 열려!</div>
+              </div>
+            </div>
+          )}
           {!!stats.grit && (
             <div style={{ fontSize: '5.5mm', fontWeight: 800, color: '#fcd34d' }}>💪 성실함 +{stats.grit}</div>
           )}
