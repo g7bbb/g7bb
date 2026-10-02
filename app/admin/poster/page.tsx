@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Insect, Player } from '@/lib/types';
-import { normalizeTicket } from '@/lib/ticket';
+import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { statsForInsect, statBarPercent, ageStageOf } from '@/lib/insect-stats';
 import { baseMoveFor, secondMoveFor, SECOND_MOVE_LEVEL } from '@/lib/special-moves';
 import { ENVIRONMENTS } from '@/lib/environments';
@@ -320,7 +320,7 @@ function PosterDesk() {
             <p className="text-sm text-slate-300">
               <b className="text-lg text-white">{picked.insect.nickname}</b>
               {' · '}
-              {picked.owner?.display_name || '(이름 없음)'} ({picked.owner?.ticket_code ?? '번호 없음'}) · {picked.insect.species} · LV.
+              {picked.owner?.display_name || '(이름 없음)'} ({displayTicket(picked.owner?.ticket_code) || '번호 없음'}) · {picked.insect.species} · LV.
               {picked.insect.level ?? 1}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -442,7 +442,7 @@ function PosterDesk() {
               <div className="flex-1 min-w-0">
                 <p className="font-bold truncate">{row.nickname}</p>
                 <p className="text-xs text-slate-400 truncate">
-                  {owner?.display_name || '(이름 없음)'} · {owner?.ticket_code ?? '-'} · {row.species} · LV.{row.level ?? 1}
+                  {owner?.display_name || '(이름 없음)'} · {displayTicket(owner?.ticket_code) || '-'} · {row.species} · LV.{row.level ?? 1}
                 </p>
               </div>
               <span className="text-xs text-slate-500 shrink-0">
@@ -637,7 +637,7 @@ function Poster({ picked, src }: { picked: Picked; src: string | null }) {
         style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '6.6mm', fontWeight: 700, color: '#94a3b8' }}
       >
         <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
-        <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{owner?.ticket_code ?? ''}</span>
+        <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{displayTicket(owner?.ticket_code)}</span>
       </div>
     </div>
   );
@@ -672,7 +672,7 @@ function ImageOnly({ picked, src }: { picked: Picked; src: string | null }) {
         style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '6.6mm', fontWeight: 700, color: '#94a3b8' }}
       >
         <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
-        <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{owner?.ticket_code ?? ''}</span>
+        <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{displayTicket(owner?.ticket_code)}</span>
       </div>
     </div>
   );

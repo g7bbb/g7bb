@@ -41,3 +41,13 @@ export function isTestTicket(code: string | null | undefined): boolean {
   const m = /^[A-Z]-(\d{3})$/.exec(code ?? '');
   return !!m && Number(m[1]) >= TEST_TICKET_FROM;
 }
+
+/**
+ * 화면·종이에 보여줄 번호 (2026-10-02 Jin: "A 는 이제 아예 다 빼줘, 숫자만").
+ * 안쪽(DB·QR·비밀번호 계산)은 그대로 `A-014` 이고, **보여줄 때만** `014` 로 바꾼다.
+ * A 가 아닌 금액별 종이(B-007 등)는 글자를 그대로 둔다 (그건 금액 표시라서).
+ */
+export function displayTicket(code: string | null | undefined): string {
+  if (!code) return '';
+  return code.startsWith('A-') ? code.slice(2) : code;
+}

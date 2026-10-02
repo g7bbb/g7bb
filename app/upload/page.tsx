@@ -19,7 +19,7 @@ import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import { countInsectsForPlayer } from '@/lib/visit-count';
 import { canMakeNewInsect, linkFriend, markInsectMade, readGameState } from '@/lib/game-state';
-import { normalizeTicket } from '@/lib/ticket';
+import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import InsectCard from '@/app/card/insect-card';
 import {
   MUTATIONS,
@@ -355,14 +355,14 @@ export default function UploadPage() {
                     if (!player) return;
                     const ticket = normalizeTicket(friendInput);
                     if (!ticket) {
-                      setFriendMsg({ ok: false, text: '번호를 다시 확인해줘! (예: 14 또는 A-014)' });
+                      setFriendMsg({ ok: false, text: '번호를 다시 확인해줘! (예: 14)' });
                       return;
                     }
                     setFriendBusy(true);
                     try {
                       const { name, me } = await linkFriend(player.id, ticket);
                       setPlayer(me);
-                      setFriendMsg({ ok: true, text: `${name}(${ticket})랑 친구 버프! 둘 다 경험치 +10%` });
+                      setFriendMsg({ ok: true, text: `${name}(${displayTicket(ticket)})랑 친구 버프! 둘 다 경험치 +10%` });
                     } catch (err: any) {
                       setFriendMsg({ ok: false, text: err?.message || '지금은 안 돼. 조금 있다 다시 해줘!' });
                     } finally {

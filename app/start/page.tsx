@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { findPlayerByTicket, rememberInsectName, rememberPlayer } from '@/lib/session';
 import { playSound, unlockAudio } from '@/lib/sfx';
 import { Player } from '@/lib/types';
-import { normalizeTicket } from '@/lib/ticket';
+import { displayTicket, normalizeTicket } from '@/lib/ticket';
 import { rememberTicketPin, verifyTicketPin } from '@/lib/ticket-pin-client';
 import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
@@ -53,6 +53,8 @@ function StartInner() {
   const [pin, setPin] = useState('');
   const [pinOk, setPinOk] = useState(false);
   const [pinError, setPinError] = useState('');
+  // QR 이 안 찍힐 때만 번호·비밀번호 칸을 연다 (직원이 도와줄 때)
+  const [manual, setManual] = useState(false);
 
   /** 번호+비밀번호가 맞은 뒤에만: 이미 온 아이인지 · 직원이 금액을 올려둔 자리인지 본다 */
   function lookup(code: string) {
@@ -277,29 +279,46 @@ function friendlyError(message?: string): string {
       <header className="text-center">
         <BrandLogo size={120} />
         <h1 className="mt-3 text-2xl font-bold">{GAME_TITLE}</h1>
-        <p className="mt-2 text-sm text-slate-400">질문 4개만 답하면 바로 시작해!</p>
+        <p className="mt-2 text-sm text-slate-400">{pinOk ? '질문 4개만 답하면 바로 시작해!' : '그림을 다 그렸으면 시작!'}</p>
       </header>
 
+      {/* 🎫 들어오는 길 (2026-10-02 Jin): **그림 먼저 → 종이 QR 찍기 → 능력 고르기 → 그림 촬영.**
+          종이는 참가비를 낸 아이에게만 주므로 QR 이 곧 입장권이다. 번호를 손으로 칠 일은 없게 하고,
+          QR 이 안 찍힐 때만 직원이 "번호 + 비밀번호" 로 넣어준다 (접어둠). */}
       <section className="flex flex-col gap-2">
-        <label className="text-sm text-slate-400">내 번호 (종이 위쪽에 적혀 있어 · 숫자만 써도 돼!)</label>
-        <input
-          className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-widest text-center font-bold"
-          placeholder="14"
-          value={ticket}
-          onChange={(e) => {
-            setTicket(e.target.value);
-            // 번호를 바꾸면 비밀번호부터 다시
-            setPinOk(false);
-            setPrepaid(null);
-            setFromQr(false);
-          }}
-          inputMode="numeric"
-          autoCapitalize="characters"
-        />
         {pinOk ? (
-          <p className="text-sm text-emerald-400 text-center">✓ {fromQr ? 'QR로 확인했어!' : '비밀번호 확인!'}</p>
+          <p className="bg-emerald-500/15 border border-emerald-400/50 rounded-2xl py-3 text-center text-lg font-black text-emerald-300">
+            ✓ {displayTicket(normalizeTicket(ticket))}번 종이 확인!
+          </p>
+        ) : !fromQr && !manual ? (
+          <div className="bg-slate-800 rounded-2xl p-5 text-center flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
+            <p className="text-5xl">📷</p>
+            <p className="text-xl font-black">종이 오른쪽 위 QR을 찍어줘!</p>
+            <p className="text-[0.9375rem] text-slate-300 leading-relaxed">
+              ① 종이에 곤충을 다 그렸으면
+              <br />② 폰 카메라로 <b className="text-amber-300">종이의 QR</b>을 찍어서 들어와!
+            </p>
+            <p className="text-xs text-slate-500">종이는 부스에서 참가 신청을 한 친구만 받을 수 있어.</p>
+            <button type="button" onClick={() => setManual(true)} className="text-xs text-slate-500 underline">
+              QR이 안 찍혀요 (선생님이 도와줄게)
+            </button>
+          </div>
         ) : (
           <>
+            <label className="text-sm text-slate-400">종이 번호 (숫자만)</label>
+            <input
+              className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-widest text-center font-bold"
+              placeholder="014"
+              value={fromQr ? displayTicket(normalizeTicket(ticket)) : ticket}
+              readOnly={fromQr}
+              onChange={(e) => {
+                setTicket(e.target.value);
+                // 번호를 바꾸면 비밀번호부터 다시
+                setPinOk(false);
+                setPrepaid(null);
+              }}
+              inputMode="numeric"
+            />
             <label className="mt-2 text-sm text-slate-400">🔐 비밀번호 4자리 (번호 아래에 적혀 있어)</label>
             <input
               className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-[0.5em] text-center font-bold"
@@ -323,6 +342,8 @@ function friendlyError(message?: string): string {
         )}
       </section>
 
+      {pinOk && (
+        <>
       <section className="flex flex-col gap-2">
         <label className="text-sm text-slate-400">내 닉네임 (랭킹에 나와!)</label>
         <input
@@ -419,6 +440,8 @@ function friendlyError(message?: string): string {
           </>
         )}
       </button>
+        </>
+      )}
     </main>
   );
 }

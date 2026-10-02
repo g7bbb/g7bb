@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
-import { ticketAt } from '@/lib/ticket';
+import { ticketAt, displayTicket } from '@/lib/ticket';
 import { GUIDE_URL, ABOUT_URL, SITE_URL, ticketUrl } from '@/lib/site';
 import { BRAND, GAME_TITLE } from '@/lib/brand';
 import AdminGate from '@/app/admin/admin-gate';
@@ -91,7 +91,7 @@ function PrintInner() {
         const ticket = tickets[i];
         const pin = got[ticket];
         if (!pin) {
-          setPinError(`${ticket} 비밀번호가 없어요. 새로고침해 주세요.`);
+          setPinError(`${displayTicket(ticket)} 비밀번호가 없어요. 새로고침해 주세요.`);
           return;
         }
         // QR을 찍으면 번호·비밀번호가 채워진 시작 화면이 열립니다.
@@ -198,7 +198,7 @@ function PrintInner() {
               <div className="ticket-box">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt={ticket} className="qr" />
-                <div className="ticket">{ticket}</div>
+                <div className="ticket">{displayTicket(ticket)}</div>
                 <div className="pin">🔐 {pins[index]}</div>
                 {/* 금액별로 따로 뽑을 때만 표시. 기본(A) 종이는 모든 아이가 받고 금액은 직원 화면에서
                     올려주므로(2026-10-01), "1만원" 이 찍혀 있으면 10만원 낸 아이가 헷갈린다. */}
@@ -428,6 +428,8 @@ function PrintInner() {
         }
         .info-qrs {
           text-align: center;
+          /* 10/2 Jin: 위 안내 문구와 붙어 보여서 아래로 내림 */
+          margin-top: 9mm;
         }
         .info-title {
           font-size: 12pt;

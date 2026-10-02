@@ -1,5 +1,6 @@
 'use client';
 
+import { displayTicket } from '@/lib/ticket';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -171,7 +172,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
           <span className="text-amber-400">{player.display_name}</span> 다시 왔구나!
         </h1>
         <p className="mt-2 text-sm text-slate-400">
-          내 번호 <b className="text-slate-200">{player.ticket_code}</b> 로 이어서 할게. 이름이랑 질문은 다시 안 물어볼게 😉
+          내 번호 <b className="text-slate-200">{displayTicket(player.ticket_code)}</b> 로 이어서 할게. 이름이랑 질문은 다시 안 물어볼게 😉
         </p>
       </div>
 

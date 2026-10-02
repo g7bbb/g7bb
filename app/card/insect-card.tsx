@@ -1,5 +1,6 @@
 'use client';
 
+import { displayTicket } from '@/lib/ticket';
 import { statBarPercent } from '@/lib/insect-stats';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
@@ -206,7 +207,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
               <div className="mt-2.5 pt-2 border-t border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="text-base font-black tracking-wider text-slate-200">
-                    {data.ticketCode}
+                    {displayTicket(data.ticketCode)}
                   </div>
                   <div className="text-[0.5625rem] text-slate-500 leading-tight">
                     다시 올 때 이 QR을 찍어줘

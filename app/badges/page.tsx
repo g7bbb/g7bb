@@ -1,5 +1,6 @@
 'use client';
 
+import { displayTicket } from '@/lib/ticket';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -72,7 +73,7 @@ export default function BadgesPage() {
 
       {player && (
         <p className="text-center text-sm text-slate-400">
-          <b className="text-slate-200">{player.display_name}</b> ({player.ticket_code})
+          <b className="text-slate-200">{player.display_name}</b> ({displayTicket(player.ticket_code)})
         </p>
       )}
 

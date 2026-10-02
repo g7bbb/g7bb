@@ -105,7 +105,7 @@ export default function GuidePage() {
       <section className="bg-amber-400/15 border border-amber-400/40 rounded-2xl p-4 text-sm leading-relaxed">
         <p className="font-black text-amber-200">📌 꼭 기억해주세요</p>
         <p className="mt-1">· 그림 종이는 <b>상품을 받을 때 필요</b>해요. 꼭 보관해주세요.</p>
-        <p>· 카카오톡 채널을 추가하고 <b>종이 번호(예: A-014)</b>를 채팅으로 보내주시면, 당첨되었을 때 바로 연락드릴 수 있어요.</p>
+        <p>· 카카오톡 채널을 추가하고 <b>종이 번호(예: 014)</b>를 채팅으로 보내주시면, 당첨되었을 때 바로 연락드릴 수 있어요.</p>
         <p>· 아이 사진은 저장하지 않아요. AI가 만든 곤충 그림만 저장해요.</p>
       </section>
 

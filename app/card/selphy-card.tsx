@@ -1,5 +1,6 @@
 'use client';
 
+import { displayTicket } from '@/lib/ticket';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { statBarPercent } from '@/lib/insect-stats';
@@ -215,7 +216,7 @@ export default function SelphyCard({ data }: { data: InsectCardData }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={qr} alt={data.ticketCode} style={{ width: 112, height: 112, background: '#fff', borderRadius: 6 }} />
               )}
-              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 1 }}>{data.ticketCode}</div>
+              <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 1 }}>{displayTicket(data.ticketCode)}</div>
             </div>
           )}
         </div>

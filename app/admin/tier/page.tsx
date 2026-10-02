@@ -4,7 +4,7 @@ import { fetchTicketPins } from '@/lib/ticket-pin-client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
-import { normalizeTicket } from '@/lib/ticket';
+import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierForPlayer } from '@/lib/tiers';
 import { isPending, playStatus, setTierForTicket } from '@/lib/game-state';
 
@@ -107,7 +107,7 @@ function TierDesk() {
     setError('');
     const t = readTicket(input);
     if (!t) {
-      setError('번호를 다시 확인해 주세요. 숫자만 쳐도 돼요 (예: 14 → A-014)');
+      setError('번호를 다시 확인해 주세요. 숫자만 쳐도 돼요 (예: 14 → 014)');
       return;
     }
     setTicket(t);
@@ -135,7 +135,7 @@ function TierDesk() {
       const updated = await setTierForTicket(ticket, tier);
       setPlayer(updated);
       setLog((prev) => [{ ticket, tier, at: new Date().toLocaleTimeString('ko-KR') }, ...prev].slice(0, 20));
-      setMessage(`✅ ${ticket} → ${TIERS[tier].emoji} ${TIERS[tier].price} 적용!`);
+      setMessage(`✅ ${displayTicket(ticket)} → ${TIERS[tier].emoji} ${TIERS[tier].price} 적용!`);
     } catch (err: any) {
       setError(err.message || '저장하지 못했어요. 다시 눌러 주세요.');
     } finally {
@@ -170,7 +170,7 @@ function TierDesk() {
         <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3">
           <div>
             <p className="text-2xl font-black">
-              {ticket}
+              {displayTicket(ticket)}
               {pin && <span className="ml-3 text-base font-bold text-amber-300">🔐 비밀번호 {pin}</span>}
             </p>
             <p className="text-sm text-slate-300">

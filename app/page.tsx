@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/session';
-import { normalizeTicket } from '@/lib/ticket';
+import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
@@ -52,7 +52,8 @@ function HomeInner() {
     const fromUrl = params.get('t');
     const normalized = fromUrl ? normalizeTicket(fromUrl) : null;
     if (normalized) {
-      router.replace(`/start?t=${normalized}`);
+      const k = (params.get('k') ?? '').replace(/\D/g, '');
+      router.replace(`/start?t=${normalized}${k ? `&k=${k}` : ''}`);
       return;
     }
     getCurrentPlayer().then(setPlayer);
@@ -61,7 +62,7 @@ function HomeInner() {
   async function copyTicket() {
     if (!player?.ticket_code) return;
     try {
-      await navigator.clipboard.writeText(player.ticket_code);
+      await navigator.clipboard.writeText(displayTicket(player.ticket_code));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -79,7 +80,7 @@ function HomeInner() {
         {player ? (
           <p className="mt-2 text-slate-300">{player.display_name}, 반가워!</p>
         ) : (
-          <p className="mt-2 text-slate-400">종이에 적힌 번호로 시작해!</p>
+          <p className="mt-2 text-slate-400" style={{ wordBreak: 'keep-all' }}>곤충을 다 그렸으면 종이의 QR을 찍어서 시작해!</p>
         )}
       </div>
 
@@ -88,7 +89,7 @@ function HomeInner() {
           href="/start"
           className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-4 rounded-2xl text-lg"
         >
-          🎫 번호 넣고 시작하기
+          🎫 시작하기
         </Link>
       ) : (
         <div className="flex flex-col gap-4">
@@ -146,7 +147,7 @@ function HomeInner() {
             onClick={copyTicket}
             className="bg-slate-900 rounded-xl py-3 text-2xl font-bold tracking-widest"
           >
-            {player.ticket_code}
+            {displayTicket(player.ticket_code)}
             <span className="block text-xs font-normal text-slate-400 tracking-normal mt-1">
               {copied ? '✓ 복사됐어!' : '눌러서 번호 복사'}
             </span>
