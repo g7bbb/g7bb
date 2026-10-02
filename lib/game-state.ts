@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 import { Player } from './types';
 import { Tier, TierKey, TIERS, tierForPlayer } from './tiers';
-import { normalizeTicket } from './ticket';
+import { isTestTicket, normalizeTicket } from './ticket';
 
 // ─────────────────────────────────────────────────────────────
 // 참여 횟수 · 30분 대기 · 뱃지 기록 (2026-10-01 Jin 확정)
@@ -90,9 +90,11 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
   const state = readGameState(player);
   const last = state.sessions[state.sessions.length - 1];
   const used = state.sessions.length;
-  const left = Math.max(0, tier.games - used);
+  // 테스트 번호(900번대)는 횟수·30분 대기 없이 계속 (lib/ticket.ts)
+  const test = isTestTicket(player.ticket_code);
+  const left = test ? Infinity : Math.max(0, tier.games - used);
   const elapsed = last ? now - Date.parse(last.at) : Infinity;
-  const cooldownMs = last ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
+  const cooldownMs = last && !test ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
   const canStartNew = left > 0 && cooldownMs === 0;
   const ladderPending = !!last && !last.ladder;
   const practicePending = !!last && !last.practice;

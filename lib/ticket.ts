@@ -30,3 +30,14 @@ export function ticketAt(index: number): string {
   const number = String((index % 999) + 1).padStart(3, '0');
   return `${letter}-${number}`;
 }
+
+/**
+ * 테스트 번호 (2026-10-02 Jin: "현장 테스트 때 30분 안 기다리고 배틀을 계속 하게").
+ * 번호 숫자가 **900 이상**이면(A-900 ~ A-999) 게임 횟수·30분 대기 없이 계속 할 수 있다.
+ * ⚠️ 종이를 900장 넘게 뽑으면 진짜 아이가 이 번호를 받게 된다 — 그때는 숫자를 올릴 것.
+ */
+export const TEST_TICKET_FROM = 900;
+export function isTestTicket(code: string | null | undefined): boolean {
+  const m = /^[A-Z]-(\d{3})$/.exec(code ?? '');
+  return !!m && Number(m[1]) >= TEST_TICKET_FROM;
+}
