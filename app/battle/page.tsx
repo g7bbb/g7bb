@@ -24,7 +24,7 @@ import {
   baseMoveFor,
   SpecialMoveKey,
 } from '@/lib/special-moves';
-import { attackSoundFor, playPerfect, playSound, playTap, unlockAudio, SoundName } from '@/lib/sfx';
+import { attackSoundFor, playPerfect, playSound, playTap, specialSoundFor, unlockAudio, SoundName } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { tierForVisit } from '@/lib/card';
@@ -96,7 +96,10 @@ interface LadderState {
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
-const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn'];
+const BATTLE_SOUNDS: SoundName[] = [
+  'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn',
+  'spAttack', 'spDefense', 'spCommonAttack', 'spCommonDefense',
+];
 
 function ladderFinished(ladder: LadderState): boolean {
   return ladder.used >= LADDER_BATTLES || ladder.index >= ladder.targets.length;
@@ -364,7 +367,7 @@ export default function BattlePage() {
 
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
   async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false, caption?: string) {
-    playSound('special');
+    playSound(specialSoundFor(move)); // ⚡ 기술마다 다른 소리 (10/2 Jin)
     setSpecialFx({ id: nextFxId(), side, move, dodged, caption });
     setShaking(true);
     await pause(500);

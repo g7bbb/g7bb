@@ -1,6 +1,6 @@
 // 효과음.
 //   - 퍼펙트 "키잉!" · 판정 "틱" 은 브라우저가 직접 만든다 (Web Audio API, 아래 playPerfect/playTap)
-//   - 이김·짐·필살기·게임 끝·레벨업·다음 장은 **Jin 이 준 mp3** (`public/sfx/`, 맨 아래 playSound)
+//   - 이김·짐·필살기(기술별 4개)·일반 공격(종류별 3개)·게임 끝·레벨업·다음 장은 **Jin 이 준 mp3** (`public/sfx/`, 맨 아래 playSound)
 //
 // 처음에 mp3 를 안 넣었던 이유 (직접 만드는 소리에는 지금도 해당):
 // 1) 용량 0. 부스 와이파이가 느려도 다운로드가 없습니다.
@@ -131,12 +131,15 @@ export function playTap(pitch = 900) {
 // 파일을 바꾸면 크기를 다시 재서 gain 을 고칠 것.
 // ─────────────────────────────────────────────────────────────
 
-export type SoundName = 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next' | 'hitWing' | 'hitJaw' | 'hitHorn';
+export type SoundName =
+  | 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next'
+  | 'hitWing' | 'hitJaw' | 'hitHorn'
+  | 'spAttack' | 'spDefense' | 'spCommonAttack' | 'spCommonDefense';
 
 const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number }> = {
   win: { src: '/sfx/win.mp3', gain: 9 }, // 배틀에서 이겼을 때 (원래 아주 작음 8%)
   lose: { src: '/sfx/lose.mp3', gain: 3 }, // 졌을 때
-  special: { src: '/sfx/special.mp3', gain: 2.2 }, // 필살기가 터질 때
+  special: { src: '/sfx/special.mp3', gain: 2.2 }, // 옛 필살기 소리 — 지금은 기술마다 아래 4개를 쓰고, 혹시 모를 때만
   gameOver: { src: '/sfx/game-over.mp3', gain: 0.6, skip: 0.38 }, // 게임(랭킹 도전·연습)이 끝났을 때. 앞 0.4초가 빈 소리
   levelUp: { src: '/sfx/level-up.mp3', gain: 2.8 }, // 레벨업
   next: { src: '/sfx/next.mp3', gain: 4 }, // 설정을 마치고 다음 장으로 넘어갈 때
@@ -144,7 +147,23 @@ const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number 
   hitWing: { src: '/sfx/hit-wing.mp3', gain: 1, skip: 0.15 }, // 나비·벌 (앞 0.15초 조용한 부분 건너뜀)
   hitJaw: { src: '/sfx/hit-jaw.mp3', gain: 1.9 }, // 사슴벌레·기타 곤충 (원본이 작음 28%)
   hitHorn: { src: '/sfx/hit-horn.mp3', gain: 0.85 }, // 장수풍뎅이
+  // ⚡ 필살기 소리 (10/2 Jin) — 기술마다 고른다 (specialSoundFor). 최대 크기 0.75 안팎(옛 special 과 같게).
+  spAttack: { src: '/sfx/special-attack.mp3', gain: 1.3 }, // 3번: 씨름선수·당랑권·큰턱공격·벌
+  spDefense: { src: '/sfx/special-defense.mp3', gain: 1.05, skip: 0.06 }, // 4번: 웅크리기·흔들흔들 회피 (앞이 조용해서 건너뜀)
+  spCommonAttack: { src: '/sfx/special-common-attack.mp3', gain: 1 }, // 1번: LV3 공격!!
+  spCommonDefense: { src: '/sfx/special-common-defense.mp3', gain: 2.4 }, // 2번: LV3 바위처럼!! (원본이 작음 31%)
 };
+
+/**
+ * 필살기 소리 고르기 (2026-10-02 Jin): LV3 공격!! = 1번 / LV3 바위처럼!! = 2번 /
+ * 곤충 기본기 중 공격형(씨름선수·당랑권·큰턱공격·벌) = 3번 / 수비형(웅크리기·흔들흔들 회피) = 4번.
+ * 내 것이든 상대 것이든 그 기술의 소리가 난다.
+ */
+export function specialSoundFor(move: { key: string; kind: string }): SoundName {
+  if (move.key === 'commonAttack') return 'spCommonAttack';
+  if (move.key === 'commonDefense') return 'spCommonDefense';
+  return move.kind === 'defense' ? 'spDefense' : 'spAttack';
+}
 
 /**
  * 일반 공격 소리 고르기 (2026-10-02 Jin): 1번 나비·벌 / 2번 사슴벌레·기타 / 3번 장수풍뎅이.
