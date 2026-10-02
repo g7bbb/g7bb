@@ -935,13 +935,13 @@ export default function BattlePage() {
                 {specialFx.side === 'A' ? '내 곤충의 필살기!' : '상대의 필살기!'}
               </p>
               {specialFx.caption && (
-                <p className="mt-3 px-4 text-center text-2xl font-black text-amber-200 whitespace-nowrap animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <p className="mt-3 px-4 text-center text-2xl font-black text-amber-200 break-keep animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
                   {specialFx.caption}
                 </p>
               )}
               {/* 회피 — 맞는 쪽의 회피력으로 필살기를 통째로 피했을 때 */}
               {specialFx.dodged && (
-                <p className="mt-4 px-4 text-center text-3xl font-black text-sky-300 whitespace-nowrap animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <p className="mt-4 px-4 text-center text-3xl font-black text-sky-300 break-keep animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
                   💨 {specialFx.side === 'A' ? '상대가' : '내 곤충이'} 피했다!
                 </p>
               )}
