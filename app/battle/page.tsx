@@ -143,6 +143,8 @@ export default function BattlePage() {
 
   // ─── 상대 고르기 ───
   const [opponents, setOpponents] = useState<OpponentSummary[]>([]);
+  // 내 곤충 중 가장 높은 순위 (내가 1위면 상대 목록에 1위가 없다 → "1위는 너야!" 안내, 10/2 Jin)
+  const [myBestRank, setMyBestRank] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(20);
@@ -286,6 +288,7 @@ export default function BattlePage() {
     });
     // 순위를 다 매긴 다음에 내 곤충을 뺍니다. 남은 순위 번호는 전체 기준 그대로입니다.
     setOpponents(list.filter((item) => item.player_id !== playerId));
+    setMyBestRank(list.find((item) => item.player_id === playerId)?.rank ?? null);
     setListLoading(false);
   }, []);
 
@@ -1220,11 +1223,12 @@ export default function BattlePage() {
         <p className="-mt-3 text-center text-sm font-bold text-pink-300">👨‍👩‍👧 친구 버프! 경험치 +10%</p>
       )}
 
-      {/* 곤충 이름 (안 지었으면 "내 곤충") + 레벨 + XP 숫자 (Jin 10/1) */}
+      {/* 곤충 이름 + 레벨 + XP 숫자 (Jin 10/1) */}
       <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-lg font-black truncate">
-            {myInsect.nickname && myInsect.nickname !== player?.display_name ? myInsect.nickname : '내 곤충'}{' '}
+            {/* 10/2 Jin: "내 곤충" 대신 곤충 이름 (안 지었으면 아이 닉네임이 곤충 이름으로 저장돼 있다) */}
+            {myInsect.nickname || player?.display_name || '내 곤충'}{' '}
             <span className="text-emerald-300">Lv.{myInsect.level}</span>
           </span>
           <span className="shrink-0 text-xs text-slate-400">배틀 {myInsect.battle_count}회</span>
@@ -1278,6 +1282,11 @@ export default function BattlePage() {
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
             기회는 <b className="text-slate-200">{LADDER_BATTLES}번</b>이야.
           </p>
+          {myBestRank === 1 && (
+            <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
+              👑 지금 랭킹 1위는 너야! 그래서 2위부터 보여줘.
+            </p>
+          )}
         </div>
 
         {listLoading ? (
@@ -1344,6 +1353,7 @@ export default function BattlePage() {
             🎲 아무나
           </button>
         </div>
+        {myBestRank === 1 && <p className="-mt-1 mb-2 text-xs font-bold text-amber-300">👑 1위는 너라서 목록에 없어!</p>}
 
         <input
           value={search}
