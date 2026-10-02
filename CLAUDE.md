@@ -359,6 +359,7 @@ Jin 요청: *"Ai로 곤충그림으로 변환될때 마음에 안들면 한번�
 - 🧪 **테스트 번호 (2026-10-02 Jin)**: 번호 숫자가 **900 이상**(A-900~A-999)이면 게임 횟수·30분 대기 없음 (`isTestTicket`, `lib/ticket.ts`).
   ⚠️ 종이를 900장 넘게 뽑으면 진짜 아이가 이 번호를 받는다 → `TEST_TICKET_FROM` 을 올릴 것.
   ⚠️ 테스트 기록도 랭킹에 그대로 올라간다 → 행사 전에 테스트 데이터 지우기.
+  ✅ **2026-10-02 밤 Jin 이 Supabase SQL Editor 에서 초기화 완료** (`truncate table hearts, battles, insects, players cascade;`). 이후 기록은 진짜 아이 데이터.
 
 ### 다시 온 아이 (`app/start/returning.tsx`)
 QR → "새로운 곤충을 만들래?" → **응**: 새 곤충 / **아니**: 대화창
