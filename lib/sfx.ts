@@ -131,7 +131,7 @@ export function playTap(pitch = 900) {
 // 파일을 바꾸면 크기를 다시 재서 gain 을 고칠 것.
 // ─────────────────────────────────────────────────────────────
 
-export type SoundName = 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next';
+export type SoundName = 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next' | 'hitWing' | 'hitJaw' | 'hitHorn';
 
 const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number }> = {
   win: { src: '/sfx/win.mp3', gain: 9 }, // 배틀에서 이겼을 때 (원래 아주 작음 8%)
@@ -140,7 +140,23 @@ const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number 
   gameOver: { src: '/sfx/game-over.mp3', gain: 0.6, skip: 0.38 }, // 게임(랭킹 도전·연습)이 끝났을 때. 앞 0.4초가 빈 소리
   levelUp: { src: '/sfx/level-up.mp3', gain: 2.8 }, // 레벨업
   next: { src: '/sfx/next.mp3', gain: 4 }, // 설정을 마치고 다음 장으로 넘어갈 때
+  // 🥊 일반 공격 소리 (10/2 Jin) — 때리는 쪽 곤충 종류로 고른다 (attackSoundFor). 최대 크기 0.5 안팎으로 맞춤.
+  hitWing: { src: '/sfx/hit-wing.mp3', gain: 1, skip: 0.15 }, // 나비·벌 (앞 0.15초 조용한 부분 건너뜀)
+  hitJaw: { src: '/sfx/hit-jaw.mp3', gain: 1.9 }, // 사슴벌레·기타 곤충 (원본이 작음 28%)
+  hitHorn: { src: '/sfx/hit-horn.mp3', gain: 0.85 }, // 장수풍뎅이
 };
+
+/**
+ * 일반 공격 소리 고르기 (2026-10-02 Jin): 1번 나비·벌 / 2번 사슴벌레·기타 / 3번 장수풍뎅이.
+ * 사마귀는 아직 안 정해서 2번(사슴벌레 소리)을 쓴다 — Jin 이 정하면 여기만 바꾸면 된다.
+ * insects.species 에는 한글 이름이 저장된다 ("사슴벌레"). 목록에 없는 이름(물방개 등)은 기타 곤충.
+ */
+export function attackSoundFor(species: string | null | undefined): SoundName {
+  const name = (species || '').trim();
+  if (name === '나비' || name === '벌' || name === 'butterfly' || name === 'bee') return 'hitWing';
+  if (name === '장수풍뎅이' || name === 'rhino') return 'hitHorn';
+  return 'hitJaw';
+}
 
 const buffers = new Map<SoundName, Promise<AudioBuffer | null>>();
 

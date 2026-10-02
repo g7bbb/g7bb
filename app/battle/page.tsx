@@ -24,7 +24,7 @@ import {
   baseMoveFor,
   SpecialMoveKey,
 } from '@/lib/special-moves';
-import { playPerfect, playSound, playTap, unlockAudio, SoundName } from '@/lib/sfx';
+import { attackSoundFor, playPerfect, playSound, playTap, unlockAudio, SoundName } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { tierForVisit } from '@/lib/card';
@@ -96,7 +96,7 @@ interface LadderState {
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
-const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver', 'next'];
+const BATTLE_SOUNDS: SoundName[] = ['special', 'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn'];
 
 function ladderFinished(ladder: LadderState): boolean {
   return ladder.used >= LADDER_BATTLES || ladder.index >= ladder.targets.length;
@@ -199,6 +199,8 @@ export default function BattlePage() {
   // 버튼을 눌렀는지 연출 루프 안에서 확인해야 해서 ref 로 둡니다.
   const specialRequested = useRef(false);
   const fxCounter = useRef(0);
+  // 일반 공격 소리 (A = 내 곤충, B = 상대) — 배틀 시작 때 곤충 종류로 정한다
+  const hitSoundRef = useRef<{ A: SoundName; B: SoundName }>({ A: 'hitJaw', B: 'hitJaw' });
   // 타이밍 판정용. 버튼이 뜬 시각과, 눌렀을 때의 판정 결과를 담습니다.
   const chanceStart = useRef(0);
   const timingResult = useRef<TimingTier | null>(null);
@@ -345,6 +347,7 @@ export default function BattlePage() {
 
     setAttackSide(attacker);
     await pause(170);
+    playSound(hitSoundRef.current[attacker]); // 🥊 때리는 쪽 곤충 종류의 일반 공격 소리 (10/2 Jin)
 
     setHitSide(target);
     setImpact({ id: nextFxId(), side: target, amount, crit });
@@ -450,6 +453,7 @@ export default function BattlePage() {
 
   async function runFight(foe: Insect, foeBadges = 0) {
     if (!player || !myInsect) return;
+    hitSoundRef.current = { A: attackSoundFor(myInsect.species), B: attackSoundFor(foe.species) };
 
     // 필살기는 **곤충 종류**로 정해지고, LV3부터 반대 형 공통기가 하나 더 열립니다.
     const myMoves = movesFor(myInsect.species, myInsect.level);
@@ -674,6 +678,7 @@ export default function BattlePage() {
     setPhase('final');
     setAttackSide(winner);
     await pause(200);
+    if (winner === 'A' || winner === 'B') playSound(hitSoundRef.current[winner]);
     setHitSide(loser);
     setImpact({
       id: nextFxId(),
