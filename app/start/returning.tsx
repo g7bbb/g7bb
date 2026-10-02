@@ -7,7 +7,7 @@ import { rememberPlayer } from '@/lib/session';
 import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
 import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
-import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
+import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocPerLabel, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
 import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
@@ -282,7 +282,7 @@ function LevelUp({
           )}
         </div>
         <div className="min-w-0">
-          <p className="font-bold truncate">{insect.nickname}</p>
+          <p className="text-lg font-bold truncate">{insect.nickname}</p>
           {gain.levelsUp > 0 ? (
             <p className="text-2xl font-black">
               <span className="text-slate-400">Lv.{insect.level}</span>
@@ -292,7 +292,7 @@ function LevelUp({
           ) : (
             <p className="text-2xl font-black text-emerald-300">Lv.{insect.level}</p>
           )}
-          <p className="text-xs text-amber-300 font-bold">경험치 +{gain.shown} XP</p>
+          <p className="text-sm text-amber-300 font-bold">경험치 +{gain.shown} XP</p>
         </div>
       </div>
 
@@ -301,7 +301,7 @@ function LevelUp({
         <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2" style={{ wordBreak: 'keep-all' }}>
           <p className="text-center font-bold">
             다음 레벨까지 <span className="text-amber-300">{xpDisplay(gain.level, gain.xp).left} XP</span> 남았어!
-            <span className="block text-xs text-slate-400 font-normal">
+            <span className="block text-sm text-slate-400 font-normal">
               XP {xpDisplay(gain.level, gain.xp).have} / {xpDisplay(gain.level, gain.xp).need}
             </span>
           </p>
@@ -311,45 +311,58 @@ function LevelUp({
               style={{ width: `${Math.round(levelProgress(gain.level, gain.xp) * 100)}%` }}
             />
           </div>
-          <p className="text-center text-xs text-slate-400">배틀하면 경험치가 더 쌓여. 레벨이 오르면 강해질 곳을 고를 수 있어!</p>
+          <p className="text-center text-sm text-slate-400">배틀하면 경험치가 더 쌓여. 레벨이 오르면 강해질 곳을 고를 수 있어!</p>
         </div>
       )}
 
       {points > 0 && (
-        <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-          <p className="text-center font-bold">
-            강해질 곳을 골라줘! 남은 포인트{' '}
-            <span className={left > 0 ? 'text-amber-300 text-xl' : 'text-emerald-300 text-xl'}>{left}</span>
+        <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
+          <p className="text-center text-xl font-black">
+            강해질 곳을 골라줘!
+            <br />
+            남은 포인트{' '}
+            <span className={left > 0 ? 'text-amber-300 text-2xl' : 'text-emerald-300 text-2xl'}>{left}</span>
+          </p>
+          {/* 10/2 Jin: "설명이 너무 대충" → 뭘 하는 화면인지 · 어떻게 나누면 좋은지 */}
+          <p className="text-[0.9375rem] text-slate-300 leading-relaxed bg-slate-900/60 rounded-xl px-3 py-2.5">
+            레벨이 올라서 <b className="text-amber-300">포인트 {points}개</b>를 받았어! 강하게 만들고 싶은 곳에{' '}
+            <b className="text-emerald-300">+</b> 를 눌러 나눠줘. 한 곳에 몰아줘도 되고 골고루 나눠도 돼.
+            <span className="block mt-1 text-amber-200">
+              💡 랭킹에 공격형이 많으면 수비력·회피력, 수비형이 많으면 공격력을 올려봐!
+            </span>
           </p>
           {ALLOC_STATS.map((row) => {
             const n = alloc[row.key] ?? 0;
             return (
-              <div key={row.key} className="flex items-center gap-2">
-                <span className="w-20 shrink-0 text-sm font-bold">
-                  {row.emoji} {row.label}
-                </span>
-                <span className="flex-1 text-sm">
-                  <span className="text-slate-400">{before[row.key]}</span>
-                  {n > 0 && <span className="text-emerald-300 font-bold"> → {after[row.key]}</span>}
-                  <span className="block text-[0.6875rem] text-slate-500">{row.hint}</span>
-                </span>
-                <button
-                  onClick={() => change(row.key, -1)}
-                  disabled={n === 0}
-                  className="w-10 h-10 rounded-lg bg-slate-700 disabled:opacity-30 text-xl font-bold"
-                  aria-label={`${row.label} 빼기`}
-                >
-                  −
-                </button>
-                <span className="w-5 text-center font-black">{n}</span>
-                <button
-                  onClick={() => change(row.key, +1)}
-                  disabled={left === 0}
-                  className="w-10 h-10 rounded-lg bg-emerald-500 text-slate-900 disabled:opacity-30 text-xl font-bold"
-                  aria-label={`${row.label} 더하기`}
-                >
-                  +
-                </button>
+              <div key={row.key} className={`rounded-xl p-3 ${n > 0 ? 'bg-emerald-900/40 ring-1 ring-emerald-400/50' : 'bg-slate-900/50'}`}>
+                <div className="flex items-center gap-2">
+                  <p className="flex-1 min-w-0 text-lg font-black leading-tight">
+                    {row.emoji} {row.label}
+                    <span className="block text-base font-bold text-slate-400">
+                      {before[row.key]}
+                      {n > 0 && <span className="text-emerald-300"> → {after[row.key]}</span>}
+                    </span>
+                  </p>
+                  <button
+                    onClick={() => change(row.key, -1)}
+                    disabled={n === 0}
+                    className="w-11 h-11 rounded-lg bg-slate-700 disabled:opacity-30 text-2xl font-bold shrink-0"
+                    aria-label={`${row.label} 빼기`}
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center text-xl font-black shrink-0">{n}</span>
+                  <button
+                    onClick={() => change(row.key, +1)}
+                    disabled={left === 0}
+                    className="w-11 h-11 rounded-lg bg-emerald-500 text-slate-900 disabled:opacity-30 text-2xl font-bold shrink-0"
+                    aria-label={`${row.label} 더하기`}
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-[0.9375rem] text-slate-200 leading-snug mt-1.5">{row.desc}</p>
+                <p className="text-xs text-amber-300/90 font-bold mt-1">{allocPerLabel(row)}</p>
               </div>
             );
           })}
@@ -365,7 +378,7 @@ function LevelUp({
       >
         {saving ? '강해지는 중...' : left > 0 ? `포인트 ${left}개를 더 골라줘` : '💪 강해지기! 배틀하러 가자'}
       </button>
-      <button onClick={onCancel} className="text-xs text-slate-500 underline">
+      <button onClick={onCancel} className="text-sm text-slate-400 underline">
         뒤로
       </button>
     </main>

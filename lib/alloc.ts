@@ -31,13 +31,20 @@ export const ALLOC_STATS: {
   /** true 면 비율(%), false 면 그냥 더하기 */
   percent: boolean;
   hint: string;
+  /** 무엇을 해주는지 (아이 눈높이, 10/2 Jin "설명이 너무 대충") */
+  desc: string;
 }[] = [
-  { key: 'hp', label: 'HP', emoji: '💚', per: 0.02, percent: true, hint: '오래 버텨' },
-  { key: 'atk', label: '공격력', emoji: '⚔️', per: 0.025, percent: true, hint: '세게 때려' },
-  { key: 'def', label: '수비력', emoji: '🛡️', per: 0.025, percent: true, hint: '덜 아파' },
-  { key: 'int', label: '지능', emoji: '🧠', per: 3, percent: false, hint: '공격·수비 둘 다 조금씩' },
-  { key: 'eva', label: '회피력', emoji: '💨', per: 5, percent: false, hint: '필살기를 쏙 피해' },
+  { key: 'hp', label: 'HP', emoji: '💚', per: 0.02, percent: true, hint: '오래 버텨', desc: '체력이야. 높을수록 오래 버텨서 끝까지 살아남아!' },
+  { key: 'atk', label: '공격력', emoji: '⚔️', per: 0.025, percent: true, hint: '세게 때려', desc: '세게 때려서 상대 HP 를 더 많이 깎아!' },
+  { key: 'def', label: '수비력', emoji: '🛡️', per: 0.025, percent: true, hint: '덜 아파', desc: '맞아도 덜 아파. 상대 공격을 잘 버텨!' },
+  { key: 'int', label: '지능', emoji: '🧠', per: 3, percent: false, hint: '공격·수비 둘 다 조금씩', desc: '똑똑해져서 공격력·수비력이 같이 조금씩 올라!' },
+  { key: 'eva', label: '회피력', emoji: '💨', per: 5, percent: false, hint: '필살기를 쏙 피해', desc: '상대 필살기를 통째로 피할 확률이 올라가!' },
 ];
+
+/** "+1 포인트 = …" 한 줄 */
+export function allocPerLabel(row: { per: number; percent: boolean; label: string }): string {
+  return row.percent ? `포인트 1개 = ${row.label} +${Math.round(row.per * 1000) / 10}%` : `포인트 1개 = ${row.label} +${row.per}`;
+}
 
 export function readAlloc(stats: unknown): Alloc {
   const raw = (stats as any)?.alloc;
