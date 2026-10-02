@@ -167,7 +167,7 @@ function BadgeTile({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
         <DaejeonBadge earned={earned} />
       ) : (
         <div
-          className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl ${
+          className={`w-[5.25rem] h-[5.25rem] rounded-full flex items-center justify-center text-[3rem] leading-none ${
             earned ? 'bg-gradient-to-br from-amber-300 to-amber-600 shadow-lg' : 'bg-slate-800 grayscale'
           }`}
         >
@@ -251,6 +251,20 @@ function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
   );
 }
 
+// 뱃지 칸 동그라미 크기 = 5.25rem. 대전 뱃지는 px 로 그려서, 태블릿에서 글자 기준(rem)이 커지면
+// 혼자 작게 남았다 (10/2 Jin: "꽉 찬 것도 있고 안 찬 것도 있네") → 지금 rem 을 재서 같은 크기로 맞춘다.
+const BADGE_ICON_REM = 5.25;
+
 function DaejeonBadge({ earned }: { earned: boolean }) {
-  return <DaejeonEmblem earned={earned} size={56} />;
+  const [size, setSize] = useState(BADGE_ICON_REM * 16);
+  useEffect(() => {
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setSize(Math.round(BADGE_ICON_REM * rem));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+  return <DaejeonEmblem earned={earned} size={size} />;
 }

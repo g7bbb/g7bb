@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { GAME_NAME, GAME_TITLE } from '@/lib/brand';
 import BgmPlayer from './bgm-player';
+import SessionGuard from './session-guard';
 
 export const metadata: Metadata = {
   title: GAME_TITLE,
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-slate-950 text-slate-100 min-h-screen">
         {children}
         <BgmPlayer />
+        <SessionGuard />
       </body>
     </html>
   );

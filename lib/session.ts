@@ -17,6 +17,7 @@ function readStoredId(): string | null {
 
 export function rememberPlayer(playerId: string) {
   if (typeof window === 'undefined') return;
+  clearGameOver(); // 새로 들어온 아이가 앞 아이의 "곧 로그아웃" 시계에 걸리면 안 된다
   try {
     window.localStorage.setItem(STORAGE_KEY, playerId);
   } catch {
@@ -44,6 +45,7 @@ export async function findPlayerByTicket(ticketCode: string): Promise<Player | n
 
 export function signOut() {
   if (typeof window === 'undefined') return;
+  clearGameOver();
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
@@ -74,5 +76,42 @@ export function readInsectName(): string {
     return window.sessionStorage.getItem(INSECT_NAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+// ── 게임이 끝나면 자동 로그아웃 (2026-10-02 Jin) ─────────────────
+// 부스 태블릿에서 앞 아이가 로그인된 채로 남아 있었다. 게임(랭킹 도전 3판 / 연습 1판)이 끝나면
+// 그 시각을 적어두고, AUTO_SIGNOUT_MS 가 지나면 app/session-guard.tsx 가 로그아웃시키고 첫 화면으로 보낸다.
+// 그 사이에 연습 게임·새 도전을 시작하면 지운다. 다시 하려면 종이 QR·번호로 들어오면 된다 (다시 온 아이 화면).
+const GAME_OVER_KEY = 'g7bb-game-over-at';
+/** 게임이 끝나고 자동 로그아웃까지 (업적 정리 화면 ~20초 + 구경할 시간) */
+export const AUTO_SIGNOUT_MS = 90_000;
+
+export function markGameOver() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(GAME_OVER_KEY, String(Date.now()));
+  } catch {
+    // 못 적어도 게임은 그대로
+  }
+}
+
+export function clearGameOver() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(GAME_OVER_KEY);
+  } catch {
+    // 무시
+  }
+}
+
+/** 게임이 끝난 시각 (없으면 null) */
+export function readGameOverAt(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = Number(window.localStorage.getItem(GAME_OVER_KEY));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
   }
 }

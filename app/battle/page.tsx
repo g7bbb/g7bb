@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentPlayer } from '@/lib/session';
+import { clearGameOver, getCurrentPlayer, markGameOver } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
@@ -303,7 +303,10 @@ export default function BattlePage() {
     else if (battle.winner === 'B') playSound('lose');
     if (leveledUp) playSound('levelUp', (at += 1000));
     const over = practiceRef.current || (ladder ? ladderFinished(ladder) : false);
-    if (over) playSound('gameOver', at + 1300);
+    if (over) {
+      playSound('gameOver', at + 1300);
+      markGameOver(); // 90초 뒤 자동 로그아웃 (부스 태블릿에 앞 아이가 남지 않게, app/session-guard.tsx)
+    }
     // 게임이 끝났으면 이번 게임에서 모은 업적을 하나씩 보여준다
     if (over && (gameBadges.current.keys.length || gameBadges.current.milestones.length)) {
       const got = { ...gameBadges.current, shown: 0 };
@@ -801,6 +804,7 @@ export default function BattlePage() {
     setError('');
     try {
       setPlayer(await claimSlot(player.id, 'ladder'));
+      clearGameOver(); // 더 하는 중이니 자동 로그아웃 시계를 멈춘다
     } catch (err: any) {
       setError(err.message || '지금은 랭킹 도전을 할 수 없어.');
       return;
@@ -823,6 +827,7 @@ export default function BattlePage() {
     setError('');
     try {
       setPlayer(await claimSlot(player.id, 'practice'));
+      clearGameOver();
     } catch (err: any) {
       setError(err.message || '지금은 연습 게임을 할 수 없어.');
       return;
