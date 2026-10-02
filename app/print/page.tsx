@@ -395,7 +395,7 @@ function PrintInner() {
         .draw-area {
           /* 10/2 Jin: 그림 칸 20% 줄이고(162 → 130mm) 아래 글·QR 을 20% 키움 */
           flex: none;
-          height: 130mm;
+          height: 124mm; /* 10/2 밤: 130 → 124 (보호자 QR 제목을 위로 올리면서) */
           border: 2px dashed #999;
           border-radius: 4mm;
           display: flex;
@@ -429,12 +429,13 @@ function PrintInner() {
         .info-qrs {
           text-align: center;
           /* 10/2 Jin: 위 안내 문구와 붙어 보여서 아래로 내림 */
-          margin-top: 9mm;
+          margin-top: 5mm;
         }
         .info-title {
           font-size: 12pt;
           font-weight: 700;
-          margin-bottom: 2mm;
+          /* 10/2 밤 Jin: "엄마·아빠" 제목을 QR 에서 2칸 위로 (QR 위치는 그대로) */
+          margin-bottom: 12mm;
         }
         .info-row {
           display: flex;
