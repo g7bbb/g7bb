@@ -35,4 +35,5 @@ export function ticketUrl(ticket: string, pin?: string | null): string {
 export const GUIDE_URL = 'https://pf.kakao.com/_fMPCG/114783217?from=qr';
 /** 곤충본부 카카오톡 채널 (10/2 Jin 확인: "QR 2 우리 카카오톡 채널 맞아") — 종이 ② QR 은 여기로 바로 간다 */
 export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_fMPCG';
-export const ABOUT_URL = KAKAO_CHANNEL_URL;
+/** ② 곤충본부 소개 = 카톡 채널의 곤충본부 소개 글 (10/2 밤 Jin 이 링크 줌) */
+export const ABOUT_URL = 'https://pf.kakao.com/_fMPCG/114783238';
