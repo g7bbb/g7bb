@@ -31,6 +31,7 @@ import {
 } from '@/lib/mutations';
 import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
+import StatRadar from './stat-radar';
 import { BrandMark } from '@/app/brand-logo';
 
 /**
@@ -125,6 +126,8 @@ export default function UploadPage() {
   }, [router]);
 
   const stats = calculateStats(bodyParts, ageStage, mutations, species, origin);
+  // 🕸️ 밸런스 도형의 "보통 곤충" 점선 — 전부 3점 · 1년충 · 진화 없음 · 상성 없는 운석충돌 (같은 종류)
+  const radarBase = calculateStats(defaultBodyParts(), 'yearling', defaultMutations(species), species, 'meteor');
   const normals = normalCountsFor(species);
 
   // 기타 곤충이고 이름을 적었으면 그 이름을 종류로 저장합니다 ("물방개").
@@ -548,6 +551,10 @@ export default function UploadPage() {
 
           <div className="flex flex-col gap-3">
             <p className="text-sm text-slate-400">신체 부위 강화 (1~5점)</p>
+            {/* 🕸️ 누를 때마다 모양이 바뀌는 밸런스 도형 (10/2 Jin). 점수를 고르는 동안 화면 위에 붙어 있다. */}
+            <div className="sticky top-1 z-20">
+              <StatRadar stats={stats} base={radarBase} />
+            </div>
             {BODY_PARTS.map((part) => (
               <div key={part.key} className="bg-slate-800 rounded-xl px-4 py-3">
                 {/* Jin 10/1: 설명을 조금 크고 두껍게 */}

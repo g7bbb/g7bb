@@ -216,7 +216,8 @@ export function calculateStats(
     atk: round(stats.atk),
     def: round(stats.def),
     int: round(stats.int),
-    eva: Math.min(60, round(stats.eva)),
+    // 회피를 깎는 점수를 많이 고르면 마이너스가 나왔다 (카드·도형에 "-2"). 배틀은 원래 0 으로 쳐서 승패는 같다 (10/2).
+    eva: Math.max(0, Math.min(60, round(stats.eva))),
     grit: stats.grit ?? 0,
   };
 }
