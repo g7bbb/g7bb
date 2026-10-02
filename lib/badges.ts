@@ -8,7 +8,7 @@
 //      랭킹은 나중에 내려가도 "달성" 은 남아야 해서 저장한다.
 //
 // 🔁 2026-10-01 저녁 Jin: 뱃지 개수에 **선물·버프**를 붙였다 (아래 BADGE_MILESTONES).
-//   10개 → 대전 뱃지 실물 선물 + HP +10% · 15개 → 수비력 +15% · 20개 → 필살기 공격 +10% · 전부 → 선물.
+//   10개 → HP +10% · 15개 → 대전 뱃지 실물 선물 + 수비력 +15% (10/2 선물 10→15) · 20개 → 필살기 공격 +10% · 전부 → 선물.
 //   ⚠️ 참가권 뱃지(골드·다이아)는 **개수에 안 센다** — 돈을 내면 버프가 빨리 오는 구조가 되고,
 //      "전부 모으기" 가 10만원 참가권 없이는 불가능해지기 때문.
 //
@@ -98,8 +98,9 @@ export interface BadgeMilestone {
 }
 
 export const BADGE_MILESTONES: BadgeMilestone[] = [
-  { count: 10, emoji: '🎁', title: '대전 뱃지 선물', kind: 'gift', text: '진짜 대전 뱃지를 부스에서 받을 수 있어!' },
   { count: 10, emoji: '💚', title: 'HP +10%', kind: 'buff', text: '내 곤충의 HP가 올라가!' },
+  // 🔁 10/2 Jin: 대전 뱃지 실물 선물은 10개 → **15개**. (1만원 1게임은 아래 한도 때문에 10개를 못 넘는다)
+  { count: 15, emoji: '🎁', title: '대전 뱃지 선물', kind: 'gift', text: '진짜 대전 뱃지를 부스에서 받을 수 있어!' },
   { count: 15, emoji: '🛡️', title: '수비력 +15%', kind: 'buff', text: '내 곤충의 수비력이 올라가!' },
   { count: 20, emoji: '⚡', title: '필살기 공격 +10%', kind: 'buff', text: '내 곤충의 필살기가 더 세져!' },
   { count: COUNTED_TOTAL, emoji: '👑', title: '뱃지 올클리어 선물', kind: 'gift', text: '이번 행사 뱃지를 전부 모으면 특별한 선물이 있어!' },
@@ -154,7 +155,8 @@ export interface BadgeFacts {
   stored: Record<string, string>;
 }
 
-export function earnedBadges(f: BadgeFacts): Set<string> {
+/** 조건을 채운 뱃지 전부 (게임 수 한도 적용 전) */
+export function allEarnedBadges(f: BadgeFacts): Set<string> {
   const got = new Set<string>(Object.keys(f.stored));
   got.add('daejeon'); // 번호를 받고 들어온 아이는 모두 행사 참가자
   if (f.insectCount >= 1) got.add('firstInsect');
@@ -183,4 +185,49 @@ export function earnedBadges(f: BadgeFacts): Set<string> {
   if (got.has('rank1')) got.add('rank2');
   if (got.has('rank2')) got.add('rank3');
   return got;
+}
+
+// ── 게임 수에 따른 뱃지 한도 (2026-10-02 Jin) ─────────────────────
+// "1만원(1게임) 친구는 무조건 10개 이하, 3만원(2게임) 이상은 마지막 판쯤 15개 조금 넘게."
+// → 대전 뱃지 실물 선물(15개)은 3만원 이상만 받을 수 있다.
+// 한도를 넘는 뱃지는 지워지지 않고 **다음 게임에서 열린다** (뱃지 화면에 "다음 게임에서 열려!").
+// 어떤 뱃지가 먼저 열리는지는 BADGES 순서(위에 있을수록 먼저). 참가권 뱃지는 개수에 안 세니 항상 보인다.
+export const BADGE_CAP_GAME1 = 10;
+export const BADGE_CAP_GAME2 = 17;
+
+/** 지금까지 시작한 게임 수로 정해지는 개수 한도 (3게임째부터는 한도 없음) */
+export function badgeCapForGames(games: number): number {
+  if (games <= 1) return BADGE_CAP_GAME1;
+  if (games === 2) return BADGE_CAP_GAME2;
+  return Infinity;
+}
+
+function splitByCap(f: BadgeFacts): { shown: Set<string>; held: Set<string> } {
+  const all = allEarnedBadges(f);
+  const cap = badgeCapForGames(f.sessions);
+  const shown = new Set<string>();
+  const held = new Set<string>();
+  let n = 0;
+  for (const b of BADGES) {
+    if (!all.has(b.key)) continue;
+    if (b.paid) {
+      shown.add(b.key);
+    } else if (n < cap) {
+      shown.add(b.key);
+      n++;
+    } else {
+      held.add(b.key);
+    }
+  }
+  return { shown, held };
+}
+
+/** 받은 뱃지 (게임 수 한도 적용) — 화면·버프·개수는 전부 이걸 쓴다 */
+export function earnedBadges(f: BadgeFacts): Set<string> {
+  return splitByCap(f).shown;
+}
+
+/** 조건은 채웠지만 한도 때문에 다음 게임에서 열리는 뱃지 */
+export function heldBadges(f: BadgeFacts): Set<string> {
+  return splitByCap(f).held;
 }

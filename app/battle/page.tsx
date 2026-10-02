@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
 import { awardBadges, blockedMessage, claimSlot, friendXpMultiplier, hasFriendBuff, playStatus, readGameState, saveBadgeCount } from '@/lib/game-state';
-import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
+import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
@@ -732,7 +732,7 @@ export default function BattlePage() {
     const fresh = BADGES.filter((b) => after.has(b.key) && !before.earned.has(b.key)).map((b) => b.key);
     const count = countBadges(after);
     const crossed = milestonesCrossed(before.count, count);
-    badgeRef.current = { facts, earned: after, count };
+    badgeRef.current = { facts, earned: after, held: heldBadges(facts), count };
     setBadgeCount(count);
     setNewBadges(fresh);
     gameBadges.current.keys.push(...fresh);

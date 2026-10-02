@@ -2,7 +2,7 @@
 // 뱃지 규칙 자체는 lib/badges.ts.
 import { supabase } from './supabaseClient';
 import { Player } from './types';
-import { BadgeFacts, countBadges, earnedBadges, speciesBeatKey } from './badges';
+import { BadgeFacts, countBadges, earnedBadges, heldBadges, speciesBeatKey } from './badges';
 import { readGameState, saveBadgeCount } from './game-state';
 import { tierForPlayer } from './tiers';
 import { findSpecies } from './species';
@@ -11,6 +11,8 @@ import { hasAnyMutation } from './mutations';
 export interface BadgeSnapshot {
   facts: BadgeFacts;
   earned: Set<string>;
+  /** 조건은 채웠지만 게임 수 한도 때문에 다음 게임에서 열리는 뱃지 */
+  held: Set<string>;
   /** 개수에 세는 뱃지 수 (참가권 뱃지 빼고) */
   count: number;
 }
@@ -55,8 +57,9 @@ export async function loadBadgeSnapshot(player: Player): Promise<BadgeSnapshot> 
     stored: { ...state.badges },
   };
   const earned = earnedBadges(facts);
+  const held = heldBadges(facts);
   const count = countBadges(earned);
   // 내 곤충이 남의 배틀에 상대로 나올 때 버프를 주려고 개수를 적어둔다.
   void saveBadgeCount(player.id, count);
-  return { facts, earned, count };
+  return { facts, earned, held, count };
 }

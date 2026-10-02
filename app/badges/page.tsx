@@ -25,6 +25,7 @@ export default function BadgesPage() {
   const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [earned, setEarned] = useState<Set<string> | null>(null);
+  const [held, setHeld] = useState<Set<string>>(new Set());
   const [count, setCount] = useState(0);
   const [error, setError] = useState('');
 
@@ -52,8 +53,9 @@ export default function BadgesPage() {
 
       const fresh = (await getCurrentPlayer()) ?? p;
       const snap = await loadBadgeSnapshot(fresh);
-      if (place >= 0 && place < 3) snap.earned.add(`rank${place + 1}`);
+      // (랭킹 뱃지는 위에서 저장했으니 snap 에 이미 들어 있다 — 여기서 따로 더하면 게임 수 한도를 건너뛴다)
       setEarned(snap.earned);
+      setHeld(snap.held);
       setCount(countBadges(snap.earned));
     })().catch((err) => setError(err?.message || '뱃지를 못 불러왔어. 다시 열어줘!'));
   }, [router]);
@@ -115,7 +117,7 @@ export default function BadgesPage() {
 
           <div className="grid grid-cols-3 gap-3">
             {BADGES.map((badge) => (
-              <BadgeTile key={badge.key} badge={badge} earned={earned.has(badge.key)} />
+              <BadgeTile key={badge.key} badge={badge} earned={earned.has(badge.key)} held={held.has(badge.key)} />
             ))}
           </div>
         </>
@@ -155,7 +157,7 @@ function MilestoneBar({ got, total }: { got: number; total: number }) {
   );
 }
 
-function BadgeTile({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
+function BadgeTile({ badge, earned, held }: { badge: BadgeDef; earned: boolean; held: boolean }) {
   return (
     <div
       className={`rounded-2xl p-2 flex flex-col items-center text-center gap-1 ${
@@ -177,7 +179,12 @@ function BadgeTile({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
       <p className={`text-[0.6875rem] font-bold leading-tight ${earned ? 'text-slate-100' : 'text-slate-400'}`}>
         {badge.name}
       </p>
-      {!earned && <p className="text-[0.5625rem] text-slate-500 leading-tight">{badge.how}</p>}
+      {!earned &&
+        (held ? (
+          <p className="text-[0.5625rem] font-bold text-amber-300 leading-tight">🔓 다음 게임에서 열려!</p>
+        ) : (
+          <p className="text-[0.5625rem] text-slate-500 leading-tight">{badge.how}</p>
+        ))}
     </div>
   );
 }
