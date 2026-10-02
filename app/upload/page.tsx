@@ -173,7 +173,7 @@ export default function UploadPage() {
       return;
     }
     if (attempts.length >= MAX_ATTEMPTS) {
-      setError(`한 그림으로는 ${MAX_ATTEMPTS}번까지만 만들 수 있어. 만든 것 중에서 골라줘!`);
+      setError(`다시 만들기는 ${MAX_ATTEMPTS - 1}번까지야. 만든 것 중에서 골라줘!`);
       return;
     }
     setLoading(true);

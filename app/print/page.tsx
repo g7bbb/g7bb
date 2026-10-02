@@ -3,13 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
-import { SPECIES } from '@/lib/species';
-import { ENVIRONMENTS } from '@/lib/environments';
-import { AGE_STAGES, BODY_PARTS } from '@/lib/insect-stats';
-import { MUTATIONS } from '@/lib/mutations';
-import { COLORS, MOODS } from '@/lib/appearance';
 import { ticketAt } from '@/lib/ticket';
-import { SITE_URL, ticketUrl } from '@/lib/site';
+import { GUIDE_URL, ABOUT_URL, SITE_URL, ticketUrl } from '@/lib/site';
 import { BRAND, GAME_TITLE } from '@/lib/brand';
 import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/tiers';
 
@@ -21,6 +16,10 @@ import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/ti
 //
 // 사용법: /print?count=400 으로 열고 브라우저 인쇄(Ctrl+P) → "PDF로 저장"
 // 이어서 더 뽑을 때는 /print?count=100&start=400 처럼 start 를 주면 A-401 부터 나옵니다.
+//
+// 📄 **2026-10-02 Jin: 마킹을 뺐다.** 곤충 종류·출신지·부위 점수 등은 전부 앱에서 고른다.
+//   종이 = 맨 위 문구 + 그림 칸 + 안내 문구(🐛·🐞) + 보호자용 QR 2개(게임 설명 /guide · 곤충본부 소개 /about).
+//   보호자용 QR 은 우리 사이트 화면을 가리키므로, **뽑은 뒤에도 그 화면 내용은 얼마든지 고칠 수 있다.**
 //
 // 💰 **금액별로 따로 뽑습니다 (2026-10-01).** 번호 앞 글자가 곧 금액입니다 (`lib/tiers.ts`).
 //   /print?tier=B&count=100 → B-001 ~ B-100 (3만원 종이)
@@ -56,6 +55,16 @@ function PrintInner() {
   const printable = Math.min(count, 999 - startIndex);
   const [qrCodes, setQrCodes] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
+  // 보호자용 QR 2개 — 모든 종이에 똑같이 들어간다
+  const [infoQr, setInfoQr] = useState<{ guide: string; about: string } | null>(null);
+  useEffect(() => {
+    Promise.all([
+      QRCode.toDataURL(GUIDE_URL, { margin: 0, width: 240 }),
+      QRCode.toDataURL(ABOUT_URL, { margin: 0, width: 240 }),
+    ])
+      .then(([guide, about]) => setInfoQr({ guide, about }))
+      .catch(() => setInfoQr(null));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +96,7 @@ function PrintInner() {
     };
   }, [printable, firstIndex]);
 
-  const ready = qrCodes.length === printable;
+  const ready = qrCodes.length === printable && !!infoQr;
   const tierInfo = TIERS[tier];
 
   return (
@@ -134,6 +143,8 @@ function PrintInner() {
         </div>
         <p className="hint">
           이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
+          <br />
+          보호자용 QR: ① 게임 설명 <b>{GUIDE_URL}</b> · ② 곤충본부 소개 <b>{ABOUT_URL}</b>
         </p>
         <p className="hint">
           💰 <b>보통은 A(기본) 한 종류만 뽑으면 됩니다.</b> 3만원 이상 낸 아이는 직원이{' '}
@@ -158,7 +169,7 @@ function PrintInner() {
                 <img src={BRAND.logo.black} alt="곤충본부" className="brand-logo" />
                 <div>
                   <div className="title">{GAME_TITLE}</div>
-                  <div className="subtitle">내 곤충을 그리고 QR을 찍어줘!</div>
+                  <div className="headline">멋지고 예쁜 너만의 곤충을 그려봐!</div>
                 </div>
               </div>
               <div className="ticket-box">
@@ -179,35 +190,38 @@ function PrintInner() {
               <span>여기에 곤충을 그려줘</span>
             </div>
 
-            <div className="marks">
-              <MarkRow label="곤충 종류" items={SPECIES.map((item) => item.label)} />
-              <MarkRow label="성장 단계" items={AGE_STAGES.map((item) => item.label)} />
-              <MarkRow label="출신지" items={ENVIRONMENTS.map((item) => item.label)} />
-
-              {/* 색깔·느낌은 능력치와 무관하고, 안 골라도 됩니다.
-                  표시가 없으면 AI가 아이 그림에 있는 색을 그대로 씁니다. */}
-              <div className="section-label">✏️ 그림 꾸미기 — 안 골라도 돼!</div>
-              <MarkRow label="색깔" items={COLORS.map((item) => item.label)} compact />
-              <MarkRow label="느낌" items={MOODS.filter((item) => !item.appOnly).map((item) => item.label)} compact />
-
-              <div className="section-label">부위 점수 (1~5점)</div>
-              {BODY_PARTS.map((part) => (
-                <MarkRow key={part.key} label={part.label} items={['1', '2', '3', '4', '5']} compact />
-              ))}
-
-              <div className="section-label">✨ 특별 진화 — 그린 대로 표시해줘!</div>
-              {MUTATIONS.map((option) => (
-                <MarkRow
-                  key={option.key}
-                  label={option.label}
-                  items={option.choices.map((choice) => choice.label)}
-                  compact
-                />
-              ))}
+            {/* 안내 문구 (Jin 문구 그대로, 앞뒤로 애벌레·무당벌레) */}
+            <div className="notice">
+              <span className="notice-bug">🐛</span>
+              <p>
+                30분마다 한 번씩 <b>수액을 차지하는 배틀</b>에 도전할 수 있습니다!
+                <br />
+                여러 번 참여할수록 레벨이 높아져 <b>수액을 많이 먹을 수 있어요!!</b>
+              </p>
+              <span className="notice-bug">🐞</span>
             </div>
 
+            {/* 보호자용 QR 2개 — 위의 참가 QR 과 헷갈리지 않게 따로 묶는다 */}
+            {infoQr && (
+              <div className="info-qrs">
+                <div className="info-title">👩 엄마·아빠는 여기를 찍어보세요</div>
+                <div className="info-row">
+                  <div className="info-item">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={infoQr.guide} alt="게임 설명" className="info-qr" />
+                    <div className="info-label">① 게임 설명</div>
+                  </div>
+                  <div className="info-item">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={infoQr.about} alt="곤충본부 소개" className="info-qr" />
+                    <div className="info-label">② 곤충본부는 뭐 하는 데예요?</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <footer className="sheet-foot">
-              다 그렸으면 위쪽 QR을 폰으로 찍어줘! · 이 종이는 상품 받을 때 필요하니까 꼭 가지고 있어야 해
+              다 그렸으면 <b>오른쪽 위 QR</b>을 찍어줘! · 이 종이는 상품 받을 때 필요하니까 꼭 가지고 있어야 해
             </footer>
           </section>
         );
@@ -314,10 +328,10 @@ function PrintInner() {
           font-size: 18pt;
           font-weight: 800;
         }
-        .sheet-head .subtitle {
-          font-size: 10pt;
-          color: #444;
-          margin-top: 1mm;
+        .sheet-head .headline {
+          font-size: 15pt;
+          font-weight: 900;
+          margin-top: 1.5mm;
         }
         .ticket-box {
           text-align: center;
@@ -361,46 +375,54 @@ function PrintInner() {
           min-height: 95mm;
         }
 
-        .marks {
+        .notice {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4mm;
+          text-align: center;
+          font-size: 11.5pt;
+          line-height: 1.55;
+          word-break: keep-all;
+          border: 1.5px solid #000;
+          border-radius: 4mm;
+          padding: 3mm 4mm;
+        }
+        .notice b {
+          font-weight: 800;
+        }
+        .notice-bug {
+          font-size: 22pt;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        .info-qrs {
+          text-align: center;
+        }
+        .info-title {
+          font-size: 10pt;
+          font-weight: 700;
+          margin-bottom: 2mm;
+        }
+        .info-row {
+          display: flex;
+          justify-content: center;
+          gap: 22mm;
+        }
+        .info-item {
           display: flex;
           flex-direction: column;
-          gap: 1.2mm;
+          align-items: center;
+          gap: 1.5mm;
         }
-        .section-label {
-          font-size: 9pt;
+        .info-qr {
+          width: 22mm;
+          height: 22mm;
+          display: block;
+        }
+        .info-label {
+          font-size: 10pt;
           font-weight: 700;
-          margin-top: 1.5mm;
-        }
-        .mark-row {
-          display: flex;
-          align-items: center;
-          gap: 2mm;
-          font-size: 8.5pt;
-        }
-        .mark-row .label {
-          width: 26mm;
-          flex-shrink: 0;
-          font-weight: 600;
-        }
-        .mark-row.compact .label {
-          width: 26mm;
-        }
-        .mark-row .items {
-          display: flex;
-          gap: 2.5mm;
-          flex-wrap: wrap;
-        }
-        .mark-row .item {
-          display: flex;
-          align-items: center;
-          gap: 1mm;
-        }
-        .bubble {
-          width: 3.2mm;
-          height: 3.2mm;
-          border: 0.4mm solid #000;
-          border-radius: 50%;
-          display: inline-block;
         }
 
         .sheet-foot {
@@ -420,30 +442,6 @@ function PrintInner() {
           }
         }
       `}</style>
-    </div>
-  );
-}
-
-function MarkRow({
-  label,
-  items,
-  compact,
-}: {
-  label: string;
-  items: string[];
-  compact?: boolean;
-}) {
-  return (
-    <div className={`mark-row${compact ? ' compact' : ''}`}>
-      <span className="label">{label}</span>
-      <span className="items">
-        {items.map((item) => (
-          <span className="item" key={item}>
-            <span className="bubble" />
-            {item}
-          </span>
-        ))}
-      </span>
     </div>
   );
 }

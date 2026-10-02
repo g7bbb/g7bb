@@ -23,3 +23,10 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://g7bb.verce
 export function ticketUrl(ticket: string): string {
   return `${SITE_URL}/start?t=${encodeURIComponent(ticket)}`;
 }
+
+/**
+ * 종이 아래 **보호자용 QR** 2개가 가리키는 화면 (2026-10-02 Jin).
+ * 우리 사이트 안의 화면이라, 종이를 뽑은 뒤에도 내용을 고칠 수 있다 (QR 은 주소만 담는다).
+ */
+export const GUIDE_URL = `${SITE_URL}/guide`;
+export const ABOUT_URL = `${SITE_URL}/about`;
