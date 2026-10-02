@@ -27,6 +27,7 @@ import {
 import { playPerfect, playSound, playTap, unlockAudio, SoundName } from '@/lib/sfx';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
+import { tierForVisit } from '@/lib/card';
 import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
@@ -1482,16 +1483,14 @@ function Fighter({
         <TierFrame
           visit={visit}
           width={3}
-          className={`w-full ${
+          className={`h-[32vh] aspect-[4/5] mx-auto ${
             hit ? 'animate-hit-flash' : attacking ? lunge : powered ? `animate-power-up ${powerColor}` : ''
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`data:${insect.mime_type};base64,${insect.image_base64}`}
-            alt={label}
-            className="w-full max-h-[32vh] object-contain bg-slate-950"
-          />
+          {/* 🃏 카드 모양으로 통일 (10/2 Jin: "모든 곤충을 배틀 때 카드 형식으로").
+              전에는 그림을 넓은 칸에 맞춰 줄여서(contain) 양옆에 검은 띠가 생기고 곤충마다 크기가 달랐다.
+              이제 카드와 같은 4:5 칸을 꽉 채우고(cover), 카드처럼 LV·출신지·이름을 얹는다. */}
+          <FighterCardFace insect={insect} visit={visit} label={label} />
         </TierFrame>
 
         {/* 타격 순간 이펙트 */}
@@ -1538,6 +1537,44 @@ function Fighter({
           percent={barPercent}
           color={barColor}
         />
+      </div>
+    </div>
+  );
+}
+
+function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: number; label: string }) {
+  const tier = tierForVisit(visit);
+  const env = ENVIRONMENTS.find((e) => e.key === insect.origin || e.label === insect.origin);
+  return (
+    <div className="relative w-full h-full bg-slate-900" style={{ height: 'calc(32vh - 6px)' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`data:${insect.mime_type};base64,${insect.image_base64}`}
+        alt={label}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/85 to-transparent" />
+      <div
+        className="absolute top-1.5 left-1.5 rounded-md px-2 py-1 font-black text-[0.8125rem] leading-none shadow"
+        style={{ background: tier.frame, color: tier.ink }}
+      >
+        LV.{insect.level ?? 1}
+      </div>
+      {env && (
+        <div
+          className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full flex items-center justify-center text-base border-2"
+          style={{ background: 'rgba(2,6,23,0.72)', borderColor: tier.ink }}
+        >
+          {env.emoji}
+        </div>
+      )}
+      <div className="absolute left-2 right-2 bottom-1.5">
+        <div className="text-base font-black text-white leading-tight truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
+          {insect.nickname}
+        </div>
+        {insect.species && (
+          <div className="text-[0.625rem] font-semibold text-slate-300 truncate">{insect.species}</div>
+        )}
       </div>
     </div>
   );
@@ -1622,8 +1659,10 @@ function BadgeRecap({
   ];
   const done = recap.shown >= items.length;
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center px-5" onClick={done ? undefined : onSkip}>
-      <div className="w-full max-w-md bg-slate-800 rounded-3xl p-5 flex flex-col gap-3 text-center" style={{ wordBreak: 'keep-all' }}>
+    // 10/2 Jin: "업적 화면이 끝나면 터치해도 안 넘어가" → 다 보여준 뒤에는 **어디를 눌러도** 닫힌다.
+    // (업적이 많으면 '좋아!' 버튼이 화면 밖으로 밀려서 못 누르는 일도 있었다 → 안쪽 상자는 스크롤되게)
+    <div className="fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center px-5" onClick={done ? onClose : onSkip}>
+      <div className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-slate-800 rounded-3xl p-5 flex flex-col gap-3 text-center" style={{ wordBreak: 'keep-all' }}>
         <p className="text-xl font-black text-amber-300">🏅 이번 게임에서 모은 업적!</p>
         <div className="flex flex-col gap-2">
           {items.slice(0, recap.shown).map((it) => (
@@ -1643,13 +1682,22 @@ function BadgeRecap({
         </div>
         {done ? (
           <div className="flex gap-2 mt-1">
-            <button onClick={onGuide} className="flex-1 bg-slate-700 font-bold py-3 rounded-xl text-sm">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onGuide();
+              }}
+              className="flex-1 bg-slate-700 font-bold py-3 rounded-xl text-sm"
+            >
               📖 강력 설명서
             </button>
             <button onClick={onClose} className="flex-1 bg-emerald-500 text-slate-900 font-black py-3 rounded-xl">
               좋아!
             </button>
           </div>
+        ) : null}
+        {done ? (
+          <p className="text-xs text-slate-400">아무 데나 누르면 다음으로 넘어가</p>
         ) : (
           <p className="text-xs text-slate-400">화면을 누르면 한 번에 다 보여줘</p>
         )}
