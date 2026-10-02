@@ -353,7 +353,7 @@ function PrintInner() {
           font-weight: 800;
         }
         .sheet-head .headline {
-          font-size: 15pt;
+          font-size: 16.5pt; /* 10/2 밤 Jin: 10% 키움 */
           font-weight: 900;
           margin-top: 1.5mm;
         }
