@@ -50,7 +50,11 @@ export async function POST(req: NextRequest) {
     let emphasis = '';
     if (bodyParts && typeof bodyParts === 'object') {
       const sorted = Object.entries(bodyParts as Record<string, number>).sort((a, b) => b[1] - a[1]);
-      const top = sorted.slice(0, 2).map(([key]) => BODY_PART_LABELS[key] || key);
+      // "머리(턱)" 을 모든 곤충에 쓰면 나비에게도 큰 집게 턱이 생긴다 → 종마다 머리 이름을 바꾼다.
+      const headLabel = findSpecies(species)?.head ?? '머리';
+      const top = sorted
+        .slice(0, 2)
+        .map(([key]) => (key === 'head' ? headLabel : BODY_PART_LABELS[key] || key));
       if (top.length) emphasis = `특히 ${top.join(', ')} 부분이 크고 강하게 강조되도록 그려줘. `;
     }
 
@@ -75,6 +79,16 @@ export async function POST(req: NextRequest) {
         : ownLook
           ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. `
           : '';
+
+    // 🚨 큰 생김새는 고른 곤충을 반드시 따른다 (2026-10-02 Jin: "나비를 골랐는데 얼굴이 사슴벌레").
+    // 아이 그림(또는 다른 곤충 사진)이 다른 곤충처럼 보여도 그림은 색·무늬·자세 참고용일 뿐이다.
+    const forbid = ownName ? '' : matchedSpecies?.forbid ?? '';
+    const speciesRule = speciesName
+      ? `③ 이 곤충은 "${speciesName}"이다. 몸 전체의 큰 생김새(얼굴·입·머리·몸통·날개 모양)는 누가 봐도 한눈에 ` +
+        `${speciesName}의 모습으로 알아볼 수 있어야 한다. 아이 그림이 다른 곤충처럼 보여도, 그림은 색·무늬·자세·특별히 그린 부분을 ` +
+        `참고하는 데만 쓰고 몸의 기본 형태는 반드시 ${speciesName}의 모습으로 그려라. ` +
+        (forbid ? `${forbid} (단, 아이가 특별 진화로 직접 고른 부위는 예외로 그대로 그려라.) ` : '')
+      : '';
 
     // 아이가 상상으로 개수를 더 그린 부위는 실제 곤충과 달라도 그대로 살립니다.
     // 이 체험의 핵심은 "내가 그린 곤충이 살아나는 것"이라, 여기서 고쳐버리면 안 됩니다.
@@ -107,7 +121,8 @@ export async function POST(req: NextRequest) {
       // 🚨 절대 규칙 (2026-10-01 Jin): 1위 상품이 **3D 프린팅 피규어**라 얇은 부위는 출력하면 부러진다.
       '🚨 절대 규칙 (무엇보다 우선): ① 이 곤충은 3D 프린팅으로 피규어를 만든다. 관절·다리·더듬이·발톱을 ' +
       '너무 얇거나 가늘게 그리지 마라. 실제보다 조금 두툼하고 튼튼하게 그려라. ' +
-      '② 아이가 고른 곤충 이름과 적어 준 설명을 최대한 그대로 따라 그려라.\n\n' +
+      '② 아이가 고른 곤충 이름과 적어 준 설명을 최대한 그대로 따라 그려라. ' +
+      `${speciesRule}\n\n` +
       `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${mutationRule}` +
       `${lookRule} ${speciesAnatomy}${INSECT_ANATOMY_RULES}`;
 

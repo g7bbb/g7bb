@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/session';
@@ -311,7 +312,7 @@ export default function BattlePage() {
     }
   }, [phase, battle, ladder, leveledUp]);
 
-  // 업적 정리 화면: 1.1초마다 하나씩 더 보여준다
+  // 업적 정리 화면: 2.2초마다 하나씩 더 보여준다 (10/2 Jin: "조금 더 길었으면, 2배 정도")
   useEffect(() => {
     if (!recap) return;
     const total = recap.keys.length + recap.milestones.length;
@@ -319,7 +320,7 @@ export default function BattlePage() {
     const id = window.setTimeout(() => {
       setRecap((r) => (r ? { ...r, shown: r.shown + 1 } : r));
       playSound('next');
-    }, recap.shown === 0 ? 400 : 1100);
+    }, recap.shown === 0 ? 600 : 2200);
     return () => window.clearTimeout(id);
   }, [recap]);
 
@@ -1017,12 +1018,14 @@ export default function BattlePage() {
           crit={phase === 'done' && !!battle?.b.crit}
         />
 
-        {/* 필살기 버튼 — 배틀당 딱 한 번.
-            큰 고리가 줄어들다가 가운데 목표 고리와 겹치는 순간(2초)이 퍼펙트입니다. */}
-        {phase === 'chance' && chanceMove && (
+        {/* 필살기 버튼 — 큰 고리가 줄어들다가 가운데 목표 고리와 겹치는 순간(2초)이 퍼펙트입니다.
+            🔁 10/2 Jin: 아래에 붙어 있으면 태블릿에서 화면 밖으로 내려가 안 보였다 → **화면 한가운데**에 띄운다.
+            body 로 옮겨(portal) 그린다: 맞을 때 화면 흔들림(transform)이 걸리면 fixed 가 같이 흔들리기 때문. */}
+        {phase === 'chance' && chanceMove && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-[45] flex items-center justify-center px-4 pointer-events-none">
           <button
             onClick={pressSpecial}
-            className="mt-2 w-full bg-slate-900/60 rounded-2xl py-4 select-none"
+            className="pointer-events-auto w-full max-w-sm bg-slate-950/85 backdrop-blur-sm border-2 border-amber-400/70 rounded-3xl py-4 select-none shadow-2xl"
           >
             {chanceNote && (
               <p className="text-base font-black text-amber-300 animate-pop">{chanceNote}</p>
@@ -1075,6 +1078,8 @@ export default function BattlePage() {
                 : '고리가 딱 겹칠 때 눌러!'}
             </p>
           </button>
+          </div>,
+          document.body
         )}
 
         {phase === 'round' && (
@@ -1126,7 +1131,7 @@ export default function BattlePage() {
                         {rankMedal(item.rank)} {item.nickname}
                       </span>
                       <span className={item.won ? 'text-emerald-400' : 'text-rose-400'}>
-                        {item.won ? '이김' : '짐'}
+                        {item.won ? '승리' : '패배'}
                       </span>
                     </li>
                   ))}

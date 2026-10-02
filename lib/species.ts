@@ -18,6 +18,11 @@ export interface SpeciesOption {
   // 이 종이 실제로 가진 날개 수. "특별 진화"에서 더 그렸는지 판단하는 기준점입니다.
   // 나비·벌·사마귀는 원래 날개가 4장이라 4장을 그려도 진화가 아닙니다.
   normalWings: number;
+  // 강조할 때 "머리" 를 뭐라고 부를지. 예전엔 모든 곤충에 "머리(턱)" 이라 써서
+  // 나비에게도 큰 집게 턱이 생겼다 (2026-10-02 Jin 실측: 나비 얼굴이 사슴벌레).
+  head: string;
+  // 이 곤충에게 **그리면 안 되는** 다른 곤충의 특징. 아이 그림이 다른 곤충처럼 보여도 큰 생김새는 이 종을 따른다.
+  forbid: string;
 }
 
 export const SPECIES: SpeciesOption[] = [
@@ -25,6 +30,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'rhino',
     label: '장수풍뎅이',
     normalWings: 2,
+    head: '머리(뿔)',
+    forbid: '사슴벌레 같은 집게 모양 큰턱은 그리지 마라.',
     anatomy:
       '머리 위쪽에 끝이 Y자로 갈라진 큰 뿔이 1개, 가슴등판에 앞으로 굽은 작은 뿔이 1개 있다. ' +
       '집게 모양의 큰턱은 없다. 몸은 광택 있는 짙은 갈색이며 두껍고 단단하다. 딱지날개 한 쌍으로 덮여 있다.',
@@ -33,6 +40,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'stag',
     label: '사슴벌레',
     normalWings: 2,
+    head: '머리(큰턱)',
+    forbid: '장수풍뎅이 같은 뿔은 그리지 마라.',
     anatomy:
       '집게 모양의 큰턱이 좌우에 하나씩, 정확히 2개 있고 안쪽으로 굽어 있다. ' +
       '몸은 위아래로 납작하고 단단하며 광택 나는 검은색 또는 적갈색이다. 딱지날개 한 쌍으로 덮여 있다.',
@@ -41,6 +50,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'mantis',
     label: '사마귀',
     normalWings: 4,
+    head: '낫 모양 앞다리',
+    forbid: '사슴벌레 같은 집게 큰턱, 장수풍뎅이 뿔, 딱정벌레 같은 딱지날개·두꺼운 껍데기 몸은 그리지 마라.',
     anatomy:
       '앞다리 한 쌍이 낫처럼 크게 굽어 있고 안쪽에 가시가 줄지어 나 있다. ' +
       '머리는 역삼각형이고 겹눈이 크며, 목이 가늘어 머리를 좌우로 돌릴 수 있다. ' +
@@ -50,6 +61,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'bee',
     label: '벌',
     normalWings: 4,
+    head: '머리(겹눈)',
+    forbid: '사슴벌레 같은 집게 큰턱, 뿔, 딱정벌레 같은 딱지날개·두꺼운 껍데기 몸은 그리지 마라. 날개는 얇고 투명한 벌 날개다.',
     anatomy:
       '머리·가슴·배가 뚜렷하게 나뉘고 배와 가슴 사이가 잘록하다. ' +
       '날개는 얇고 투명하며 두 쌍(4장)이다. 배에는 노란색과 검은색 줄무늬가 있고 끝에 침이 있다. ' +
@@ -59,6 +72,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'butterfly',
     label: '나비',
     normalWings: 4,
+    head: '머리(더듬이)',
+    forbid: '사슴벌레 같은 집게 큰턱, 뿔, 날카로운 이빨, 딱정벌레 같은 딱지날개·두꺼운 껍데기 몸은 절대 그리지 마라. 얼굴은 나비 얼굴(큰 겹눈, 끝이 볼록한 더듬이, 돌돌 말린 빨대 입)이고 몸통은 가늘다.',
     anatomy:
       '날개가 두 쌍(4장)으로 크고 넓으며, 비늘가루로 덮인 화려한 무늬가 있다. ' +
       '더듬이 끝이 곤봉처럼 볼록하다. 입은 돌돌 말린 빨대 모양이다. 몸통은 가늘다.',
@@ -67,6 +82,8 @@ export const SPECIES: SpeciesOption[] = [
     key: 'other',
     label: '기타 곤충',
     normalWings: 2,
+    head: '머리',
+    forbid: '',
     anatomy: '',
   },
 ];
