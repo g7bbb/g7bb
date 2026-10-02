@@ -98,7 +98,7 @@ interface LadderState {
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
 const BATTLE_SOUNDS: SoundName[] = [
   'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn',
-  'spAttack', 'spDefense', 'spCommonAttack', 'spCommonDefense',
+  'spAttack', 'spDefense', 'spCommonAttack', 'spCommonDefense', 'dodge',
 ];
 
 function ladderFinished(ladder: LadderState): boolean {
@@ -368,6 +368,7 @@ export default function BattlePage() {
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
   async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false, caption?: string) {
     playSound(specialSoundFor(move)); // ⚡ 기술마다 다른 소리 (10/2 Jin)
+    if (dodged) playSound('dodge', 450); // 💨 "피했다!" — 기술 소리 바로 뒤에 (10/2 Jin)
     setSpecialFx({ id: nextFxId(), side, move, dodged, caption });
     setShaking(true);
     await pause(500);

@@ -134,7 +134,7 @@ export function playTap(pitch = 900) {
 export type SoundName =
   | 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next'
   | 'hitWing' | 'hitJaw' | 'hitHorn'
-  | 'spAttack' | 'spDefense' | 'spCommonAttack' | 'spCommonDefense';
+  | 'spAttack' | 'spDefense' | 'spCommonAttack' | 'spCommonDefense' | 'dodge';
 
 const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number }> = {
   win: { src: '/sfx/win.mp3', gain: 9 }, // 배틀에서 이겼을 때 (원래 아주 작음 8%)
@@ -152,6 +152,7 @@ const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number 
   spDefense: { src: '/sfx/special-defense.mp3', gain: 1.05, skip: 0.06 }, // 4번: 웅크리기·흔들흔들 회피 (앞이 조용해서 건너뜀)
   spCommonAttack: { src: '/sfx/special-common-attack.mp3', gain: 1 }, // 1번: LV3 공격!!
   spCommonDefense: { src: '/sfx/special-common-defense.mp3', gain: 2.4 }, // 2번: LV3 바위처럼!! (원본이 작음 31%)
+  dodge: { src: '/sfx/dodge.mp3', gain: 0.75 }, // 💨 필살기를 피했을 때 (10/2 Jin). 원본이 커서(95%) 줄임
 };
 
 /**
