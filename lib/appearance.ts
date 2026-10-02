@@ -16,6 +16,8 @@ export interface AppearanceOption {
   label: string;
   // 이미지 생성 AI에게 넘길 문장
   prompt: string;
+  // 앱에만 있고 종이(/print)에는 안 찍는 선택지 (종이를 이미 뽑은 뒤에 생긴 것)
+  appOnly?: boolean;
 }
 
 export const COLORS: AppearanceOption[] = [
@@ -61,6 +63,16 @@ export const MOODS: AppearanceOption[] = [
     prompt:
       '[귀엽게] 실사 50% + 만화·웹툰 그림체 50% 로 섞어라. 곤충의 생김새는 알아볼 수 있게 유지하면서 ' +
       '둥글고 친근한 형태, 밝고 부드러운 색감으로 귀엽게 그려라.',
+  },
+  // 🌸 10/2 Jin: 나비 얼굴이 사슴벌레처럼 사납게 나왔다 — "예쁜 그림을 만들고 싶은 아이들도 있을 것".
+  // 종이는 이미 뽑았으니 앱에만 넣는다 (appOnly).
+  {
+    key: 'pretty',
+    label: '예쁘게',
+    appOnly: true,
+    prompt:
+      '[예쁘게] 실사 100%. 무섭거나 사나운 느낌 없이 우아하고 아름답게 그려라. 날개·몸의 무늬와 색을 화사하고 섬세하게, ' +
+      '부드러운 햇빛과 꽃·하늘 같은 밝고 따뜻한 배경으로 그려라. 날카로운 이빨·가시·화난 표정·불꽃 같은 거친 연출은 넣지 마라.',
   },
   {
     key: 'shiny',

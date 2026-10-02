@@ -464,7 +464,7 @@ export default function UploadPage() {
             </div>
 
             <p className="text-xs text-slate-500 mb-1">느낌</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <PickButton label="그냥" active={mood === ''} onClick={() => setMood('')} />
               {MOODS.map((item) => (
                 <PickButton

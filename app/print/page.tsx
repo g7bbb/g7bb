@@ -188,7 +188,7 @@ function PrintInner() {
                   표시가 없으면 AI가 아이 그림에 있는 색을 그대로 씁니다. */}
               <div className="section-label">✏️ 그림 꾸미기 — 안 골라도 돼!</div>
               <MarkRow label="색깔" items={COLORS.map((item) => item.label)} compact />
-              <MarkRow label="느낌" items={MOODS.map((item) => item.label)} compact />
+              <MarkRow label="느낌" items={MOODS.filter((item) => !item.appOnly).map((item) => item.label)} compact />
 
               <div className="section-label">부위 점수 (1~5점)</div>
               {BODY_PARTS.map((part) => (
