@@ -1,5 +1,6 @@
 'use client';
 
+import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
@@ -214,6 +215,10 @@ export default function UploadPage() {
       setError('곤충 종류를 골라줘!');
       return;
     }
+    if (hasBadWord(insectName) || (species === 'other' && hasBadWord(customSpecies))) {
+      setError(BAD_WORD_MESSAGE);
+      return;
+    }
     if (attempts.length >= MAX_ATTEMPTS) {
       setError(`한 그림으로는 ${MAX_ATTEMPTS}번까지만 만들 수 있어. 만든 것 중에서 골라줘!`);
       return;
@@ -260,6 +265,11 @@ export default function UploadPage() {
 
   async function handleSave() {
     if (!player || !result) return;
+    // 그림을 만든 뒤에 이름을 고칠 수도 있어서 저장할 때 한 번 더 본다.
+    if (hasBadWord(insectName) || (species === 'other' && hasBadWord(customSpecies))) {
+      setError(BAD_WORD_MESSAGE);
+      return;
+    }
     unlockAudio(['next']);
     setSaving(true);
     setError('');

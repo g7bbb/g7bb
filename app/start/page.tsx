@@ -1,5 +1,6 @@
 'use client';
 
+import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -118,6 +119,10 @@ function friendlyError(message?: string): string {
     }
     if (!nickname.trim()) {
       setError('배틀에서 쓸 이름을 적어줘!');
+      return;
+    }
+    if (hasBadWord(nickname) || hasBadWord(insectName)) {
+      setError(BAD_WORD_MESSAGE);
       return;
     }
 
