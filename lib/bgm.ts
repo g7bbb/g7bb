@@ -21,6 +21,9 @@ const TRACKS = {
   main2: { src: '/sfx/bgm-2.mp3', gain: 0.175 }, // 평균 0.275
   main3: { src: '/sfx/bgm-3.mp3', gain: 0.2 }, // 평균 0.237
   battle: { src: '/sfx/bgm-battle.mp3', gain: 0.13 }, // 평균 0.319
+  // 🏅 업적 음악 (10/2 Jin): "업적 달성!" 배너·업적 정리 화면이 떠 있는 동안 계속 돌림. 15.5초.
+  // 원곡 평균 0.18 → 0.072 (평소 음악보다 조금 크게 — 축하하는 순간이라). 떠 있는 동안 다른 음악은 잠깐 쉰다.
+  achievement: { src: '/sfx/achievement.mp3', gain: 0.4 },
 } as const;
 
 /** 회차(시작한 게임 수)에 따른 평소 음악 */
@@ -41,6 +44,14 @@ const players: Partial<Record<keyof typeof TRACKS, Player>> = {};
 let current: BgmTrack = 'main';
 let started = false;
 let muted = false;
+let celebrating = false;
+
+/** 지금 나와야 하는 곡 (업적 음악이 제일 먼저) */
+function wanted(): keyof typeof TRACKS | null {
+  if (current === 'off') return null;
+  if (celebrating) return 'achievement';
+  return current === 'battle' ? 'battle' : mainName;
+}
 
 function playerFor(name: keyof typeof TRACKS): Player | null {
   if (players[name]) return players[name]!;
@@ -87,8 +98,7 @@ function fade(p: Player, to: number) {
 function apply() {
   if (!started) return;
   (Object.keys(TRACKS) as (keyof typeof TRACKS)[]).forEach((name) => {
-    const want = current === 'battle' ? 'battle' : current === 'main' ? mainName : null;
-    const on = !muted && want === name;
+    const on = !muted && wanted() === name;
     const p = on ? playerFor(name) : players[name];
     if (!p) return;
     fade(p, on ? TRACKS[name].gain : 0);
@@ -97,8 +107,7 @@ function apply() {
     } else if (!p.el.paused) {
       // 작아진 뒤에 멈춘다 (다시 오면 이어서 나온다)
       setTimeout(() => {
-        const nowWant = current === 'battle' ? 'battle' : current === 'main' ? mainName : null;
-        if (muted || nowWant !== name) p.el.pause();
+        if (muted || wanted() !== name) p.el.pause();
       }, 1200);
     }
   });
@@ -142,5 +151,25 @@ export function setBgmVisit(visit: number) {
   const next = mainTrackFor(visit);
   if (next === mainName) return;
   mainName = next;
+  apply();
+}
+
+/**
+ * 🏅 업적 음악 켜기/끄기 (배틀 화면의 "업적 달성!" 배너·업적 정리 화면).
+ * 켜면 처음부터 계속 돌리고, 끄면 원래 음악으로 돌아간다. 음악 끄기(🔇)를 눌렀으면 안 나온다.
+ */
+export function setAchievementMusic(on: boolean) {
+  if (celebrating === on) return;
+  celebrating = on;
+  if (on) {
+    const p = players.achievement;
+    if (p && p.el.paused) {
+      try {
+        p.el.currentTime = 0;
+      } catch {
+        // 처음부터가 안 되면 이어서
+      }
+    }
+  }
   apply();
 }

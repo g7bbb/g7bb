@@ -133,7 +133,7 @@ export function playTap(pitch = 900) {
 
 export type SoundName =
   | 'win' | 'lose' | 'special' | 'gameOver' | 'levelUp' | 'next'
-  | 'hitWing' | 'hitJaw' | 'hitHorn'
+  | 'hitWing' | 'hitJaw' | 'hitHorn' | 'hitMantis'
   | 'spAttack' | 'spDefense' | 'spCommonAttack' | 'spCommonDefense' | 'dodge';
 
 const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number }> = {
@@ -147,6 +147,7 @@ const SOUND_FILES: Record<SoundName, { src: string; gain: number; skip?: number 
   hitWing: { src: '/sfx/hit-wing.mp3', gain: 1, skip: 0.15 }, // 나비·벌 (앞 0.15초 조용한 부분 건너뜀)
   hitJaw: { src: '/sfx/hit-jaw.mp3', gain: 1.9 }, // 사슴벌레·기타 곤충 (원본이 작음 28%)
   hitHorn: { src: '/sfx/hit-horn.mp3', gain: 0.85 }, // 장수풍뎅이
+  hitMantis: { src: '/sfx/hit-mantis.mp3', gain: 0.5 }, // 사마귀 (10/2 Jin, 원본이 커서 102% 줄임)
   // ⚡ 필살기 소리 (10/2 Jin) — 기술마다 고른다 (specialSoundFor). 최대 크기 0.75 안팎(옛 special 과 같게).
   spAttack: { src: '/sfx/special-attack.mp3', gain: 1.3 }, // 3번: 씨름선수·당랑권·큰턱공격·벌
   spDefense: { src: '/sfx/special-defense.mp3', gain: 1.05, skip: 0.06 }, // 4번: 웅크리기·흔들흔들 회피 (앞이 조용해서 건너뜀)
@@ -167,14 +168,14 @@ export function specialSoundFor(move: { key: string; kind: string }): SoundName 
 }
 
 /**
- * 일반 공격 소리 고르기 (2026-10-02 Jin): 1번 나비·벌 / 2번 사슴벌레·기타 / 3번 장수풍뎅이.
- * 사마귀는 아직 안 정해서 2번(사슴벌레 소리)을 쓴다 — Jin 이 정하면 여기만 바꾸면 된다.
+ * 일반 공격 소리 고르기 (2026-10-02 Jin): 1번 나비·벌 / 2번 사슴벌레·기타 / 3번 장수풍뎅이 / 사마귀는 따로.
  * insects.species 에는 한글 이름이 저장된다 ("사슴벌레"). 목록에 없는 이름(물방개 등)은 기타 곤충.
  */
 export function attackSoundFor(species: string | null | undefined): SoundName {
   const name = (species || '').trim();
   if (name === '나비' || name === '벌' || name === 'butterfly' || name === 'bee') return 'hitWing';
   if (name === '장수풍뎅이' || name === 'rhino') return 'hitHorn';
+  if (name === '사마귀' || name === 'mantis') return 'hitMantis';
   return 'hitJaw';
 }
 

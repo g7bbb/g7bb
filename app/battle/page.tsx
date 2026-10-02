@@ -25,6 +25,7 @@ import {
   SpecialMoveKey,
 } from '@/lib/special-moves';
 import { attackSoundFor, playPerfect, playSound, playTap, specialSoundFor, unlockAudio, SoundName } from '@/lib/sfx';
+import { setAchievementMusic } from '@/lib/bgm';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { tierForVisit } from '@/lib/card';
@@ -97,7 +98,7 @@ interface LadderState {
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
 const BATTLE_SOUNDS: SoundName[] = [
-  'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn',
+  'win', 'lose', 'levelUp', 'gameOver', 'next', 'hitWing', 'hitJaw', 'hitHorn', 'hitMantis',
   'spAttack', 'spDefense', 'spCommonAttack', 'spCommonDefense', 'dodge',
 ];
 
@@ -323,6 +324,19 @@ export default function BattlePage() {
       window.setTimeout(() => setRecap(got), at + 2600);
     }
   }, [phase, battle, ladder, leveledUp]);
+
+  // 🏅 업적 음악 (10/2 Jin): "업적 달성!" 배너나 업적 정리 화면이 떠 있는 동안 계속 돌린다.
+  // 이김/짐 소리와 겹치지 않게 조금 뒤에 시작한다. 화면을 나가면 원래 음악으로.
+  const celebrating = (phase === 'done' && newBadges.length > 0) || !!recap;
+  useEffect(() => {
+    if (!celebrating) {
+      setAchievementMusic(false);
+      return;
+    }
+    const id = window.setTimeout(() => setAchievementMusic(true), 900);
+    return () => window.clearTimeout(id);
+  }, [celebrating]);
+  useEffect(() => () => setAchievementMusic(false), []);
 
   // 업적 정리 화면: 2.2초마다 하나씩 더 보여준다 (10/2 Jin: "조금 더 길었으면, 2배 정도")
   useEffect(() => {
@@ -969,7 +983,7 @@ export default function BattlePage() {
         )}
 
         {/* 게임이 끝나면 이번 게임에서 모은 업적을 하나씩 */}
-        {recap && <BadgeRecap recap={recap} onClose={() => setRecap(null)} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
+        {recap && <BadgeRecap recap={recap} onClose={() => { setRecap(null); setNewBadges([]); /* 다 봤으니 배너·업적 음악도 끝 */ }} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
 
         {/* 랭킹 도전 중이면 지금 몇 번째 도전인지, 누구와 붙는지 위에 띄웁니다. */}
         {ladder && opponent && (
