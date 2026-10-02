@@ -25,7 +25,7 @@ function SeriesLogo({ v }: { v: (typeof NEXT_SERIES)[number] }) {
   const [hasImg, setHasImg] = useState(true);
   return (
     <div
-      className="relative w-20 h-20 rounded-full overflow-hidden flex flex-col items-center justify-center shadow-lg ring-2 ring-white/25"
+      className="relative w-24 h-24 rounded-full overflow-hidden flex flex-col items-center justify-center shadow-lg ring-2 ring-white/25"
       style={{ background: `radial-gradient(circle at 35% 30%, ${v.from}, ${v.to})` }}
     >
       {hasImg ? (
