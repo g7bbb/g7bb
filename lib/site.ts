@@ -27,10 +27,12 @@ export function ticketUrl(ticket: string, pin?: string | null): string {
 
 /**
  * 종이 아래 **보호자용 QR** 2개가 가리키는 곳 (2026-10-02 Jin).
- * ① 게임 설명: 지금은 우리 `/guide`. Jin 이 카톡 채널에 게임 요약 글을 올리고 그 링크를 주면 그걸로 바꾼다.
+ * ① 게임 설명: 카톡 채널의 게임 안내 글.
  * ② 곤충본부: 카톡 채널로 바로.
  */
-export const GUIDE_URL = `${SITE_URL}/guide`;
+/** ① 게임 설명 = Jin 이 곤충본부 액티비티 카톡 채널에 올린 "게임 안내" 글 (10/2 밤, 채널이 만든 QR 에서 읽은 주소).
+ *  우리 /guide 화면도 같은 내용으로 남아 있다. */
+export const GUIDE_URL = 'https://pf.kakao.com/_fMPCG/114783217?from=qr';
 /** 곤충본부 카카오톡 채널 (10/2 Jin 확인: "QR 2 우리 카카오톡 채널 맞아") — 종이 ② QR 은 여기로 바로 간다 */
 export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_fMPCG';
 export const ABOUT_URL = KAKAO_CHANNEL_URL;
