@@ -31,6 +31,9 @@ const BODY_PART_LABELS: Record<string, string> = {
 };
 
 // 아이가 그린 곤충 그림 사진을 받아, 실사 느낌 + 멋진 이펙트가 들어간 곤충 일러스트로 변환합니다.
+// AI 그림은 10~20초, 붐비면 더 걸린다. Vercel 기본 시간 제한에 걸려 끊기지 않게 넉넉히 (최대 60초).
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64, mimeType, species, customSpecies, customLook, bodyParts, mutations, color, mood } =
@@ -126,20 +129,40 @@ export async function POST(req: NextRequest) {
       `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${mutationRule}` +
       `${lookRule} ${speciesAnatomy}${INSECT_ANATOMY_RULES}`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: imageBase64 } }] }],
-        }),
-      }
-    );
+    // 행사 당일(10/3) 보강: 여러 아이가 한꺼번에 만들면 Gemini 가 "바빠(429)"·"잠깐 문제(500/503)" 를 줄 수 있다.
+    // 그때는 2초 쉬고 **한 번만** 자동으로 다시 시도한다 (아이는 버튼을 한 번만 누른 셈).
+    const callGemini = () =>
+      fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: imageBase64 } }] }],
+          }),
+        }
+      );
+    let response = await callGemini();
+    if ([429, 500, 503].includes(response.status)) {
+      await new Promise((r) => setTimeout(r, 2000));
+      response = await callGemini();
+    }
 
     if (!response.ok) {
       const errText = await response.text();
-      return NextResponse.json({ error: `Gemini API 오류: ${errText}` }, { status: 502 });
+      console.error('Gemini error', response.status, errText.slice(0, 500));
+      // 영어 오류문을 그대로 보여주면 부스에서 아무도 못 알아본다 → 상황별 반말 안내 (원문은 서버 로그에)
+      const friendly =
+        response.status === 429
+          ? '지금 곤충을 만드는 친구가 너무 많아! 10초만 기다렸다가 다시 눌러줘 🐝'
+          : response.status === 404
+            ? '선생님께: AI 모델 이름이 맞지 않아요 (Vercel 의 GEMINI_IMAGE_MODEL 확인). (오류 404)'
+            : response.status === 401 || response.status === 403
+              ? '선생님께: AI 키 또는 결제 한도 문제예요 (Google AI Studio 확인). (오류 ' + response.status + ')'
+              : response.status === 400
+                ? '이 사진으로는 곤충을 못 만들었어. 그림 칸만 꽉 차게 다시 찍어줄래? 📷'
+                : 'AI 가 잠깐 쉬는 중이야. 조금 있다가 다시 눌러줘! (오류 ' + response.status + ')';
+      return NextResponse.json({ error: friendly }, { status: 502 });
     }
 
     const data = await response.json();
@@ -148,7 +171,7 @@ export async function POST(req: NextRequest) {
 
     if (!imagePart) {
       return NextResponse.json(
-        { error: '곤충 그림을 못 만들었어. 다른 사진으로 다시 해볼래?' },
+        { error: '곤충 그림을 못 만들었어. 그림 칸만 꽉 차게, 밝은 곳에서 다시 찍어볼래? 📷' },
         { status: 502 }
       );
     }
