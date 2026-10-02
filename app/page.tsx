@@ -13,7 +13,7 @@ const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
 // 첫 화면 공지 · 다음 시리즈 예고 (2026-10-01 Jin). 문구는 여기만 고치면 된다.
 const HOME_NOTICE = '친구나 가족과 함께하면 더 강해져!!';
-const COMING_SOON = '커밍순! (27년 1월 예정)';
+const COMING_SOON = 'G7BB 시리즈 커밍순! (27년 초 앱출시 예정)';
 // 로고 그림은 public/series/ 에 넣으면 바로 그 그림이 나온다 (없으면 이모지 동그라미).
 const NEXT_SERIES: { emoji: string; name: string; from: string; to: string; img: string }[] = [
   { emoji: '🌱', name: '식물 버전', from: '#22c55e', to: '#14532d', img: '/series/plant.jpg' },
