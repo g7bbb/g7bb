@@ -14,7 +14,6 @@ import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, weakTo } from '@/lib/origins';
 import { SPECIES, speciesLabel } from '@/lib/species';
 import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
-import { readSheetPhoto } from '@/lib/sheet-read';
 import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import { countInsectsForPlayer } from '@/lib/visit-count';
@@ -53,7 +52,6 @@ export default function UploadPage() {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const sheetInputRef = useRef<HTMLInputElement>(null);
 
   const [species, setSpecies] = useState('');
   /**
@@ -103,10 +101,6 @@ export default function UploadPage() {
   // 이번 게임에서 곤충을 더 만들 수 없는 경우 (이미 만들었음)
   const [blocked, setBlocked] = useState(false);
   const [showHowTo, setShowHowTo] = useState(true);
-
-  // 종이 마킹 자동 인식 (순서표 6번)
-  const [reading, setReading] = useState(false);
-  const [readNote, setReadNote] = useState('');
 
   useEffect(() => {
     getCurrentPlayer().then((p) => {
@@ -163,47 +157,6 @@ export default function UploadPage() {
     setEditing(false);
     setError('');
     setPreviewUrl(URL.createObjectURL(selected));
-  }
-
-  // 종이 사진에서 마킹을 읽어 **화면의 입력값을 채워줍니다.**
-  // 바로 저장하지 않는 것이 중요합니다. 연필 마킹을 100% 읽는 건 불가능하고,
-  // 틀린 채로 저장되면 능력치가 엉뚱해진 걸 아무도 모릅니다. 아이가 눈으로 확인하고 고칠 수 있어야 합니다.
-  async function handleSheetPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0];
-    e.target.value = ''; // 같은 사진을 다시 골라도 동작하게
-    if (!selected) return;
-
-    setReading(true);
-    setReadNote('');
-    setError('');
-    try {
-      const result = await readSheetPhoto(selected);
-
-      if (result.species) setSpecies(result.species);
-      if (result.ageStage) setAgeStage(result.ageStage);
-      if (result.origin) setOrigin(result.origin);
-      if (result.color) setColor(result.color);
-      if (result.mood) setMood(result.mood);
-      if (Object.keys(result.bodyParts).length) {
-        setBodyParts((prev) => ({ ...prev, ...result.bodyParts }));
-      }
-      // 종을 먼저 반영한 뒤 특별 진화를 덮어씁니다. (종마다 정상 날개 수가 다름)
-      setMutations((prev) => ({
-        ...defaultMutations(result.species ?? species),
-        ...prev,
-        ...result.mutations,
-      }));
-
-      setReadNote(
-        result.read === 0
-          ? '표시한 곳을 하나도 못 찾았어. 밝은 곳에서 종이 전체가 나오게 다시 찍어줘!'
-          : `${result.total}칸 중 ${result.read}칸을 읽었어! 아래에서 맞는지 확인하고 틀린 건 눌러서 고쳐줘!`
-      );
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setReading(false);
-    }
   }
 
   async function handleConvert() {
@@ -351,31 +304,8 @@ export default function UploadPage() {
             </button>
           )}
 
-          {/* 종이에 이미 다 표시했으니, 사진 한 장으로 아래 항목을 채워줍니다.
-              실패해도 손으로 입력하면 되므로 어디까지나 "빠른 길"입니다. */}
-          <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2 border border-sky-500/40">
-            <p className="font-bold text-sky-300">📄 종이 사진으로 한 번에 입력</p>
-            <p className="text-xs text-slate-400">
-              종이에 동그라미 친 걸 읽어서 아래를 자동으로 채워줘. 잘못 읽으면 직접 고치면 돼!
-            </p>
-            <button
-              onClick={() => sheetInputRef.current?.click()}
-              disabled={reading}
-              className="bg-sky-500 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-xl"
-            >
-              {reading ? '종이 읽는 중... 👀' : '📄 종이 찍어서 자동 입력'}
-            </button>
-            <input
-              ref={sheetInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleSheetPhoto}
-              className="hidden"
-            />
-            {readNote && <p className="text-xs text-emerald-400">{readNote}</p>}
-          </div>
-
+          {/* 📄 종이 찍어서 자동 입력(OMR) 버튼은 뺐다 (2026-10-02 Jin: "자동으로 안 되는 것 같아").
+              읽는 코드(lib/sheet-read.ts, app/api/read-sheet)는 남겨뒀다 — 다시 켜려면 git 기록에서 이 자리를 되살리면 된다. */}
           {/* 곤충 이름 — 아이 이름과 따로 짓습니다. 안 지어도 됩니다.
               종이에는 넣지 않았습니다: 손글씨는 종이 읽기(OMR)가 못 읽고,
               종이에 쓰고 앱에 또 치면 아이가 헷갈립니다. */}

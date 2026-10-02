@@ -12,7 +12,8 @@ import { tierForPlayer } from '@/lib/tiers';
 import { BRAND, GAME_NAME } from '@/lib/brand';
 import { BrandMark } from '@/app/brand-logo';
 import AdminGate from '../admin-gate';
-import InsectCard from '@/app/card/insect-card';
+import InsectCard, { InsectCardData } from '@/app/card/insect-card';
+import SelphyCard from '@/app/card/selphy-card';
 import { SITE_URL } from '@/lib/site';
 
 // ─────────────────────────────────────────────────────────────
@@ -184,6 +185,8 @@ function PosterDesk() {
   // 앱 카드 컴포넌트를 그대로 그려서 5배 크기 PNG 로 찍는다 → 앱 화면과 모양이 100% 같다.
   const cardRef = useRef<HTMLDivElement>(null);
   const [savingCard, setSavingCard] = useState(false);
+  // 셀피(CP1500) 카드 용지 54×86mm 에 맞춘 모양이 기본 (앱 카드 모양은 위아래가 잘린다, 10/2 실측)
+  const [cardKind, setCardKind] = useState<'selphy' | 'app'>('selphy');
   async function saveCard() {
     const node = cardRef.current;
     if (!picked || !node) return;
@@ -199,11 +202,12 @@ function PosterDesk() {
       }
       const { toPng } = await import('html-to-image');
       // 화면 가운데 맞춤 여백(mx-auto)이 그대로 복사되면 카드가 옆으로 밀려 찍힌다 → 여백을 0 으로.
-      const url = await toPng(node, { pixelRatio: 5, cacheBust: false, style: { margin: '0' } });
+      // 앱 카드 340px ×5 = 1700px / 셀피 카드 540px ×2 = 1080×1720 (54mm 에 약 500dpi)
+      const url = await toPng(node, { pixelRatio: cardKind === 'selphy' ? 2 : 5, cacheBust: false, style: { margin: '0' } });
       const a = document.createElement('a');
       a.href = url;
       // 영어·숫자 파일 이름 (한글 이름은 기기에 따라 "download" 로 바뀐다). 예: G7BB_card_A-007_1.png
-      a.download = `G7BB_card_${picked.owner?.ticket_code ?? 'insect'}_${picked.order}.png`;
+      a.download = `G7BB_${cardKind === 'selphy' ? 'selphy' : 'card'}_${picked.owner?.ticket_code ?? 'insect'}_${picked.order}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -315,8 +319,10 @@ function PosterDesk() {
               </button>
               {mode === 'card' ? (
                 <button onClick={saveCard} disabled={savingCard} className="bg-emerald-500 text-slate-900 font-bold py-3 rounded-xl disabled:opacity-60">
-                  {savingCard ? '만드는 중...' : '🃏 카드 그림 저장'}
-                  <span className="block text-[11px] font-semibold opacity-80">고화질 PNG (인쇄용)</span>
+                  {savingCard ? '만드는 중...' : cardKind === 'selphy' ? '🖨️ 셀피 카드용 저장' : '🃏 앱 카드 그림 저장'}
+                  <span className="block text-[11px] font-semibold opacity-80">
+                    {cardKind === 'selphy' ? '캐논 셀피 카드 용지 54×86mm' : '고화질 PNG'}
+                  </span>
                 </button>
               ) : (
                 <button onClick={() => window.print()} className="bg-emerald-500 text-slate-900 font-bold py-3 rounded-xl">
@@ -345,7 +351,25 @@ function PosterDesk() {
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={(e) => pickHiRes(e.target.files?.[0])} />
             </label>
-            {mode === 'card' ? (
+            {mode === 'card' && (
+              <div className="flex gap-2 text-sm">
+                {(['selphy', 'app'] as const).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setCardKind(k)}
+                    className={`flex-1 py-2 rounded-xl ${cardKind === k ? 'bg-sky-400 text-slate-900 font-bold' : 'bg-slate-900'}`}
+                  >
+                    {k === 'selphy' ? '🖨️ 셀피 카드 (54×86)' : '📱 앱 카드 모양'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {mode === 'card' && cardKind === 'selphy' ? (
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                캐논 셀피 <b>카드 크기(54×86mm)</b> 용지에 딱 맞는 모양이야. 저장한 PNG 를 셀피 앱(Canon PRINT)에서
+                용지 <b>카드 크기</b>로 그대로 뽑으면 잘리는 데가 없어. QR 은 <b>{SITE_URL}</b> 로 연결돼.
+              </p>
+            ) : mode === 'card' ? (
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 앱 카드와 똑같은 모양을 <b>5배 크기 PNG</b>로 저장해 (폭 약 1700px — 명함·엽서 크기로 뽑아도 선명해).
                 레벨·능력치는 지금 값, QR 은 <b>{SITE_URL}</b> 로 연결돼. 고화질 그림을 끼우면 그림도 더 선명해져.
@@ -358,7 +382,13 @@ function PosterDesk() {
             )}
           </div>
 
-          {mode === 'card' ? (
+          {mode === 'card' && cardKind === 'selphy' ? (
+            <div className="overflow-x-auto">
+              <div ref={cardRef} className="mx-auto" style={{ width: 540 }}>
+                <SelphyCard data={cardData(picked, hiRes?.url)} />
+              </div>
+            </div>
+          ) : mode === 'card' ? (
             <div ref={cardRef} className="w-[21.25rem] mx-auto">
               <InsectCard
                 data={{
@@ -412,6 +442,24 @@ function PosterDesk() {
       </div>
     </main>
   );
+}
+
+function cardData(picked: Picked, hiResUrl: string | undefined): InsectCardData {
+  return {
+    nickname: picked.insect.nickname,
+    ownerName: picked.owner?.display_name,
+    species: picked.insect.species,
+    origin: picked.insect.origin,
+    stats: statsForInsect(picked.insect),
+    level: picked.insect.level ?? 1,
+    image: picked.insect.image_base64,
+    mime: picked.insect.mime_type || 'image/jpeg',
+    ticketCode: picked.owner?.ticket_code ?? null,
+    visit: picked.visit,
+    imageSrc: hiResUrl,
+    qrOrigin: SITE_URL,
+    hideLabel: true,
+  };
 }
 
 /** A3 실제 크기(mm)로 그리고, 화면에서는 폭에 맞게 줄여서 보여준다. 인쇄할 때는 줄임을 푼다. */
