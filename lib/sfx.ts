@@ -16,6 +16,11 @@
 
 let ctx: AudioContext | null = null;
 
+/** 배경음악(lib/bgm.ts)도 같은 소리 통로를 쓴다 — 폰은 터치로 한 번 깨운 통로만 소리가 난다. */
+export function audioContext(): AudioContext | null {
+  return audio();
+}
+
 function audio(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   try {

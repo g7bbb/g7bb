@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { GAME_NAME, GAME_TITLE } from '@/lib/brand';
+import BgmPlayer from './bgm-player';
 
 export const metadata: Metadata = {
   title: GAME_TITLE,
@@ -18,7 +19,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="bg-slate-950 text-slate-100 min-h-screen">{children}</body>
+      <body className="bg-slate-950 text-slate-100 min-h-screen">
+        {children}
+        <BgmPlayer />
+      </body>
     </html>
   );
 }
