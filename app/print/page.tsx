@@ -438,9 +438,10 @@ function PrintInner() {
           margin-bottom: 12mm;
         }
         .info-row {
-          display: flex;
+          /* 10/2 밤 Jin: 두 칸 글자 길이가 달라서 QR 이 가운데에서 비껴 보였다 → 같은 폭 두 칸으로 */
+          display: grid;
+          grid-template-columns: 80mm 80mm;
           justify-content: center;
-          gap: 26mm;
         }
         .info-item {
           display: flex;
