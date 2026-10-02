@@ -8,14 +8,25 @@ export interface PrizeOption {
   emoji: string;
 }
 
-// 배틀 랭킹 / 예쁜 곤충 랭킹 시상에 쓰이는 선물 6종. 위에서부터 높은 등수의 상품입니다.
+// "받고 싶은 상품" 선택지 (2026-10-02 밤 Jin 이 새로 정한 랭킹 시상에 맞춤 — 카톡 채널 안내 글과 같음).
+// 위에서부터 높은 순위의 상품. 순위별 상품표는 RANKING_REWARDS.
 export const PRIZES: PrizeOption[] = [
-  { key: 'poster_figure', label: '내 곤충 포스터 + 소형 피규어 제작', emoji: '🏆' },
-  { key: 'stag_kit', label: '왕사슴벌레 사육세트', emoji: '🪲' },
-  { key: 'rhino_kit', label: '장수풍뎅이 사육세트', emoji: '🦏' },
-  { key: 'collect_ticket', label: '사슴벌레 & 장수풍뎅이 채집 체험권', emoji: '🎟️' },
-  { key: 'larva_kit', label: '사슴벌레 애벌레 사육세트', emoji: '🐛' },
-  { key: 'drawing_set', label: '그림그리기 세트', emoji: '🎨' },
+  { key: 'stag_breeding', label: '왕사슴벌레 암수 산란 사육세트', emoji: '🪲' },
+  { key: 'pair_kit', label: '왕사슴벌레 or 장수풍뎅이 한 쌍 사육세트', emoji: '🦏' },
+  { key: 'single_kit', label: '사슴벌레 or 장수풍뎅이 한 마리 사육세트', emoji: '🐞' },
+  { key: 'larva_kit', label: '사슴벌레 or 장수풍뎅이 애벌레 사육세트', emoji: '🐛' },
+  { key: 'collect_ticket', label: '야외 곤충 채집 체험권', emoji: '🌲' },
+  { key: 'jelly', label: '곤충 젤리', emoji: '🍯' },
+];
+
+/** 순위별 시상 (10/3~4 이틀 합산) — Jin 의 카톡 채널 안내 글 그대로. /guide 에 보여준다. */
+export const RANKING_REWARDS: { rank: string; emoji: string; text: string }[] = [
+  { rank: '1위', emoji: '🥇', text: '왕사슴벌레 암수 산란 사육세트 + 우승자 업적 뱃지 + 시즌1 우승자 버프 (시즌2에서 사용 가능) + 야외 곤충 채집 체험권 5회' },
+  { rank: '2위', emoji: '🥈', text: '왕사슴벌레 or 장수풍뎅이 한 쌍 사육세트 + 준우승자 업적 뱃지 + 시즌1 준우승자 버프 (시즌2에서 사용 가능) + 야외 곤충 채집 체험권 3회' },
+  { rank: '3~5위', emoji: '🥉', text: '사슴벌레 or 장수풍뎅이 한 마리 사육세트 (암수 선택) + 순위권 업적 뱃지 + 시즌1 순위권 버프 (시즌2에서 사용 가능) + 야외 곤충 채집 체험권 1회' },
+  { rank: '6~10위', emoji: '🏅', text: '사슴벌레 or 장수풍뎅이 애벌레 사육세트 + 10위권 업적 뱃지 + 시즌1 10위권 버프 (시즌2에서 사용 가능)' },
+  { rank: '11~30위', emoji: '🎖️', text: '곤충 젤리 + 아차상 업적 뱃지 + 시즌1 아차상 버프 (시즌2에서 사용 가능)' },
+  { rank: '31~100위', emoji: '⭐', text: '100위권 업적 뱃지 + 시즌1 100위권 버프 (시즌2에서 사용 가능)' },
 ];
 
 // 좋아하는 곤충 선택지. 목록에 없으면 '기타'를 눌러 직접 적을 수 있습니다.

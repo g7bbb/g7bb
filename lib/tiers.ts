@@ -26,11 +26,14 @@ export interface Tier {
   emoji: string;
   /** 참여할 수 있는 게임 수 (랭킹 도전 1번 = 1게임). 무제한이면 Infinity */
   games: number;
+  /** true 면 **첫 게임을 한 날 하루만** 쓸 수 있다 (날짜가 바뀌면 남은 게임이 있어도 끝) — 5만원 (10/2 Jin: 10만원 유도) */
+  oneDay?: boolean;
   card: TierCardStyle;
   /** 아이·부모님에게 보여줄 혜택 */
   perks: string[];
 }
 
+// 🔁 2026-10-02 밤 Jin (카톡 채널 안내 글과 맞춤): 3만원 2 → **3게임**, 5만원 2일간 5 → **첫날 하루 6게임**.
 export const TIERS: Record<TierKey, Tier> = {
   A: {
     key: 'A',
@@ -39,30 +42,32 @@ export const TIERS: Record<TierKey, Tier> = {
     emoji: '🎟️',
     games: 1,
     card: 'normal',
-    perks: ['1게임 참여', '랭킹 상품 도전'],
+    perks: ['1게임 참여', '랭킹 상품 도전', '내 곤충 카드 발급'],
   },
   B: {
     key: 'B',
     price: '3만원',
     name: '레벨업권',
     emoji: '⬆️',
-    games: 2,
+    games: 3,
     card: 'normal',
-    perks: ['2게임 참여', '랭킹 상품 도전', '다시 오면 레벨업'],
+    perks: ['3게임 참여', '랭킹 상품 도전', '내 곤충 카드 발급', '다시 참여하면 레벨업'],
   },
   C: {
     key: 'C',
     price: '5만원',
     name: '골드',
     emoji: '🥇',
-    games: 5,
+    games: 6,
+    oneDay: true,
     card: 'gold',
     perks: [
-      '2일간 5게임 참여',
+      '하루 6게임 참여',
       '랭킹 상품 도전 (랭킹 선물은 별도)',
-      '내 곤충 피규어·포스터 배송',
-      '게임 데이터 계속 보관',
-      '첫 카드부터 금장식 카드',
+      '내 곤충 카드 발급',
+      '내 곤충 피규어·포스터 선물 배송',
+      '게임 데이터 계속 보관 (시즌1 이후에도 QR만 있으면 참여 가능)',
+      '게임 속 금장식 카드 업적',
     ],
   },
   D: {
@@ -75,10 +80,12 @@ export const TIERS: Record<TierKey, Tier> = {
     perks: [
       '2일간 무제한 참여',
       '랭킹 상품 도전 (랭킹 선물은 별도)',
-      '내 곤충 피규어·포스터 배송',
-      '게임 데이터 계속 보관',
-      '4분기(10~12월) 전국 곤충체험 실내·실외 2회',
-      '첫 카드부터 홀로그램 다이아 카드',
+      '내 곤충 카드 발급',
+      '내 곤충 피규어·포스터 선물 배송',
+      '홀로그램 카드 선물 배송',
+      '게임 데이터 계속 보관 (시즌1 이후에도 QR만 있으면 참여 가능)',
+      '4분기(10~12월) 전국 곤충체험 실내·실외 2회 참여권',
+      '게임 속 홀로그램 다이아 카드 업적',
     ],
   },
 };
@@ -101,7 +108,8 @@ export function tierStartIndex(key: TierKey): number {
 }
 
 export function gamesLabel(tier: Tier): string {
-  return Number.isFinite(tier.games) ? `${tier.games}게임` : '무제한';
+  if (!Number.isFinite(tier.games)) return '무제한';
+  return tier.oneDay ? `하루 ${tier.games}게임` : `${tier.games}게임`;
 }
 
 /**

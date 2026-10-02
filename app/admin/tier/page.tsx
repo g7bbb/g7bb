@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierForPlayer } from '@/lib/tiers';
-import { isPending, playStatus, setTierForTicket } from '@/lib/game-state';
+import { isPending, playStatus, setTierForTicket, waiveCooldown } from '@/lib/game-state';
 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 참가권 올려주기 (2026-10-01 Jin: "가격마다 종이를 따로 인쇄해야 해? 더 편한 방법은?")
@@ -178,7 +178,24 @@ function TierDesk() {
                 ? `${player.display_name} · 지금 ${current.emoji} ${current.price}`
                 : `아직 시작 안 한 번호 · 지금 ${current.emoji} ${current.price}`}
               {status && ` · 게임 ${status.used}/${Number.isFinite(status.tier.games) ? status.tier.games : '∞'} 사용`}
+              {status?.expired && ' · 하루권 끝남'}
             </p>
+            {/* ⏩ 30분 대기 풀기 (10/2 Jin) — 아이 폰 화면의 "선생님 확인" 과 같은 일 */}
+            {player && status && status.left > 0 && status.cooldownMs > 0 && (
+              <button
+                onClick={async () => {
+                  try {
+                    setPlayer(await waiveCooldown(player.id));
+                    setMessage(`⏩ ${displayTicket(ticket)} 바로 참여할 수 있게 풀었어요!`);
+                  } catch (err: any) {
+                    setError(err.message || '다시 눌러 주세요.');
+                  }
+                }}
+                className="mt-2 w-full bg-sky-500 text-slate-900 font-bold py-2.5 rounded-xl"
+              >
+                ⏩ 30분 대기 풀기 (남은 {Math.ceil(status.cooldownMs / 60000)}분)
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">

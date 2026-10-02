@@ -51,6 +51,16 @@ export interface GameState {
    * 아이가 친구 번호를 적으면 **양쪽 다** 서로의 번호가 들어간다. 하나라도 있으면 버프.
    */
   friends?: string[];
+  /**
+   * ⏩ 직원이 30분 대기를 풀어준 게임 (그 게임의 시작 시각 `at`). 10/2 Jin: "부스가 한가하면 30분 전에도".
+   * 마지막 게임의 `at` 과 같으면 그 게임 뒤의 대기만 없어진다 (다음 게임을 시작하면 다시 30분).
+   */
+  waivedAt?: string;
+}
+
+/** 한국 날짜 (YYYY-MM-DD) — 5만원 "하루만" 을 세려고 */
+export function kstDay(ms: number): string {
+  return new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
 export function readGameState(player: Pick<Player, 'survey'> | null | undefined): GameState {
@@ -61,6 +71,7 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
     ...(raw.tier && TIERS[raw.tier as TierKey] ? { tier: raw.tier as TierKey } : {}),
     ...(Number.isFinite(raw.badgeCount) ? { badgeCount: Number(raw.badgeCount) } : {}),
     ...(Array.isArray(raw.friends) ? { friends: raw.friends.filter((t: unknown) => typeof t === 'string') } : {}),
+    ...(typeof raw.waivedAt === 'string' ? { waivedAt: raw.waivedAt } : {}),
   };
 }
 
@@ -73,6 +84,8 @@ export interface PlayStatus {
   left: number;
   /** 다음 게임까지 남은 시간(ms). 0 이면 지금 바로 가능 */
   cooldownMs: number;
+  /** 5만원(하루권)인데 첫 게임 날이 지나서 끝났는지 */
+  expired: boolean;
   /** 지금 새 게임을 시작할 수 있는지 (횟수 남음 + 30분 지남) */
   canStartNew: boolean;
   /** 이미 시작했지만 랭킹 도전을 아직 안 한 게임이 있는지 */
@@ -92,9 +105,13 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
   const used = state.sessions.length;
   // 테스트 번호(900번대)는 횟수·30분 대기 없이 계속 (lib/ticket.ts)
   const test = isTestTicket(player.ticket_code);
-  const left = test ? Infinity : Math.max(0, tier.games - used);
+  // 5만원은 첫 게임을 한 **그날만** (한국 날짜). 날짜가 바뀌면 남은 게임이 있어도 끝 (10/2 Jin)
+  const first = state.sessions[0];
+  const expired = !test && !!tier.oneDay && !!first && kstDay(Date.parse(first.at)) !== kstDay(now);
+  const left = test ? Infinity : expired ? 0 : Math.max(0, tier.games - used);
   const elapsed = last ? now - Date.parse(last.at) : Infinity;
-  const cooldownMs = last && !test ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
+  const waived = !!last && state.waivedAt === last.at;
+  const cooldownMs = last && !test && !waived ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
   const canStartNew = left > 0 && cooldownMs === 0;
   const ladderPending = !!last && !last.ladder;
   const practicePending = !!last && !last.practice;
@@ -104,6 +121,7 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
     used,
     left,
     cooldownMs,
+    expired,
     canStartNew,
     ladderPending,
     practicePending,
@@ -262,6 +280,9 @@ export function formatCountdown(ms: number): string {
 }
 
 export function blockedMessage(status: PlayStatus): string {
+  if (status.expired) {
+    return `${status.tier.price} 참가권은 첫날 하루만 쓸 수 있어! 카드·랭킹·뱃지는 계속 볼 수 있어.`;
+  }
   if (status.left <= 0) {
     return `${status.tier.price} 참가권으로 할 수 있는 게임을 다 했어! 카드·랭킹·뱃지는 계속 볼 수 있어.`;
   }
@@ -304,4 +325,17 @@ export async function setTierForTicket(rawTicket: string, tier: TierKey): Promis
     .single();
   if (error) throw error;
   return data as Player;
+}
+
+/**
+ * ⏩ 직원이 30분 대기를 풀어준다 (10/2 Jin: "부스가 한가하면 30분 전에도 참여").
+ * 직원 암호 확인은 부르는 쪽(화면)이 `/api/admin-auth` 로 먼저 한다. 게임 횟수는 그대로 — 기다리는 시간만 없앤다.
+ */
+export async function waiveCooldown(playerId: string): Promise<Player> {
+  const player = await freshPlayer(playerId);
+  if (!player) throw new Error('참가 정보를 못 찾았어.');
+  const state = readGameState(player);
+  const last = state.sessions[state.sessions.length - 1];
+  if (!last) return player;
+  return saveGameState(player, { ...state, waivedAt: last.at });
 }

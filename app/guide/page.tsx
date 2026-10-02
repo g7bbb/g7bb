@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { TIERS, TIER_ORDER } from '@/lib/tiers';
-import { PRIZES } from '@/lib/survey';
+import { RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 
 // 📖 보호자용 게임 설명 (2026-10-02 Jin) — 종이 아래 "① 게임 설명" QR 이 여는 화면.
@@ -16,7 +16,7 @@ const STEPS: { emoji: string; title: string; body: string }[] = [
   {
     emoji: '📷',
     title: '종이 오른쪽 위 QR 찍기',
-    body: '이름과 짧은 질문에 답한 뒤 그림을 사진으로 찍어 올리면, AI가 멋진 곤충 카드로 바꿔줘요. 마음에 안 들면 2번 더 다시 만들 수 있어요.',
+    body: '그림을 다 그리면 종이 오른쪽 위 QR을 찍어요. 이름과 짧은 질문에 답하고 능력을 고른 뒤, 마지막에 그림을 사진으로 찍으면 AI가 멋진 곤충 카드로 바꿔줘요. 마음에 안 들면 2회 더 다시 만들 수 있어요.',
   },
   {
     emoji: '🧬',
@@ -31,7 +31,7 @@ const STEPS: { emoji: string; title: string; body: string }[] = [
   {
     emoji: '⏳',
     title: '30분마다 다시 도전',
-    body: '게임을 시작하고 30분이 지나면 다시 도전할 수 있어요. 다시 올수록 레벨이 올라 더 강해져요. 카드의 QR을 찍으면 바로 이어서 할 수 있어요.',
+    body: '게임을 시작하고 30분이 지나면 다시 도전할 수 있어요 (참가권에 따라 횟수가 달라요. 부스가 한가하면 30분 전에도 참여할 수 있어요). 다시 올수록 레벨이 올라 더 강해져요. 카드의 QR을 찍으면 바로 이어서 할 수 있어요.',
   },
   {
     emoji: '🏅',
@@ -75,14 +75,18 @@ export default function GuidePage() {
       </section>
 
       <section className="bg-slate-800/80 rounded-2xl p-4">
-        <p className="font-black">🏆 랭킹 시상 (2일 합산)</p>
-        <p className="mt-1 text-sm text-slate-300">배틀 랭킹 1~4위에게 선물을 드려요. 결과는 10월 4일 행사가 끝날 때 카카오톡 채널로 알려드려요.</p>
-        <ol className="mt-2 text-sm text-slate-300 flex flex-col gap-1">
-          <li><b className="text-amber-300">1위</b> · {PRIZES[0].label}</li>
-          <li><b className="text-amber-300">2위</b> · {PRIZES[1].label} / {PRIZES[2].label} 중 택1</li>
-          <li><b className="text-amber-300">3위</b> · {PRIZES[3].label}</li>
-          <li><b className="text-amber-300">4위</b> · {PRIZES[4].label}</li>
-        </ol>
+        <p className="font-black">🏆 랭킹 시상 (10/3~4 이틀 합산)</p>
+        <ul className="mt-2 text-sm text-slate-300 flex flex-col gap-2">
+          {RANKING_REWARDS.map((r) => (
+            <li key={r.rank}>
+              <b className="text-amber-300">
+                {r.emoji} {r.rank}
+              </b>{' '}
+              · {r.text}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-sm text-slate-300">결과는 10월 4일 행사가 끝나면 곤충본부 액티비티 카카오톡 채널로 알려드려요. 채널을 꼭 친구 추가해주세요!</p>
       </section>
 
       <section className="bg-slate-800/80 rounded-2xl p-4">

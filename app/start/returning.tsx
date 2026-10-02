@@ -9,7 +9,7 @@ import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
 import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
 import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocPerLabel, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
-import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus } from '@/lib/game-state';
+import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus, waiveCooldown } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { playSound, unlockAudio } from '@/lib/sfx';
@@ -158,8 +158,14 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
     );
   } else {
     main = (
-      <div className="bg-slate-800 rounded-2xl p-4 text-center text-sm text-amber-300" style={{ wordBreak: 'keep-all' }}>
-        {blockedMessage(status)}
+      <div className="flex flex-col gap-3">
+        <div className="bg-slate-800 rounded-2xl p-4 text-center text-sm text-amber-300" style={{ wordBreak: 'keep-all' }}>
+          {blockedMessage(status)}
+        </div>
+        {/* ⏩ 게임은 남았는데 30분을 기다리는 중이면, 직원이 이 화면에서 바로 풀어줄 수 있다 (10/2 Jin) */}
+        {status.left > 0 && status.cooldownMs > 0 && (
+          <StaffWaive playerId={player.id} onDone={(updated) => setPlayer(updated)} />
+        )}
       </div>
     );
   }
@@ -383,5 +389,65 @@ function LevelUp({
         뒤로
       </button>
     </main>
+  );
+}
+
+/**
+ * ⏩ 선생님이 30분 대기를 풀어주는 칸 (10/2 Jin: "부스가 한가하면 30분 전에도 참여 가능").
+ * 아이 폰 화면에서 직원이 직원 암호(ADMIN_CODE)를 치면 바로 풀린다 — 직원 화면에서 번호를 찾을 필요가 없다.
+ * 게임 횟수는 그대로이고 기다리는 시간만 없어진다.
+ */
+function StaffWaive({ playerId, onDone }: { playerId: string; onDone: (player: Player) => void }) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg('');
+    try {
+      const res = await fetch('/api/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setMsg('암호가 맞지 않아요.');
+        setBusy(false);
+        return;
+      }
+      onDone(await waiveCooldown(playerId));
+    } catch (err: any) {
+      setMsg(err.message || '다시 눌러 주세요.');
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-sm text-slate-400 underline">
+        👩‍🏫 선생님 확인 받고 바로 하기
+      </button>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-2">
+      <p className="text-center text-sm font-bold">👩‍🏫 선생님이 암호를 쳐 주세요</p>
+      <input
+        type="password"
+        autoFocus
+        className="bg-slate-900 rounded-xl px-4 py-3 text-center"
+        placeholder="직원 암호"
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+      />
+      {msg && <p className="text-center text-sm text-red-400">{msg}</p>}
+      <button disabled={busy || !code} className="bg-emerald-500 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-xl">
+        {busy ? '확인 중...' : '⏩ 기다리지 않고 바로 하기'}
+      </button>
+    </form>
   );
 }
