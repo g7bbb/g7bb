@@ -26,8 +26,11 @@ export function ticketUrl(ticket: string, pin?: string | null): string {
 }
 
 /**
- * 종이 아래 **보호자용 QR** 2개가 가리키는 화면 (2026-10-02 Jin).
- * 우리 사이트 안의 화면이라, 종이를 뽑은 뒤에도 내용을 고칠 수 있다 (QR 은 주소만 담는다).
+ * 종이 아래 **보호자용 QR** 2개가 가리키는 곳 (2026-10-02 Jin).
+ * ① 게임 설명: 지금은 우리 `/guide`. Jin 이 카톡 채널에 게임 요약 글을 올리고 그 링크를 주면 그걸로 바꾼다.
+ * ② 곤충본부: 카톡 채널로 바로.
  */
 export const GUIDE_URL = `${SITE_URL}/guide`;
-export const ABOUT_URL = `${SITE_URL}/about`;
+/** 곤충본부 카카오톡 채널 (10/2 Jin 확인: "QR 2 우리 카카오톡 채널 맞아") — 종이 ② QR 은 여기로 바로 간다 */
+export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_fMPCG';
+export const ABOUT_URL = KAKAO_CHANNEL_URL;

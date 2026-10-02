@@ -167,7 +167,7 @@ function PrintInner() {
         <p className="hint">
           이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
           <br />
-          보호자용 QR: ① 게임 설명 <b>{GUIDE_URL}</b> · ② 곤충본부 소개 <b>{ABOUT_URL}</b>
+          보호자용 QR: ① 게임 설명 <b>{GUIDE_URL}</b> · ② 곤충본부 카카오톡 채널 <b>{ABOUT_URL}</b>
         </p>
         <p className="hint">
           💰 <b>보통은 A(기본) 한 종류만 뽑으면 됩니다.</b> 3만원 이상 낸 아이는 직원이{' '}
