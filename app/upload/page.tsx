@@ -1,5 +1,6 @@
 'use client';
 
+import { readTicketPin } from '@/lib/ticket-pin-client';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
@@ -654,6 +655,7 @@ export default function UploadPage() {
                 image: result.image,
                 mime: result.mime,
                 ticketCode: player?.ticket_code ?? null,
+                qrPin: readTicketPin(player?.ticket_code),
                 // 지금 만드는 것이 몇 번째인지. 5만원·10만원은 첫 카드부터 금색·다이아.
                 visit: effectiveVisit(savedCount + 1, tierForPlayer(player).card),
               }}

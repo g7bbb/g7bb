@@ -8,6 +8,7 @@ import { findPlayerByTicket, rememberInsectName, rememberPlayer } from '@/lib/se
 import { playSound, unlockAudio } from '@/lib/sfx';
 import { Player } from '@/lib/types';
 import { normalizeTicket } from '@/lib/ticket';
+import { rememberTicketPin, verifyTicketPin } from '@/lib/ticket-pin-client';
 import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
@@ -48,6 +49,47 @@ function StartInner() {
   // 직원이 금액을 먼저 올려둔 번호 (이름 없는 자리). 처음 온 아이처럼 이름·설문을 받되, 그 자리에 채웁니다.
   const [prepaid, setPrepaid] = useState<Player | null>(null);
   const [checking, setChecking] = useState(false);
+  // 🔐 비밀번호 4자리 (10/2 Jin: 번호만 쳐서 남의 캐릭터로 들어오면 안 된다). 종이 QR 에는 들어 있다(&k=).
+  const [pin, setPin] = useState('');
+  const [pinOk, setPinOk] = useState(false);
+  const [pinError, setPinError] = useState('');
+
+  /** 번호+비밀번호가 맞은 뒤에만: 이미 온 아이인지 · 직원이 금액을 올려둔 자리인지 본다 */
+  function lookup(code: string) {
+    setChecking(true);
+    return findPlayerByTicket(code)
+      .then((found) => {
+        if (!found) return;
+        if (isPending(found)) setPrepaid(found);
+        else setReturning(found);
+      })
+      // 조회에 실패하면 그냥 처음 온 아이로 봅니다. 체험이 막히면 안 됩니다.
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }
+
+  // 손으로 칠 때: 번호와 비밀번호 4자리가 다 들어오면 바로 확인한다
+  useEffect(() => {
+    if (pinOk || pin.length !== 4) return;
+    const code = normalizeTicket(ticket);
+    if (!code) return;
+    let cancelled = false;
+    verifyTicketPin(code, pin).then((ok) => {
+      if (cancelled) return;
+      if (!ok) {
+        setPinError('번호나 비밀번호가 안 맞아! 종이 오른쪽 위를 다시 봐줘.');
+        return;
+      }
+      setPinError('');
+      setPinOk(true);
+      rememberTicketPin(code, pin);
+      void lookup(code);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket, pin, pinOk]);
 
   // QR 주소(/start?t=A-014)로 들어오면 번호를 미리 채워 손으로 칠 일을 없앱니다.
   //
@@ -63,19 +105,24 @@ function StartInner() {
     setTicket(normalized);
     setFromQr(true);
 
+    // 종이 QR 에는 비밀번호가 들어 있다(&k=). 없거나(옛 QR) 틀리면 비밀번호 칸을 띄운다.
+    const k = (params.get('k') ?? '').replace(/\D/g, '');
+    if (!k) return;
+    setPin(k);
     let cancelled = false;
     setChecking(true);
-    findPlayerByTicket(normalized)
-      .then((found) => {
-        if (cancelled || !found) return;
-        if (isPending(found)) setPrepaid(found);
-        else setReturning(found);
-      })
-      // 조회에 실패하면 그냥 처음 온 아이로 봅니다. 체험이 막히면 안 됩니다.
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setChecking(false);
-      });
+    verifyTicketPin(normalized, k).then((ok) => {
+      if (cancelled) return;
+      setChecking(false);
+      if (!ok) {
+        setPin('');
+        setPinError('QR 비밀번호가 안 맞아. 종이 오른쪽 위 비밀번호 4자리를 쳐줘!');
+        return;
+      }
+      setPinOk(true);
+      rememberTicketPin(normalized, k);
+      void lookup(normalized);
+    });
 
     return () => {
       cancelled = true;
@@ -115,6 +162,10 @@ function friendlyError(message?: string): string {
     const code = normalizeTicket(ticket);
     if (!code) {
       setError('번호를 다시 확인해줘! 종이 위쪽에 적힌 번호 숫자만 써도 돼 (예: 14)');
+      return;
+    }
+    if (!pinOk) {
+      setError('종이 오른쪽 위에 있는 비밀번호 4자리를 쳐줘!');
       return;
     }
     if (!nickname.trim()) {
@@ -235,11 +286,36 @@ function friendlyError(message?: string): string {
           className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-widest text-center font-bold"
           placeholder="14"
           value={ticket}
-          onChange={(e) => setTicket(e.target.value)}
+          onChange={(e) => {
+            setTicket(e.target.value);
+            // 번호를 바꾸면 비밀번호부터 다시
+            setPinOk(false);
+            setPrepaid(null);
+            setFromQr(false);
+          }}
           inputMode="numeric"
           autoCapitalize="characters"
         />
-        {fromQr && <p className="text-xs text-emerald-400 text-center">✓ QR에서 번호를 읽었어</p>}
+        {pinOk ? (
+          <p className="text-sm text-emerald-400 text-center">✓ {fromQr ? 'QR로 확인했어!' : '비밀번호 확인!'}</p>
+        ) : (
+          <>
+            <label className="mt-2 text-sm text-slate-400">🔐 비밀번호 4자리 (번호 아래에 적혀 있어)</label>
+            <input
+              className="bg-slate-800 rounded-xl px-4 py-3 text-2xl tracking-[0.5em] text-center font-bold"
+              placeholder="0000"
+              value={pin}
+              onChange={(e) => {
+                setPin(e.target.value.replace(/\D/g, '').slice(0, 4));
+                setPinError('');
+              }}
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+            />
+            {pinError && <p className="text-sm text-red-400 text-center">{pinError}</p>}
+          </>
+        )}
         {prepaid && (
           <p className="text-sm font-bold text-amber-300 text-center">
             {tierForPlayer(prepaid).emoji} {tierForPlayer(prepaid).price} {tierForPlayer(prepaid).name} 참가권이 적용됐어!

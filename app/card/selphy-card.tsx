@@ -42,11 +42,11 @@ export default function SelphyCard({ data }: { data: InsectCardData }) {
 
   useEffect(() => {
     if (!data.ticketCode) return;
-    const url = `${data.qrOrigin ?? window.location.origin}/start?t=${data.ticketCode}`;
+    const url = `${data.qrOrigin ?? window.location.origin}/start?t=${data.ticketCode}${data.qrPin ? `&k=${data.qrPin}` : ''}`;
     QRCode.toDataURL(url, { margin: 1, width: 400 })
       .then(setQr)
       .catch(() => setQr(''));
-  }, [data.ticketCode, data.qrOrigin]);
+  }, [data.ticketCode, data.qrOrigin, data.qrPin]);
 
   const moves = [move, move2].filter(Boolean);
 

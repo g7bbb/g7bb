@@ -6,6 +6,8 @@ import QRCode from 'qrcode';
 import { ticketAt } from '@/lib/ticket';
 import { GUIDE_URL, ABOUT_URL, SITE_URL, ticketUrl } from '@/lib/site';
 import { BRAND, GAME_TITLE } from '@/lib/brand';
+import AdminGate from '@/app/admin/admin-gate';
+import { fetchTicketPins } from '@/lib/ticket-pin-client';
 import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/tiers';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
@@ -54,6 +56,8 @@ function PrintInner() {
   // 한 금액은 999장까지입니다. 넘치면 다음 금액의 번호가 찍히므로 잘라냅니다.
   const printable = Math.min(count, 999 - startIndex);
   const [qrCodes, setQrCodes] = useState<string[]>([]);
+  const [pins, setPins] = useState<string[]>([]);
+  const [pinError, setPinError] = useState('');
   const [progress, setProgress] = useState(0);
   // 보호자용 QR 2개 — 모든 종이에 똑같이 들어간다
   const [infoQr, setInfoQr] = useState<{ guide: string; about: string } | null>(null);
@@ -70,20 +74,38 @@ function PrintInner() {
     let cancelled = false;
 
     async function build() {
+      // 🔐 비밀번호 4자리를 서버에서 받아온다 (직원 암호 필요 — 그래서 이 화면은 AdminGate 안에 있다).
+      let got: Record<string, string> = {};
+      const tickets = Array.from({ length: printable }, (_, i) => ticketAt(firstIndex + i));
+      try {
+        got = await fetchTicketPins(tickets);
+        setPinError('');
+      } catch (err: any) {
+        if (!cancelled) setPinError(err.message || '비밀번호를 못 받아왔어요.');
+        return; // 비밀번호 없는 종이는 뽑으면 안 된다 (QR 로 못 들어온다)
+      }
       const codes: string[] = [];
+      const pinList: string[] = [];
       for (let i = 0; i < printable; i += 1) {
         if (cancelled) return;
-        const ticket = ticketAt(firstIndex + i);
-        // QR을 찍으면 번호가 채워진 시작 화면이 열립니다.
+        const ticket = tickets[i];
+        const pin = got[ticket];
+        if (!pin) {
+          setPinError(`${ticket} 비밀번호가 없어요. 새로고침해 주세요.`);
+          return;
+        }
+        // QR을 찍으면 번호·비밀번호가 채워진 시작 화면이 열립니다.
         //
         // 🔴 **이 화면을 연 주소가 아니라 `SITE_URL` 을 씁니다.**
         // 전에는 `window.location.origin` 이었는데, 개발용 localhost 에서 인쇄하면
         // 종이 300장에 죽은 QR 이 박힙니다. 자세한 이유는 `lib/site.ts` 참고.
-        codes.push(await QRCode.toDataURL(ticketUrl(ticket), { margin: 0, width: 240 }));
+        codes.push(await QRCode.toDataURL(ticketUrl(ticket, pin), { margin: 0, width: 240 }));
+        pinList.push(pin);
         if (i % 20 === 0) setProgress(i);
       }
       if (!cancelled) {
         setQrCodes(codes);
+        setPins(pinList);
         setProgress(printable);
       }
     }
@@ -96,7 +118,7 @@ function PrintInner() {
     };
   }, [printable, firstIndex]);
 
-  const ready = qrCodes.length === printable && !!infoQr;
+  const ready = qrCodes.length === printable && pins.length === printable && !!infoQr;
   const tierInfo = TIERS[tier];
 
   return (
@@ -141,6 +163,7 @@ function PrintInner() {
             {ready ? '인쇄 / PDF로 저장' : `QR 만드는 중... ${progress}/${printable}`}
           </button>
         </div>
+        {pinError && <p className="hint" style={{ color: '#c00', fontWeight: 700 }}>⚠️ {pinError}</p>}
         <p className="hint">
           이 종이의 QR 은 <b>{SITE_URL}</b> 로 연결됩니다. 인쇄 전에 한 번 확인해 주세요.
           <br />
@@ -176,6 +199,7 @@ function PrintInner() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt={ticket} className="qr" />
                 <div className="ticket">{ticket}</div>
+                <div className="pin">🔐 {pins[index]}</div>
                 {/* 금액별로 따로 뽑을 때만 표시. 기본(A) 종이는 모든 아이가 받고 금액은 직원 화면에서
                     올려주므로(2026-10-01), "1만원" 이 찍혀 있으면 10만원 낸 아이가 헷갈린다. */}
                 {tier !== 'A' && (
@@ -221,7 +245,7 @@ function PrintInner() {
             )}
 
             <footer className="sheet-foot">
-              다 그렸으면 <b>오른쪽 위 QR</b>을 찍어줘! · 이 종이는 상품 받을 때 필요하니까 꼭 가지고 있어야 해
+              다 그렸으면 <b>오른쪽 위 QR</b>을 찍어줘! · 이 종이(번호·비밀번호)는 상품 받을 때 필요하니까 꼭 가지고 있어야 해
             </footer>
           </section>
         );
@@ -363,8 +387,15 @@ function PrintInner() {
           margin-top: 1mm;
         }
 
+        .pin {
+          font-size: 10pt;
+          font-weight: 700;
+          letter-spacing: 1px;
+        }
         .draw-area {
-          flex: 1;
+          /* 10/2 Jin: 그림 칸 20% 줄이고(162 → 130mm) 아래 글·QR 을 20% 키움 */
+          flex: none;
+          height: 130mm;
           border: 2px dashed #999;
           border-radius: 4mm;
           display: flex;
@@ -372,8 +403,7 @@ function PrintInner() {
           justify-content: center;
           color: #bbb;
           font-size: 12pt;
-          min-height: 95mm;
-        }
+                  }
 
         .notice {
           display: flex;
@@ -381,18 +411,18 @@ function PrintInner() {
           justify-content: center;
           gap: 4mm;
           text-align: center;
-          font-size: 11.5pt;
+          font-size: 13.8pt;
           line-height: 1.55;
           word-break: keep-all;
           border: 1.5px solid #000;
           border-radius: 4mm;
-          padding: 3mm 4mm;
+          padding: 3.6mm 4mm;
         }
         .notice b {
           font-weight: 800;
         }
         .notice-bug {
-          font-size: 22pt;
+          font-size: 26pt;
           line-height: 1;
           flex-shrink: 0;
         }
@@ -400,14 +430,14 @@ function PrintInner() {
           text-align: center;
         }
         .info-title {
-          font-size: 10pt;
+          font-size: 12pt;
           font-weight: 700;
           margin-bottom: 2mm;
         }
         .info-row {
           display: flex;
           justify-content: center;
-          gap: 22mm;
+          gap: 26mm;
         }
         .info-item {
           display: flex;
@@ -416,19 +446,20 @@ function PrintInner() {
           gap: 1.5mm;
         }
         .info-qr {
-          width: 22mm;
-          height: 22mm;
+          width: 26.4mm;
+          height: 26.4mm;
           display: block;
         }
         .info-label {
-          font-size: 10pt;
+          font-size: 12pt;
           font-weight: 700;
         }
 
         .sheet-foot {
+          margin-top: auto;
           border-top: 1px solid #999;
           padding-top: 2mm;
-          font-size: 8pt;
+          font-size: 9.6pt;
           color: #444;
           text-align: center;
         }
@@ -449,7 +480,9 @@ function PrintInner() {
 export default function PrintPage() {
   return (
     <Suspense fallback={null}>
-      <PrintInner />
+      <AdminGate title="참가 용지 인쇄 (직원용)">
+        <PrintInner />
+      </AdminGate>
     </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { readTicketPin } from '@/lib/ticket-pin-client';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import { statsForInsect } from '@/lib/insect-stats';
@@ -86,6 +87,7 @@ function CardInner() {
         image: row.image_base64,
         mime: row.mime_type || 'image/jpeg',
         ticketCode: player!.ticket_code ?? null,
+        qrPin: readTicketPin(player!.ticket_code),
         // 만든 순서 = 회차. 5만원·10만원 참가권은 첫 카드부터 금색·다이아 (lib/card.ts)
         visit: effectiveVisit(i + 1, tierForPlayer(player).card),
       }));

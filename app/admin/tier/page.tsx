@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchTicketPins } from '@/lib/ticket-pin-client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
@@ -98,6 +99,8 @@ function TierDesk() {
   const [error, setError] = useState('');
   const [log, setLog] = useState<LogRow[]>([]);
 
+  const [pin, setPin] = useState<string | null>(null);
+
   async function lookup(e?: React.FormEvent) {
     e?.preventDefault();
     setMessage('');
@@ -108,6 +111,11 @@ function TierDesk() {
       return;
     }
     setTicket(t);
+    setPin(null);
+    // 🔐 비밀번호도 같이 보여준다 — 종이를 잃어버렸거나 QR 이 안 찍힐 때 직원이 알려주려고 (테스트 번호 900번대도)
+    fetchTicketPins([t])
+      .then((pins) => setPin(pins[t] ?? null))
+      .catch(() => setPin(null));
     setLooking(true);
     const { data, error: findError } = await supabase.from('players').select('*').eq('ticket_code', t).maybeSingle();
     setLooking(false);
@@ -161,7 +169,10 @@ function TierDesk() {
       {ticket && current && (
         <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3">
           <div>
-            <p className="text-2xl font-black">{ticket}</p>
+            <p className="text-2xl font-black">
+              {ticket}
+              {pin && <span className="ml-3 text-base font-bold text-amber-300">🔐 비밀번호 {pin}</span>}
+            </p>
             <p className="text-sm text-slate-300">
               {player && !isPending(player)
                 ? `${player.display_name} · 지금 ${current.emoji} ${current.price}`

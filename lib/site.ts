@@ -19,9 +19,10 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://g7bb.verce
   ''
 );
 
-/** 종이·카드의 QR 이 가리키는 주소. 찍으면 번호가 채워진 시작 화면이 열립니다. */
-export function ticketUrl(ticket: string): string {
-  return `${SITE_URL}/start?t=${encodeURIComponent(ticket)}`;
+/** 종이·카드의 QR 이 가리키는 주소. 찍으면 번호가 채워진 시작 화면이 열립니다.
+ *  pin(비밀번호 4자리, lib/ticket-pin.ts)이 있으면 같이 넣어 바로 들어오게 합니다. */
+export function ticketUrl(ticket: string, pin?: string | null): string {
+  return `${SITE_URL}/start?t=${encodeURIComponent(ticket)}${pin ? `&k=${pin}` : ''}`;
 }
 
 /**

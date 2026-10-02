@@ -15,6 +15,7 @@ import AdminGate from '../admin-gate';
 import InsectCard, { InsectCardData } from '@/app/card/insect-card';
 import SelphyCard from '@/app/card/selphy-card';
 import { SITE_URL } from '@/lib/site';
+import { fetchTicketPins } from '@/lib/ticket-pin-client';
 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 곤충 찾기 → 원본 그림 받기 / A3 포스터 인쇄 (2026-10-01 Jin: "내 곤충 A3 포스터로 뽑아보려고")
@@ -70,6 +71,16 @@ function PosterDesk() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [picked, setPicked] = useState<Picked | null>(null);
+  // 🔐 카드 QR 에 넣을 비밀번호 (찍으면 바로 들어오게). 못 받으면 QR 만 번호로 — 찍은 뒤 비밀번호를 치면 된다.
+  const [pin, setPin] = useState<string | null>(null);
+  const pickedTicket = picked?.owner?.ticket_code ?? null;
+  useEffect(() => {
+    setPin(null);
+    if (!pickedTicket) return;
+    fetchTicketPins([pickedTicket])
+      .then((pins) => setPin(pins[pickedTicket] ?? null))
+      .catch(() => setPin(null));
+  }, [pickedTicket]);
   const [opening, setOpening] = useState<string | null>(null);
   const [mode, setMode] = useState<'poster' | 'image' | 'card'>('poster');
   // 고화질 그림 끼우기 (2026-10-01 인쇄소: "A3 로는 화질이 부족해").
@@ -385,7 +396,7 @@ function PosterDesk() {
           {mode === 'card' && cardKind === 'selphy' ? (
             <div className="overflow-x-auto">
               <div ref={cardRef} className="mx-auto" style={{ width: 540 }}>
-                <SelphyCard data={cardData(picked, hiRes?.url)} />
+                <SelphyCard data={cardData(picked, hiRes?.url, pin)} />
               </div>
             </div>
           ) : mode === 'card' ? (
@@ -404,6 +415,7 @@ function PosterDesk() {
                   visit: picked.visit,
                   imageSrc: hiRes?.url,
                   qrOrigin: SITE_URL,
+                  qrPin: pin,
                   hideLabel: true,
                 }}
               />
@@ -444,7 +456,7 @@ function PosterDesk() {
   );
 }
 
-function cardData(picked: Picked, hiResUrl: string | undefined): InsectCardData {
+function cardData(picked: Picked, hiResUrl: string | undefined, pin: string | null): InsectCardData {
   return {
     nickname: picked.insect.nickname,
     ownerName: picked.owner?.display_name,
@@ -458,6 +470,7 @@ function cardData(picked: Picked, hiResUrl: string | undefined): InsectCardData 
     visit: picked.visit,
     imageSrc: hiResUrl,
     qrOrigin: SITE_URL,
+    qrPin: pin,
     hideLabel: true,
   };
 }

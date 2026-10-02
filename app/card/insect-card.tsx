@@ -47,6 +47,8 @@ export interface InsectCardData {
   /** 인쇄용 (직원 화면 `/admin/poster`): 고화질 그림 주소 · QR 주소 고정 · 아래 등급 글씨 숨김 */
   imageSrc?: string;
   qrOrigin?: string;
+  /** 🔐 비밀번호 4자리 — 있으면 QR 에 넣어 찍자마자 들어오게 (lib/ticket-pin.ts) */
+  qrPin?: string | null;
   hideLabel?: boolean;
 }
 
@@ -65,12 +67,12 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
   useEffect(() => {
     if (!data.ticketCode) return;
     // 인쇄용은 qrOrigin(SITE_URL)으로 고정한다 — 종이와 같은 규칙 (lib/site.ts 참고).
-    const url = `${data.qrOrigin ?? window.location.origin}/start?t=${data.ticketCode}`;
+    const url = `${data.qrOrigin ?? window.location.origin}/start?t=${data.ticketCode}${data.qrPin ? `&k=${data.qrPin}` : ''}`;
     // 카드를 들고 다시 오면 이 QR 하나로 원래 아이로 이어집니다. (회차가 자동으로 올라갑니다)
     QRCode.toDataURL(url, { margin: 0, width: data.qrOrigin ? 400 : 160 })
       .then(setQr)
       .catch(() => setQr(''));
-  }, [data.ticketCode, data.qrOrigin]);
+  }, [data.ticketCode, data.qrOrigin, data.qrPin]);
 
   return (
     <div className="w-full max-w-[21.25rem] mx-auto">
