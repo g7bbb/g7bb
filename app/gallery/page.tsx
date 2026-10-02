@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { getCurrentPlayer } from '@/lib/session';
@@ -9,6 +9,7 @@ import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
+import { filterWorldQuery, isTestPlayer, loadTestPlayerIds } from '@/lib/test-world';
 
 // 아이들이 다른 친구 곤충을 구경하며 하트를 누르는 화면입니다.
 // 하트는 재미 요소이고 최종 "예쁜 곤충" 순위는 운영자가 정합니다.
@@ -37,12 +38,17 @@ export default function GalleryPage() {
   const [done, setDone] = useState(false);
   // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리용.
   const [visits, setVisits] = useState<Map<string, number>>(new Map());
+  // 🧪 테스트 번호(900번대) 곤충은 테스트 번호 아이에게만 보인다 (lib/test-world.ts)
+  const world = useRef<{ testIds: Set<string>; viewerIsTest: boolean }>({ testIds: new Set(), viewerIsTest: false });
 
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
-    const { data } = await supabase
-      .from('insects')
-      .select('id, player_id, nickname, species, image_base64, mime_type')
+    const query = filterWorldQuery(
+      supabase.from('insects').select('id, player_id, nickname, species, image_base64, mime_type'),
+      world.current.testIds,
+      world.current.viewerIsTest
+    );
+    const { data } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -54,7 +60,8 @@ export default function GalleryPage() {
 
   useEffect(() => {
     async function init() {
-      const [current, heartCounts] = await Promise.all([getCurrentPlayer(), loadHeartCounts()]);
+      const [current, heartCounts, testIds] = await Promise.all([getCurrentPlayer(), loadHeartCounts(), loadTestPlayerIds()]);
+      world.current = { testIds, viewerIsTest: isTestPlayer(current) };
       setPlayer(current);
       setCounts(heartCounts);
       if (current) setMine(await loadMyHearts(current.id));

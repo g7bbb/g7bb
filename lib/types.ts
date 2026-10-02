@@ -45,6 +45,8 @@ export interface Insect {
   mutations: MutationCountsRecord | null;
   image_base64: string;
   mime_type: string;
+  /** 🤖 연습 곤충(lib/bots.ts)만 — 그림 파일 주소. 진짜 곤충은 없음 */
+  image_url?: string;
   stats: CoreStats;
   level: number;
   xp: number;

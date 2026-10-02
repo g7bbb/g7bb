@@ -33,6 +33,8 @@ import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
+import { BOT_INSECTS, findBot, insectImageSrc, isBotId } from '@/lib/bots';
+import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -83,6 +85,8 @@ interface OpponentSummary {
   stats: CoreStats;
   bestScore: number;
   rank: number;
+  /** 🤖 연습 곤충 (lib/bots.ts) — 상대가 모자랄 때만 채워진다 */
+  bot?: boolean;
 }
 
 /** 랭킹 도전 진행 상황. 자유 대결일 때는 null 입니다. */
@@ -93,7 +97,7 @@ interface LadderState {
   index: number;
   /** 지금까지 치른 배틀 수 */
   used: number;
-  log: { rank: number; nickname: string; won: boolean }[];
+  log: { rank: number; nickname: string; won: boolean; bot?: boolean }[];
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
@@ -261,14 +265,20 @@ export default function BattlePage() {
   //
   // 내 곤충까지 **같이 불러와서 순위를 매긴 뒤에** 나만 빼냅니다.
   // 처음부터 나를 빼고 순위를 매기면, 내가 1등일 때 2등이 "1위"로 표시돼 버립니다.
-  const loadOpponents = useCallback(async (playerId: string) => {
+  //
+  // 🧪 테스트 번호(900번대)는 테스트 번호끼리만, 진짜 아이는 진짜 아이끼리만 만난다 (lib/test-world.ts).
+  // 🤖 상대가 3마리보다 적으면 연습 곤충으로 모자란 만큼 채운다 (lib/bots.ts).
+  const loadOpponents = useCallback(async (me: Player) => {
+    const playerId = me.id;
+    const viewerIsTest = isTestPlayer(me);
     setListLoading(true);
-    const [{ data: rows }, { data: scores }] = await Promise.all([
+    const [{ data: rows }, { data: scores }, testIds] = await Promise.all([
       supabase
         .from('insects')
         .select('id, player_id, nickname, species, level, stats')
         .limit(400),
       supabase.from('battles').select('insect_id, score').order('score', { ascending: false }).limit(1000),
+      loadTestPlayerIds(),
     ]);
 
     const best = new Map<string, number>();
@@ -277,7 +287,9 @@ export default function BattlePage() {
       if (row.score > current) best.set(row.insect_id, row.score);
     });
 
-    const list: OpponentSummary[] = (rows || []).map((row: any) => ({
+    const list: OpponentSummary[] = (rows || [])
+      .filter((row: any) => sameWorld(row.player_id, testIds, viewerIsTest))
+      .map((row: any) => ({
       id: row.id,
       player_id: row.player_id,
       nickname: row.nickname || '이름없음',
@@ -293,13 +305,30 @@ export default function BattlePage() {
       item.rank = i + 1;
     });
     // 순위를 다 매긴 다음에 내 곤충을 뺍니다. 남은 순위 번호는 전체 기준 그대로입니다.
-    setOpponents(list.filter((item) => item.player_id !== playerId));
+    const others = list.filter((item) => item.player_id !== playerId);
+    // 🤖 모자란 만큼 연습 곤충 (진짜 곤충 아래쪽 순위로 붙는다 → 랭킹 도전은 연습 곤충부터, 진짜 곤충이 마지막)
+    let nextRank = list.length + 1;
+    for (const b of BOT_INSECTS) {
+      if (others.length >= LADDER_SIZE) break;
+      others.push({
+        id: b.id,
+        player_id: b.player_id,
+        nickname: b.nickname,
+        species: b.species,
+        level: b.level,
+        stats: b.stats,
+        bestScore: 0,
+        rank: nextRank++,
+        bot: true,
+      });
+    }
+    setOpponents(others);
     setMyBestRank(list.find((item) => item.player_id === playerId)?.rank ?? null);
     setListLoading(false);
   }, []);
 
   useEffect(() => {
-    if (player) loadOpponents(player.id);
+    if (player) loadOpponents(player);
   }, [player, loadOpponents]);
 
   // 결과가 뜨면 효과음: 이김/짐 → (레벨업) → (게임이 끝났으면) 게임 끝
@@ -441,6 +470,13 @@ export default function BattlePage() {
     setStarting(true);
     setError('');
     try {
+      // 🤖 연습 곤충은 DB 에 없다 — 코드에 있는 걸 그대로 쓴다.
+      const bot = summary.bot ? findBot(summary.id) : null;
+      if (bot) {
+        setOpponent(bot);
+        await runFight(bot, 0);
+        return;
+      }
       // 고른 상대의 그림만 이때 받아옵니다.
       const { data, error: fetchError } = await supabase
         .from('insects')
@@ -677,11 +713,12 @@ export default function BattlePage() {
     const run = ladderRef.current;
     if (run && iWon) {
       const target = run.targets[run.index];
-      if (target?.rank === 1) earned.push('beatTop1');
-      if (run.index + 1 >= run.targets.length) earned.push('ladderClear');
+      // 🤖 연습 곤충을 이긴 건 "1위를 쓰러뜨렸다" 로 치지 않는다
+      if (target?.rank === 1 && !target.bot) earned.push('beatTop1');
+      if (run.index + 1 >= run.targets.length && run.targets.some((t) => !t.bot)) earned.push('ladderClear');
     }
-    // 곤충 도장 깨기 — 이긴 상대의 곤충 종류 (연습 게임도 포함)
-    if (iWon) earned.push(`beat_${speciesBeatKey(foe.species)}`);
+    // 곤충 도장 깨기 — 이긴 상대의 곤충 종류 (연습 게임도 포함, 🤖 연습 곤충은 빼고)
+    if (iWon && !isBotId(foe.id)) earned.push(`beat_${speciesBeatKey(foe.species)}`);
     void awardBadges(player.id, earned);
 
     // ③ 마지막 한 방 — 진 쪽은 0, 이긴 쪽은 이긴 만큼만 남는다 (`barPercents`).
@@ -728,7 +765,7 @@ export default function BattlePage() {
         ...prev,
         index: won ? prev.index + 1 : prev.index,
         used: prev.used + 1,
-        log: [...prev.log, { rank: target.rank, nickname: target.nickname, won }],
+        log: [...prev.log, { rank: target.rank, nickname: target.nickname, won, bot: target.bot }],
       };
     });
 
@@ -785,7 +822,8 @@ export default function BattlePage() {
       await supabase.from('battles').insert({
         player_id: player.id,
         insect_id: myInsect.id,
-        opponent_insect_id: foe.id,
+        // 🤖 연습 곤충은 DB 에 없어서 비워 둔다 (외래키라 가짜 id 를 넣으면 저장이 통째로 실패한다)
+        opponent_insect_id: isBotId(foe.id) ? null : foe.id,
         // 예전에는 배틀마다 고른 환경을 적었다. 이제는 내 곤충의 출신지를 적는다.
         environment: myInsect.origin ?? 'meteor',
         score: final.a.score,
@@ -800,6 +838,7 @@ export default function BattlePage() {
       // 수비한 곤충(상대)도 경험치를 조금 받는다 — 내 쪽의 20%, 하루 레벨 1개까지 (lib/leveling.ts)
       // 실패해도 배틀 결과에는 영향이 없다.
       try {
+        if (isBotId(foe.id)) throw new Error('bot'); // 🤖 연습 곤충은 경험치를 안 받는다
         const { data: fresh } = await supabase.from('insects').select('level, xp, stats').eq('id', foe.id).maybeSingle();
         if (fresh) {
           const stats = (fresh as any).stats ?? {};
@@ -887,7 +926,7 @@ export default function BattlePage() {
   function backToSetup() {
     resetStage();
     setLadder(null);
-    if (player) loadOpponents(player.id);
+    if (player) loadOpponents(player);
   }
 
   // ───────────────────────────────────────────────
@@ -993,7 +1032,7 @@ export default function BattlePage() {
               {LADDER_BATTLES}
             </span>
             <span className="text-slate-300">
-              {rankMedal(ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)].rank)}{' '}
+              {oppMedal(ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)])}{' '}
               {ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)].nickname}
             </span>
           </div>
@@ -1160,7 +1199,7 @@ export default function BattlePage() {
                   {ladder.log.map((item, i) => (
                     <li key={i} className="flex justify-between">
                       <span className="text-slate-300">
-                        {rankMedal(item.rank)} {item.nickname}
+                        {oppMedal(item)} {item.nickname}
                       </span>
                       <span className={item.won ? 'text-emerald-400' : 'text-rose-400'}>
                         {item.won ? '승리' : '패배'}
@@ -1178,8 +1217,8 @@ export default function BattlePage() {
                 ) : (
                   <p className="text-sm text-slate-300 mt-1">
                     {battle.winner === 'A'
-                      ? `다음 상대는 ${rankMedal(ladder.targets[ladder.index].rank)} ${ladder.targets[ladder.index].nickname}!`
-                      : `한 번 더! ${rankMedal(ladder.targets[ladder.index].rank)} ${ladder.targets[ladder.index].nickname}에게 다시 도전`}
+                      ? `다음 상대는 ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}!`
+                      : `한 번 더! ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}에게 다시 도전`}
                   </p>
                 )}
               </div>
@@ -1305,7 +1344,7 @@ export default function BattlePage() {
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
             기회는 <b className="text-slate-200">{LADDER_BATTLES}번</b>이야.
           </p>
-          {myBestRank === 1 && (
+          {myBestRank === 1 && opponents.some((o) => !o.bot) && (
             <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
               👑 지금 랭킹 1위는 너야! 그래서 2위부터 보여줘.
             </p>
@@ -1324,15 +1363,20 @@ export default function BattlePage() {
               {ladderTargets.map((o, i) => (
                 <li key={o.id} className="flex items-center gap-2 text-sm">
                   <span className="text-slate-500 w-4 text-xs">{i + 1}</span>
-                  <span className="w-7 text-center">{rankMedal(o.rank)}</span>
+                  <span className="w-7 text-center">{oppMedal(o)}</span>
                   <span className="flex-1 truncate font-semibold">{o.nickname}</span>
                   <span className="text-xs text-slate-400 shrink-0">Lv.{o.level}</span>
                   <span className="text-xs text-emerald-400 shrink-0 w-14 text-right">
-                    {o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
+                    {o.bot ? '연습' : o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
                   </span>
                 </li>
               ))}
             </ol>
+            {ladderTargets.some((o) => o.bot) && (
+              <p className="text-xs text-sky-300" style={{ wordBreak: 'keep-all' }}>
+                🤖 = 연습 곤충이야. 아직 친구 곤충이 적어서 대신 나왔어!
+              </p>
+            )}
 
             <button
               onClick={startLadder}
@@ -1341,7 +1385,7 @@ export default function BattlePage() {
             >
               {starting
                 ? '상대를 데려오는 중...'
-                : `⚔️ ${rankMedal(ladderTargets[0].rank)} ${ladderTargets[0].nickname}부터 도전!`}
+                : `⚔️ ${oppMedal(ladderTargets[0])} ${ladderTargets[0].nickname}부터 도전!`}
             </button>
             {status && !status.canLadder && (
               <p className="text-xs text-amber-300 text-center" style={{ wordBreak: 'keep-all' }}>
@@ -1376,7 +1420,7 @@ export default function BattlePage() {
             🎲 아무나
           </button>
         </div>
-        {myBestRank === 1 && <p className="-mt-1 mb-2 text-xs font-bold text-amber-300">👑 1위는 너라서 목록에 없어!</p>}
+        {myBestRank === 1 && opponents.some((o) => !o.bot) && <p className="-mt-1 mb-2 text-xs font-bold text-amber-300">👑 1위는 너라서 목록에 없어!</p>}
 
         <input
           value={search}
@@ -1412,7 +1456,7 @@ export default function BattlePage() {
                       }`}
                     >
                       <span className="w-8 shrink-0 text-center font-bold text-amber-400">
-                        {rankMedal(o.rank)}
+                        {oppMedal(o)}
                       </span>
                       <span className="flex-1 min-w-0">
                         <span className="block font-bold truncate">{o.nickname}</span>
@@ -1422,7 +1466,7 @@ export default function BattlePage() {
                         </span>
                       </span>
                       <span className="shrink-0 text-sm font-bold text-emerald-400">
-                        {o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
+                        {o.bot ? '연습' : o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
                       </span>
                     </button>
                   </li>
@@ -1468,6 +1512,11 @@ export default function BattlePage() {
 /** 1~3위는 메달로, 그 아래는 숫자로 보여줍니다. */
 function rankMedal(rank: number): string {
   return rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `${rank}위`;
+}
+
+/** 🤖 연습 곤충은 순위 대신 로봇 표시 */
+function oppMedal(o: { rank: number; bot?: boolean }): string {
+  return o.bot ? '🤖' : rankMedal(o.rank);
 }
 
 function clampBar(value: number) {
@@ -1582,7 +1631,7 @@ function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: numb
     <div className="relative w-full h-full bg-slate-900" style={{ height: 'calc(32vh - 6px)' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`data:${insect.mime_type};base64,${insect.image_base64}`}
+        src={insectImageSrc(insect)}
         alt={label}
         className="absolute inset-0 w-full h-full object-cover"
       />

@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { loadHeartCounts } from '@/lib/hearts';
+import { filterWorldQuery, loadTestPlayerIds } from '@/lib/test-world';
 
 // "예쁜 곤충 랭킹" 심사 화면입니다. 운영자 전용.
 //
@@ -88,11 +89,16 @@ function JudgeBoard() {
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
 
+  // 🧪 테스트 번호(900번대) 곤충은 심사 대상이 아니다 (lib/test-world.ts)
+  const testIds = useRef<Set<string>>(new Set());
+
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
-    const { data } = await supabase
-      .from('insects')
-      .select('id, nickname, species, image_base64, mime_type, judge_rank, created_at')
+    const { data } = await filterWorldQuery(
+      supabase.from('insects').select('id, nickname, species, image_base64, mime_type, judge_rank, created_at'),
+      testIds.current,
+      false
+    )
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -104,6 +110,7 @@ function JudgeBoard() {
 
   useEffect(() => {
     async function init() {
+      testIds.current = await loadTestPlayerIds();
       setCounts(await loadHeartCounts());
       await loadMore(0);
     }

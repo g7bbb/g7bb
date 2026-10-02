@@ -6,6 +6,7 @@ import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { BrandMark } from '@/app/brand-logo';
 import PlayStatusCard from '@/app/play-status';
+import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { getCurrentPlayer } from '@/lib/session';
 import { awardBadges, playStatus } from '@/lib/game-state';
 import { EnvironmentKey, Player } from '@/lib/types';
@@ -80,15 +81,22 @@ export default function RankingPage() {
   const [me, setMe] = useState<Player | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
+  // 🧪 누가 보는지(테스트 번호인지) 알아야 순위를 나눌 수 있어서, 확인이 끝난 뒤에 순위를 불러온다.
+  const [meReady, setMeReady] = useState(false);
+
   useEffect(() => {
-    getCurrentPlayer().then(setMe).catch(() => {});
+    getCurrentPlayer()
+      .then(setMe)
+      .catch(() => {})
+      .finally(() => setMeReady(true));
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
-    loadRanking(tab);
-  }, [tab]);
+    if (meReady) loadRanking(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, meReady]);
 
   // 전체 랭킹 1~3위에 들면 그 뱃지를 영원히 남깁니다 (나중에 순위가 내려가도 "달성"은 남음).
   useEffect(() => {
@@ -115,9 +123,12 @@ export default function RankingPage() {
       query = query.gte('created_at', startOfDay.toISOString());
     }
 
-    const { data } = await query;
+    // 🧪 테스트 번호(900번대)는 테스트 번호끼리만 순위를 매긴다 (lib/test-world.ts)
+    const [{ data }, testIds] = await Promise.all([query, loadTestPlayerIds()]);
+    const viewerIsTest = isTestPlayer(me);
     const best = new Map<string, RankRow>();
     (data || []).forEach((row: any) => {
+      if (!sameWorld(row.player_id, testIds, viewerIsTest)) return;
       const nickname = row.insects?.nickname || '이름없음';
       const existing = best.get(row.player_id);
       if (!existing || row.score > existing.best_score) {
