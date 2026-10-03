@@ -7,7 +7,7 @@ import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
-import { awardBadges, blockedMessage, claimSlot, friendXpMultiplier, hasFriendBuff, playStatus, readGameState, saveBadgeCount } from '@/lib/game-state';
+import { awardBadges, blockedMessage, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
 import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
@@ -236,11 +236,13 @@ export default function BattlePage() {
   }, []);
 
   useEffect(() => {
-    getCurrentPlayer().then((p) => {
+    getCurrentPlayer().then(async (p) => {
       if (!p) {
         router.push('/start');
         return;
       }
+      // 🛟 이 수정 전에 시작해서 판 수가 안 적힌 랭킹 도전이면 battles 기록으로 되살린다 (lib/game-state.ts)
+      p = await repairLadderRun(p);
       setPlayer(p);
       loadMyInsect(p.id);
       // 뱃지는 버프·업적 표시에만 쓰여서, 실패해도 배틀은 그대로 된다.
@@ -349,7 +351,10 @@ export default function BattlePage() {
     if (battle.winner === 'A') playSound('win');
     else if (battle.winner === 'B') playSound('lose');
     if (leveledUp) playSound('levelUp', (at += 1000));
-    const over = practiceRef.current || (ladder ? ladderFinished(ladder) : false);
+    // 연습 게임은 랭킹 도전까지 끝났을 때만 '게임 끝' (10/3 Jin "연습만 하면 게임이 끝나버려" — 연습을 먼저 한 1만원 아이)
+    const over = practiceRef.current
+      ? !!playerRef.current && gameIsOver(playerRef.current)
+      : ladder ? ladderFinished(ladder) : false;
     if (over) {
       playSound('gameOver', at + 1300);
       markGameOver(); // 90초 뒤 자동 로그아웃 (부스 태블릿에 앞 아이가 남지 않게, app/session-guard.tsx)
@@ -366,11 +371,8 @@ export default function BattlePage() {
   useEffect(() => {
     // 랭킹 도전·연습을 막 시작한 순간(ladder·starting)에는 게임을 방금 써서 "남은 게 없어" 보일 수 있으니 건드리지 않는다
     if (phase !== null || starting || ladder || !player || readGameOverAt()) return;
-    const s = playStatus(player);
-    // 연습 1판이 남았어도 랭킹 도전을 못 하면 시계를 켠다 (연습을 시작하면 claimSlot 뒤에 다시 꺼진다)
-    const last = s.state.sessions[s.state.sessions.length - 1];
-    // 이번 게임의 랭킹 도전을 이미 했으면 횟수가 남아도 '이번 게임 끝' (다음 게임은 QR 로 다시 — 10/3 저녁 Jin)
-    if (s.used > 0 && (!s.canLadder || !!last?.ladder)) markGameOver();
+    // 랭킹 도전을 못 하거나 이번 게임의 3판을 다 했으면 '게임 끝'. 판이 남았으면 이어하기라 아님 (lib/game-state.ts gameIsOver)
+    if (gameIsOver(player)) markGameOver();
   }, [phase, player, starting, ladder]);
 
   // 👹 중간보스: 정해둔 판이 끝나고 결과가 뜨면, 조금 뒤에 경고 화면이 **갑자기** 뜬다.
@@ -790,17 +792,21 @@ export default function BattlePage() {
     // 랭킹 도전 중이면 한 칸 올라가거나 제자리에 남습니다.
     // 자유 대결(ladder === null)일 때는 아무 일도 일어나지 않습니다.
     const won = final.winner === 'A';
-    setLadder((prev) => {
-      // 👹 중간보스는 랭킹 도전 판 수에 안 센다
-      if (!prev || bossRef.current) return prev;
+    const prev = ladderRef.current;
+    // 👹 중간보스는 랭킹 도전 판 수에 안 센다
+    if (prev && !bossRef.current) {
       const target = prev.targets[prev.index];
-      return {
+      const next: LadderState = {
         ...prev,
         index: won ? prev.index + 1 : prev.index,
         used: prev.used + 1,
         log: [...prev.log, { rank: target.rank, nickname: target.nickname, won, bot: target.bot }],
       };
-    });
+      ladderRef.current = next;
+      setLadder(next);
+      // 🛟 몇 판까지 했는지 적어둔다 → 중간에 다른 화면으로 나가도 다시 와서 이어서 (lib/game-state.ts)
+      if (player) void saveLadderRun(player.id, next as SavedLadder).then((p) => p && setPlayer(p));
+    }
 
     setPhase('done');
   }
@@ -902,22 +908,45 @@ export default function BattlePage() {
     unlockAudio(BATTLE_SOUNDS);
     // 랭킹 도전 1번 = 1게임. 시작하는 순간 게임 하나를 씁니다 (lib/game-state.ts).
     setError('');
+    practiceRef.current = false;
+    bossRef.current = false;
+
+    // 🛟 판이 남은 랭킹 도전이 있으면 새 게임을 안 쓰고 **이어서** 한다 (10/3 Jin "1판만 하면 게임이 끝나버려")
+    const saved = ladderToResume(player);
+    if (saved) {
+      clearGameOver();
+      // 판 수만 적힌 옛 기록이면 지금 랭킹 3명으로 채운다
+      const targets = (saved.targets.length ? saved.targets : opponents.slice(0, LADDER_SIZE).reverse()) as OpponentSummary[];
+      if (!targets.length) return;
+      const index = Math.max(0, Math.min(saved.index, targets.length - 1));
+      const run: LadderState = {
+        ...saved,
+        targets,
+        index,
+        // 이어서 할 때는 지나간 이벤트를 다시 띄우지 않는다
+        bossDone: saved.bossDone || (saved.bossAfter !== null && saved.used >= saved.bossAfter),
+      };
+      ladderRef.current = run;
+      setLadder(run);
+      startBattle(targets[index]);
+      return;
+    }
+
+    // 상대 3명을 먼저 정하고 시작과 함께 적어둔다 (이어하기용)
+    const targets = opponents.slice(0, LADDER_SIZE).reverse();
+    // 👹 45% 확률로 1판 또는 2판 뒤에 이벤트가 갑자기 나타난다 (lib/bots.ts)
+    const bossAfter = Math.random() < BOSS_CHANCE ? 1 + Math.floor(Math.random() * 2) : null;
+    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false };
     try {
-      setPlayer(await claimSlot(player.id, 'ladder'));
+      setPlayer(await claimSlot(player.id, 'ladder', run as SavedLadder));
       clearGameOver(); // 더 하는 중이니 자동 로그아웃 시계를 멈춘다
     } catch (err: any) {
       setError(err.message || '지금은 랭킹 도전을 할 수 없어.');
       return;
     }
-    practiceRef.current = false;
     gameBadges.current = { keys: [], milestones: [] };
-    // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전하도록 뒤집습니다.
+    // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전 (위에서 뒤집음).
     // 상대가 3명보다 적으면 있는 만큼만 도전합니다. (행사 초반에는 참가자가 몇 명 없습니다.)
-    const targets = opponents.slice(0, LADDER_SIZE).reverse();
-    // 👹 45% 확률로 1판 또는 2판 뒤에 중간보스가 갑자기 나타난다 (lib/bots.ts)
-    const bossAfter = Math.random() < BOSS_CHANCE ? 1 + Math.floor(Math.random() * 2) : null;
-    bossRef.current = false;
-    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false };
     ladderRef.current = run;
     setLadder(run);
     startBattle(targets[0]);
@@ -962,6 +991,7 @@ export default function BattlePage() {
     const next = { ...ladder, bossDone: true };
     ladderRef.current = next;
     setLadder(next);
+    if (player) void saveLadderRun(player.id, next as SavedLadder);
     startBattle({
       id: BOSS_ID,
       player_id: 'bot',
@@ -1401,6 +1431,9 @@ export default function BattlePage() {
   // 도전 순서대로(3위 → 2위 → 1위) 미리 보여줍니다.
   const ladderTargets = opponents.slice(0, LADDER_SIZE).reverse();
   const status = player ? playStatus(player, now) : null;
+  // 🛟 중간에 나갔다 온 랭킹 도전 (남은 판이 있으면 이어서)
+  const resume = ladderToResume(player);
+  const resumeLeft = resume ? LADDER_BATTLES - resume.used : 0;
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
@@ -1480,7 +1513,7 @@ export default function BattlePage() {
         <div>
           <p className="font-bold text-emerald-300">🏆 랭킹 도전</p>
           <p className="mt-1 text-xl font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
-            ⚔️ 이번 게임은 {LADDER_BATTLES}판 할 수 있어!
+            {resume ? `🔁 이어서 하자! 남은 판: ${resumeLeft}판` : `⚔️ 이번 게임은 ${LADDER_BATTLES}판 할 수 있어!`}
           </p>
           <p className="text-xs text-slate-400 mt-1">
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
@@ -1526,7 +1559,9 @@ export default function BattlePage() {
             >
               {starting
                 ? '상대를 데려오는 중...'
-                : `⚔️ ${oppMedal(ladderTargets[0])} ${ladderTargets[0].nickname}부터 도전!`}
+                : resume
+                  ? `⚔️ 랭킹 도전 이어하기! (남은 판 ${resumeLeft}판)`
+                  : `⚔️ ${oppMedal(ladderTargets[0])} ${ladderTargets[0].nickname}부터 도전!`}
             </button>
             {status && !status.canLadder && (
               <p className="text-xs text-amber-300 text-center" style={{ wordBreak: 'keep-all' }}>

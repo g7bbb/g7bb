@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AUTO_SIGNOUT_MS, getCurrentPlayer, hasStoredPlayer, markGameOver, readGameOverAt, signOut } from '@/lib/session';
-import { playStatus } from '@/lib/game-state';
+import { gameIsOver, repairLadderRun } from '@/lib/game-state';
 
 // 🏁 게임이 끝나면 자동 로그아웃 (2026-10-02 Jin: "게임했던 태블릿에 기존 사용자가 계속 떠 있네").
 // 배틀 화면이 게임 끝에 시각을 적어두면(markGameOver), 어느 화면에 있든 90초 뒤 로그아웃하고 첫 화면으로 보낸다.
@@ -31,14 +31,15 @@ export default function SessionGuard() {
     if (skip || pathname.startsWith('/battle')) return;
     let cancelled = false;
     getCurrentPlayer()
-      .then((p) => {
+      .then(async (p) => {
         if (cancelled || !p || readGameOverAt()) return;
-        const s = playStatus(p);
-        // 🔁 10/3 오후: 연습 1판이 남아 있어도 랭킹 도전을 못 하면 '게임 끝' 으로 본다 (연습은 덤이라, 남아 있으면 태블릿에 계속 남아 있었다)
-        // 🔁 10/3 저녁 Jin "개미귀신태하도 로그아웃 안 됐어" (횟수가 남은 아이): **마지막 게임의 랭킹 도전을 이미 시작/끝냈으면**
-        // 횟수가 남아도 '이번 게임 끝' 으로 본다. 다음 게임은 종이 QR 로 다시 들어와서 (다시 온 화면에서 새 게임을 열면 시계가 지워진다).
-        const last = s.state.sessions[s.state.sessions.length - 1];
-        if (s.used > 0 && (!s.canLadder || !!last?.ladder)) markGameOver();
+        // 판 수가 안 적힌 옛 랭킹 도전은 battles 로 되살린 뒤 판단한다 (lib/game-state.ts)
+        p = await repairLadderRun(p);
+        if (cancelled) return;
+        // 🔁 10/3 오후: 연습 1판이 남아 있어도 랭킹 도전을 못 하면 '게임 끝' (연습은 덤)
+        // 🔁 10/3 저녁 Jin "개미귀신태하도 로그아웃 안 됐어": 마지막 게임의 랭킹 도전 3판을 다 했으면 횟수가 남아도 '이번 게임 끝'.
+        // 🔁 10/3 밤 Jin "1만원 아이가 연습·1판만 하면 끝나버려": 연습만 했거나 랭킹 도전 판이 남았으면 아직 아님 → gameIsOver
+        if (gameIsOver(p)) markGameOver();
       })
       .catch(() => undefined);
     return () => {

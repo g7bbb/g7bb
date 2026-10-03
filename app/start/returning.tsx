@@ -9,7 +9,7 @@ import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
 import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
 import { ALLOC_STATS, Alloc, AllocKey, POINTS_PER_LEVELUP, addAlloc, allocPerLabel, allocTotal, applyAlloc, readAlloc } from '@/lib/alloc';
-import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus, waiveCooldown } from '@/lib/game-state';
+import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus, repairLadderRun, waiveCooldown } from '@/lib/game-state';
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { playSound, unlockAudio } from '@/lib/sfx';
@@ -44,6 +44,17 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  // 🛟 판 수가 안 적힌 옛 랭킹 도전이면 battles 로 되살린다 → 판이 남았으면 "배틀하러 가기" 로 이어서 (lib/game-state.ts)
+  useEffect(() => {
+    let cancelled = false;
+    repairLadderRun(initial).then((p) => {
+      if (!cancelled && p !== initial) setPlayer(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initial]);
 
   useEffect(() => {
     let cancelled = false;

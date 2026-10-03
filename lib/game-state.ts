@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Player } from './types';
-import { Tier, TierKey, TIERS, tierForPlayer } from './tiers';
+import { ROUNDS_PER_GAME, Tier, TierKey, TIERS, tierForPlayer } from './tiers';
 import { isTestTicket, normalizeTicket } from './ticket';
 
 // ─────────────────────────────────────────────────────────────
@@ -33,6 +33,41 @@ export interface PlaySession {
   newInsect?: boolean;
   /** 그 새 곤충을 실제로 저장했는지 (한 게임에 곤충 하나) */
   insectMade?: boolean;
+  /**
+   * 🛟 랭킹 도전이 몇 판까지 갔는지 (10/3 Jin "1만원 아이가 1판만 하면 게임이 끝나버려").
+   * 전에는 배틀 화면 안에만 있어서, 중간에 🏆 랭킹 같은 다른 화면으로 나가면 남은 판이 사라지고
+   * '게임 끝' 로그아웃까지 됐다. 이제 판이 끝날 때마다 여기 적고, 다시 오면 **이어서** 한다.
+   * targets 는 배틀 화면의 상대 요약(OpponentSummary). 비어 있으면 그때 랭킹 3명으로 다시 채운다.
+   */
+  ladderRun?: SavedLadder;
+}
+
+export interface SavedLadder {
+  targets: any[];
+  index: number;
+  used: number;
+  log: { rank: number; nickname: string; won: boolean; bot?: boolean }[];
+  bossAfter: number | null;
+  bossDone: boolean;
+  bonus?: boolean;
+}
+
+/** 랭킹 도전 한 게임의 판 수 */
+export const LADDER_ROUNDS = ROUNDS_PER_GAME;
+
+/** 이 게임의 랭킹 도전을 **다 끝냈는지** (시작 안 했으면 false). 옛 기록(판 수가 안 적힌 것)은 끝난 것으로 본다. */
+export function ladderComplete(s: PlaySession | undefined): boolean {
+  if (!s?.ladder) return false;
+  const run = s.ladderRun;
+  if (!run) return true;
+  return run.used >= LADDER_ROUNDS || (run.targets.length > 0 && run.index >= run.targets.length);
+}
+
+/** 이어서 할 랭킹 도전 (시작했는데 아직 판이 남은 것) */
+export function ladderToResume(player: Player | null | undefined): SavedLadder | null {
+  if (!player) return null;
+  const last = readGameState(player).sessions.slice(-1)[0];
+  return last?.ladder && last.ladderRun && !ladderComplete(last) ? last.ladderRun : null;
 }
 
 export interface GameState {
@@ -113,7 +148,8 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
   const waived = !!last && state.waivedAt === last.at;
   const cooldownMs = last && !test && !waived ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
   const canStartNew = left > 0 && cooldownMs === 0;
-  const ladderPending = !!last && !last.ladder;
+  // 랭킹 도전을 시작했어도 판이 남았으면 아직 '할 수 있음' (이어하기)
+  const ladderPending = !!last && (!last.ladder || !ladderComplete(last));
   const practicePending = !!last && !last.practice;
   return {
     tier,
@@ -150,21 +186,84 @@ type Slot = 'ladder' | 'practice';
  * 이미 시작한 게임에 그 칸이 비어 있으면 거기 쓰고, 아니면 새 게임을 엽니다(= 1게임 사용).
  * 할 수 없으면 아이에게 보여줄 문구로 에러를 던집니다.
  */
-export async function claimSlot(playerId: string, slot: Slot): Promise<Player> {
+export async function claimSlot(playerId: string, slot: Slot, run?: SavedLadder): Promise<Player> {
   const player = await freshPlayer(playerId);
   if (!player) throw new Error('참가 정보를 못 찾았어. 종이 QR 을 다시 찍어줘!');
   const status = playStatus(player);
   const sessions = [...status.state.sessions];
   const last = sessions[sessions.length - 1];
+  const extra = slot === 'ladder' && run ? { ladderRun: run } : {};
+
+  // 판이 남은 랭킹 도전이 있으면 새 게임을 열지 않는다 (이어하기)
+  if (slot === 'ladder' && last?.ladder && !ladderComplete(last)) return player;
 
   if (last && !last[slot]) {
-    sessions[sessions.length - 1] = { ...last, [slot]: true };
+    sessions[sessions.length - 1] = { ...last, [slot]: true, ...extra };
   } else if (status.canStartNew) {
-    sessions.push({ at: new Date().toISOString(), [slot]: true });
+    sessions.push({ at: new Date().toISOString(), [slot]: true, ...extra });
   } else {
     throw new Error(blockedMessage(status));
   }
   return saveGameState(player, { ...status.state, sessions });
+}
+
+/** 랭킹 도전 한 판이 끝날 때마다 몇 판까지 갔는지 적는다. 실패해도 배틀은 그대로 간다. */
+export async function saveLadderRun(playerId: string, run: SavedLadder): Promise<Player | null> {
+  try {
+    const player = await freshPlayer(playerId);
+    if (!player) return null;
+    const state = readGameState(player);
+    const sessions = [...state.sessions];
+    const last = sessions[sessions.length - 1];
+    if (!last?.ladder) return null;
+    sessions[sessions.length - 1] = { ...last, ladderRun: run };
+    return await saveGameState(player, { ...state, sessions });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🛟 판 수가 안 적힌 랭킹 도전(10/3 이 수정 전에 시작한 것)을 battles 기록으로 되살린다.
+ * 그 게임을 시작한 뒤 남은 랭킹 배틀 수를 세서, 3판이 안 됐으면 이어서 할 수 있게 적어둔다.
+ * (연습·중간보스는 battles 에 안 남으므로 랭킹 도전 판만 세어진다)
+ * 한 번 적으면 다시 안 센다. 실패하면 그대로 돌려준다.
+ */
+export async function repairLadderRun(player: Player): Promise<Player> {
+  try {
+    const state = readGameState(player);
+    const sessions = [...state.sessions];
+    const last = sessions[sessions.length - 1];
+    if (!last?.ladder || last.ladderRun) return player;
+    const { data, error } = await supabase
+      .from('battles')
+      .select('result')
+      .eq('player_id', player.id)
+      .gte('created_at', last.at)
+      .limit(20);
+    if (error) return player;
+    const rows = data || [];
+    const wins = rows.filter((r: any) => r.result === 'win').length;
+    sessions[sessions.length - 1] = {
+      ...last,
+      ladderRun: { targets: [], index: wins, used: rows.length, log: [], bossAfter: null, bossDone: true },
+    };
+    return await saveGameState(player, { ...state, sessions });
+  } catch {
+    return player;
+  }
+}
+
+/**
+ * 🏁 이번 게임이 끝났는지 (자동 로그아웃 시계를 켤지). 배틀 준비 화면 · session-guard 가 같이 쓴다.
+ * - 랭킹 도전을 지금 못 하면 끝 (연습 1판이 남았어도 — 연습은 덤)
+ * - 마지막 게임의 랭킹 도전 3판을 다 했으면 횟수가 남아도 '이번 게임 끝' (다음 게임은 QR 로 다시, 10/3 저녁 Jin)
+ * - 연습만 했거나 랭킹 도전 판이 남았으면 아직 아님 (10/3 Jin "1만원 아이가 연습·1판만 하면 끝나버려")
+ */
+export function gameIsOver(player: Player, now = Date.now()): boolean {
+  const s = playStatus(player, now);
+  const last = s.state.sessions[s.state.sessions.length - 1];
+  return s.used > 0 && (!s.canLadder || ladderComplete(last));
 }
 
 /**
