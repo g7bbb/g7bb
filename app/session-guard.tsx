@@ -9,7 +9,7 @@ import { gameIsOver, repairLadderRun } from '@/lib/game-state';
 // 배틀 화면이 게임 끝에 시각을 적어두면(markGameOver), 어느 화면에 있든 90초 뒤 로그아웃하고 첫 화면으로 보낸다.
 // 랭킹·뱃지 화면으로 옮겨가도 시계가 이어지게 layout 에 붙여 둔다. 남은 시간은 왼쪽 아래에 보여준다.
 // 직원 화면·종이·QR 화면에서는 아무것도 안 한다.
-const SKIP = ['/admin', '/print', '/qr', '/live'];
+const SKIP = ['/admin', '/print', '/qr', '/live', '/attract'];
 
 // 💤 아무것도 안 누르고 이만큼 지나면 로그아웃 (10/3 Jin: "횟수를 다 안 쓰고 간 사람들은 로그아웃하고, 나중에 QR 로 다시 들어오게")
 // 배틀 한 판·AI 그림 만들기는 1분 안쪽이라 3분이면 넉넉하다. 마지막 30초는 "계속할게" 버튼을 띄운다.

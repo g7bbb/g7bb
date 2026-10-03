@@ -1,5 +1,6 @@
 'use client';
 
+import AttractShow from './attract/attract-show';
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -42,6 +43,9 @@ function SeriesLogo({ v }: { v: (typeof NEXT_SERIES)[number] }) {
   );
 }
 
+/** 📺 첫 화면에서 아무도 안 만지면 홍보 영상을 트는 시간 */
+const ATTRACT_AFTER_MS = 60_000;
+
 function HomeInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -49,6 +53,24 @@ function HomeInner() {
   const [copied, setCopied] = useState(false);
   // 📷 화면 안에서 종이 QR 찍기 (부스 태블릿 카메라가 QR 을 못 읽어서, 10/3 Jin)
   const [scanning, setScanning] = useState(false);
+  // 📺 대기 화면 홍보 영상 (10/3 밤 Jin) — 아무도 로그인 안 했고 1분 동안 아무도 안 만지면 저절로 튼다. 누르면 멈춤.
+  const [attract, setAttract] = useState(false);
+  useEffect(() => {
+    if (player || scanning || attract) return;
+    let last = Date.now();
+    const poke = () => {
+      last = Date.now();
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'input'];
+    events.forEach((e) => window.addEventListener(e, poke, { passive: true, capture: true }));
+    const id = window.setInterval(() => {
+      if (Date.now() - last >= ATTRACT_AFTER_MS) setAttract(true);
+    }, 2000);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, poke, { capture: true } as any));
+      window.clearInterval(id);
+    };
+  }, [player, scanning, attract]);
 
   // 종이 QR이 첫 화면을 향하더라도 번호를 들고 시작 화면으로 넘겨줍니다.
   useEffect(() => {
@@ -75,6 +97,7 @@ function HomeInner() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col justify-center gap-6 px-6 py-10">
+      {attract && <AttractShow onClose={() => setAttract(false)} />}
       <div className="text-center">
         <BrandLogo size={150} />
         <h1 className="mt-4 text-2xl font-bold" style={{ wordBreak: 'keep-all' }}>

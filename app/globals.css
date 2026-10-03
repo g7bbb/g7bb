@@ -505,3 +505,60 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .btn-sparkle, .btn-sparkle::after { animation: none; }
 }
+
+/* 📺 대기 화면 홍보 영상 (app/attract/attract-show.tsx, 10/3 밤 Jin) — 화면 크기는 vmin 으로 (노트북 가로·태블릿 세로 둘 다) */
+.attract-root {
+  background: radial-gradient(circle at 50% 40%, #3b0764 0%, #1e1b4b 45%, #020617 100%);
+  color: #fff;
+}
+.attract-rays {
+  position: absolute; left: 50%; top: 45%; width: 180vmax; height: 180vmax; margin: -90vmax 0 0 -90vmax;
+  border-radius: 9999px;
+  background: repeating-conic-gradient(from 0deg, rgba(253, 224, 71, 0.10) 0deg 8deg, transparent 8deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 60%);
+  mask-image: radial-gradient(circle, #000 0%, transparent 60%);
+  animation: bonus-spin 30s linear infinite;
+  pointer-events: none;
+}
+.attract-gold {
+  background: linear-gradient(100deg, #f59e0b 0%, #fef9c3 30%, #fbbf24 55%, #fffbeb 75%, #f59e0b 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.6));
+  animation: bonus-shine 2.4s linear infinite;
+}
+.attract-tap { animation: btn-glow 1.2s ease-in-out infinite; }
+.attract-zoom { animation: boss-in 0.8s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.attract-card {
+  position: relative; overflow: hidden; border-radius: 1.2vmin;
+  border: 0.6vmin solid #fbbf24; background: #0f172a;
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.35);
+}
+.attract-battle-card { width: min(34vw, 37vh); aspect-ratio: 4 / 5; font-size: min(3vw, 3vh); max-width: 100%; }
+.attract-parade-card { width: min(62vw, 48vh); aspect-ratio: 4 / 5; font-size: min(5vw, 4vh); max-width: 100%; }
+/* 배틀: 가로로 놓인 두 카드 — 크게 들렸다가 상대 카드까지 휙 (배틀 화면의 hs-attack 을 가로로) */
+@keyframes attract-hs {
+  0% { transform: translateX(0) scale(1); animation-timing-function: ease-out; }
+  30% { transform: translateX(calc(var(--hs-dx, 0px) * -0.06)) scale(1.25) rotate(-3deg); animation-timing-function: cubic-bezier(0.7, 0, 1, 1); }
+  45% { transform: translateX(var(--hs-dx, 0px)) scale(1.12); animation-timing-function: ease-out; }
+  58% { transform: translateX(calc(var(--hs-dx, 0px) * 0.88)) scale(1.1); }
+  100% { transform: translateX(0) scale(1); }
+}
+.attract-hs { animation: attract-hs 0.62s both; }
+/* 카드 행진: 오른쪽에서 날아와 가운데서 크게 → 왼쪽으로 슉 */
+@keyframes attract-parade {
+  0% { transform: translate(-50%, -50%) translateX(120vw) scale(0.6) rotate(8deg); opacity: 0; }
+  18% { transform: translate(-50%, -50%) translateX(0) scale(1.15) rotate(0deg); opacity: 1; }
+  70% { transform: translate(-50%, -50%) translateX(0) scale(1.22) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translateX(-120vw) scale(0.7) rotate(-8deg); opacity: 0; }
+}
+.attract-parade {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateX(120vw);
+  animation-name: attract-parade;
+  animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1);
+  animation-fill-mode: both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .attract-rays, .attract-gold, .attract-tap, .attract-hs { animation: none; }
+}
