@@ -18,7 +18,7 @@ import { COLORS, MOODS, describeAppearance } from '@/lib/appearance';
 import { shrinkForStorage } from '@/lib/shrink-image';
 import { shrinkPhotoForUpload, readJsonOrExplain } from '@/lib/shrink-photo';
 import { countInsectsForPlayer } from '@/lib/visit-count';
-import { canMakeNewInsect, linkFriend, markInsectMade, readGameState } from '@/lib/game-state';
+import { adoptFriendLinks, canMakeNewInsect, linkFriend, markInsectMade, readGameState } from '@/lib/game-state';
 import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import InsectCard from '@/app/card/insect-card';
 import {
@@ -111,6 +111,8 @@ export default function UploadPage() {
         return;
       }
       setPlayer(p);
+      // 👫 나를 먼저 친구로 적어둔 형제·친구가 있으면 나도 버프 (10/3 Jin)
+      void adoptFriendLinks(p).then((q) => q !== p && setPlayer(q));
       // 첫 화면에서 곤충 이름을 지어왔으면 채워둡니다. 여기서 바꿔도 됩니다.
       const fromStart = readInsectName();
       if (fromStart) setInsectName((current) => current || fromStart);
@@ -334,7 +336,7 @@ export default function UploadPage() {
             <p className="text-xs text-slate-300 mt-0.5">친구나 가족 번호를 적으면 둘 다 <b className="text-pink-300">경험치 +10%</b>!</p>
             {player && (readGameState(player).friends ?? []).length > 0 ? (
               <p className="mt-2 text-sm font-bold text-emerald-300">
-                ✅ 친구 버프 받는 중! ({(readGameState(player).friends ?? []).join(', ')})
+                ✅ 친구 버프 받는 중! ({(readGameState(player).friends ?? []).map((t) => displayTicket(t)).join(', ')}번)
               </p>
             ) : (
               <div className="mt-2 flex gap-2">
@@ -360,9 +362,14 @@ export default function UploadPage() {
                     }
                     setFriendBusy(true);
                     try {
-                      const { name, me } = await linkFriend(player.id, ticket);
+                      const { name, me, waiting } = await linkFriend(player.id, ticket);
                       setPlayer(me);
-                      setFriendMsg({ ok: true, text: `${name}(${displayTicket(ticket)})랑 친구 버프! 둘 다 경험치 +10%` });
+                      setFriendMsg({
+                        ok: true,
+                        text: waiting
+                          ? `${displayTicket(ticket)}번이랑 친구 버프! 친구가 들어오면 친구도 경험치 +10%`
+                          : `${name}(${displayTicket(ticket)})랑 친구 버프! 둘 다 경험치 +10%`,
+                      });
                     } catch (err: any) {
                       setFriendMsg({ ok: false, text: err?.message || '지금은 안 돼. 조금 있다 다시 해줘!' });
                     } finally {

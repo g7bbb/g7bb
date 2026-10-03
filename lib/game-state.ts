@@ -251,17 +251,17 @@ export function friendXpMultiplier(player: Pick<Player, 'survey'> | null | undef
  * 같이 시작하지 않았어도 된다 (번호만 알고 오면 됨). 돌려주는 값은 친구 이름.
  * 안 되면 아이에게 보여줄 문구로 에러를 던진다.
  */
-export async function linkFriend(playerId: string, friendTicket: string): Promise<{ name: string; me: Player }> {
+export async function linkFriend(playerId: string, friendTicket: string): Promise<{ name: string; me: Player; waiting?: boolean }> {
   const me = await freshPlayer(playerId);
   if (!me) throw new Error('내 번호를 못 찾았어. 처음 화면에서 다시 들어와줘!');
   if (friendTicket === me.ticket_code) throw new Error('그건 내 번호야! 친구나 가족 번호를 적어줘.');
   const { data: friend } = await supabase.from('players').select('*').eq('ticket_code', friendTicket).maybeSingle();
-  if (!friend || isPending(friend as Player)) {
-    throw new Error(`${friendTicket} 번호는 아직 등록이 안 됐어. 친구가 먼저 시작해야 해!`);
-  }
   const add = (list: string[] | undefined, t: string) => Array.from(new Set([...(list ?? []), t])).slice(0, 10);
   const myState = readGameState(me);
   const saved = await saveGameState(me, { ...myState, friends: add(myState.friends, friendTicket) });
+  // 🔁 10/3 Jin: "형제가 동시에 만들 때 친구가 아직 등록 전이라 버프가 안 켜져"
+  // → 친구가 아직 안 들어왔어도 **내 쪽엔 바로 적고**, 친구가 나중에 시작하면 그때 친구 쪽에도 적는다(adoptFriendLinks).
+  if (!friend) return { name: friendTicket, me: saved, waiting: true };
   // 친구 쪽에도 적는다. 실패해도 내 버프는 그대로.
   try {
     const theirState = readGameState(friend as Player);
@@ -269,7 +269,29 @@ export async function linkFriend(playerId: string, friendTicket: string): Promis
   } catch {
     // 친구 쪽 기록은 덤
   }
-  return { name: (friend as Player).display_name || friendTicket, me: saved };
+  return { name: (friend as Player).display_name || friendTicket, me: saved, waiting: isPending(friend as Player) };
+}
+
+/**
+ * 나를 먼저 친구로 적어둔 아이들을 내 친구 목록에도 넣는다 (서로 버프).
+ * 시작 화면에서 등록이 끝났을 때 · 곤충 만들기 화면을 열 때 부른다. 실패해도 조용히 넘어간다.
+ */
+export async function adoptFriendLinks(player: Player): Promise<Player> {
+  try {
+    if (!player.ticket_code) return player;
+    const { data } = await supabase
+      .from('players')
+      .select('ticket_code')
+      .contains('survey', { game: { friends: [player.ticket_code] } })
+      .limit(20);
+    const theirs = (data || []).map((r: any) => r.ticket_code).filter((t: string) => t && t !== player.ticket_code);
+    const state = readGameState(player);
+    const missing = theirs.filter((t: string) => !(state.friends ?? []).includes(t));
+    if (!missing.length) return player;
+    return await saveGameState(player, { ...state, friends: Array.from(new Set([...(state.friends ?? []), ...missing])).slice(0, 10) });
+  } catch {
+    return player;
+  }
 }
 
 export function formatCountdown(ms: number): string {

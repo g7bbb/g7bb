@@ -1315,6 +1315,21 @@ export default function BattlePage() {
               </div>
             )}
 
+            {/* 🎯 랭킹 도전 3판이 끝나면 연습 1판을 눈에 띄게 (10/3 Jin: "3만원 이상도 연습 1판, 자기가 고르는 곤충이랑")
+                연습은 모든 참가권에 게임마다 1판씩 있다. 전에는 준비 화면 아래 접힌 글자라 다들 몰랐다. */}
+            {ladder && ladderFinished(ladder) && !bossDue && player && playStatus(player, now).canPractice && (
+              <button
+                onClick={() => {
+                  backToSetup();
+                  setShowPicker(true);
+                  window.setTimeout(() => document.getElementById('practice-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+                }}
+                className="bg-pink-400 text-slate-900 font-black py-3.5 rounded-xl"
+                style={{ wordBreak: 'keep-all' }}
+              >
+                🎯 연습 1판 더! 내가 고른 곤충이랑 (점수는 안 남아)
+              </button>
+            )}
             <div className="flex gap-2">
               {bossDue ? (
                 <button
@@ -1529,10 +1544,10 @@ export default function BattlePage() {
           onClick={() => setShowPicker(true)}
           className="text-sm text-slate-300 underline self-center"
         >
-          🎯 랭커와 연습 게임 (게임당 1판)
+          🎯 내가 고른 곤충이랑 연습 1판 (게임마다 1판)
         </button>
       ) : (
-      <div>
+      <div id="practice-picker">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm text-slate-400">누구랑 연습할까? (랭킹 순 · 기록 안 남음)</p>
           <button

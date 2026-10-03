@@ -14,7 +14,7 @@ import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import Returning from './returning';
 import QrScanner from './qr-scanner';
-import { isPending } from '@/lib/game-state';
+import { adoptFriendLinks, isPending } from '@/lib/game-state';
 import { tierForPlayer } from '@/lib/tiers';
 import {
   COLLECTING_OPTIONS,
@@ -250,6 +250,8 @@ function friendlyError(message?: string): string {
     }
 
     rememberPlayer(data.id);
+    // 👫 나를 먼저 친구로 적어둔 형제·친구가 있으면 나도 버프 (기다리지 않음)
+    void adoptFriendLinks(data as Player);
 
     // 구글 시트 기록은 실패해도 체험을 막지 않도록 결과를 기다리지 않습니다.
     logToSheet({
