@@ -90,7 +90,21 @@ export interface SideRoll {
   bonus: boolean;
   /** 공격형 필살기 위력 배수 (뱃지 20개 버프). 없으면 1 */
   specialBoost?: number;
+  /**
+   * 🛡️ 이번 배틀에서 수비 기술이 **실패**했는지 (10/3 밤 Jin: "수비 기술 성공 확률이 너무 높아, 반으로").
+   * 실패하면 수비 필살기(기본기·바위처럼!!·한 번 더)가 아무것도 못 막고 되받아치기도 없다. 없으면 성공.
+   */
+  guardFail?: boolean;
 }
+
+/** 수비 기술이 성공할 확률 (10/3 밤 Jin: 100% → 50%) */
+export const GUARD_SUCCESS = 0.5;
+/**
+ * 수비형 곤충(나비·기타 곤충)의 기본 힘 보정. 수비 성공이 반으로 줄면 수비형 승률이 50% → 37% 로 떨어져서 맞췄다.
+ * (막는 힘을 키우는 쪽은 운이 커져서 '전부5 vs 전부1' 이 56% → 51% 로 떨어짐 → 기본 힘으로 보정, 55.5% 유지)
+ * 시뮬레이션: 종류별 48~51%. 고치면 tools/sim/balance.ts · levels.ts 다시 돌릴 것.
+ */
+export const DEF_TYPE_POWER = 1.2;
 
 function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRoll {
   const perks = me.perks;
@@ -102,6 +116,7 @@ function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRo
   const crit = random() < critChance(me.level, foe.level);
   const dodged = random() < dodgeChance(me.stats);
   const bonus = random() < bonusSpecialChance(me.level);
+  const guardFail = random() >= GUARD_SUCCESS;
   return {
     base: power(effective) * luck * (crit ? 1.5 : 1) * (edge === 1 ? 1 + MATCHUP_BONUS : 1),
     crit,
@@ -110,6 +125,7 @@ function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRo
     matchup: edge,
     bonus,
     specialBoost: perks?.special ?? 1,
+    guardFail,
   };
 }
 
@@ -180,12 +196,22 @@ export function resolveBattle(
    * 필살기를 통째로 피하는 회피력이 지나치게 세졌다 (전부5 vs 전부1 승률 58.9% → 45.3%,
    * 부위 점수가 낮을수록 이기는 거꾸로 된 게임). 시뮬레이션으로 잡았다.
    */
-  extra: { a?: SpecialMoveKey | null; b?: SpecialMoveKey | null; reflectA?: boolean } = {}
+  extra: {
+    a?: SpecialMoveKey | null;
+    b?: SpecialMoveKey | null;
+    reflectA?: boolean;
+    /** 수비형 곤충인지 (버튼을 못 눌러 기술 목록이 비어도 보정은 받게 화면이 직접 알려준다) */
+    defTypeA?: boolean;
+    defTypeB?: boolean;
+  } = {}
 ): BattleResult {
-  const moveA = combineMoves(specialsA, rollA.crit, random, rollA.specialBoost ?? 1);
-  const moveB = combineMoves(specialsB, rollB.crit, random, rollB.specialBoost ?? 1);
-  const bonusA = combineMoves(extra.a ? [extra.a] : [], false, random, rollA.specialBoost ?? 1);
-  const bonusB = combineMoves(extra.b ? [extra.b] : [], false, random, rollB.specialBoost ?? 1);
+  // 🛡️ 수비 기술이 실패한 쪽은 수비형 기술을 뺀다 (공격형은 그대로)
+  const guardOk = (keys: SpecialMoveKey[], roll: SideRoll) =>
+    roll.guardFail ? keys.filter((k) => SPECIAL_MOVES[k]?.kind !== 'defense') : keys;
+  const moveA = combineMoves(guardOk(specialsA, rollA), rollA.crit, random, rollA.specialBoost ?? 1);
+  const moveB = combineMoves(guardOk(specialsB, rollB), rollB.crit, random, rollB.specialBoost ?? 1);
+  const bonusA = combineMoves(guardOk(extra.a ? [extra.a] : [], rollA), false, random, rollA.specialBoost ?? 1);
+  const bonusB = combineMoves(guardOk(extra.b ? [extra.b] : [], rollB), false, random, rollB.specialBoost ?? 1);
 
   // 상대의 공격은 내 수비만큼 무뎌집니다.
   //   내가 받는 실제 깎임 = 상대 공격률 × (1 − 내 수비율)
@@ -230,8 +256,12 @@ export function resolveBattle(
 
   // 타이밍 보너스는 기술과 무관하게 **내 점수에만** 곱합니다.
   // 기술 효과 자체를 키우면 수비형만 유독 세지는 등 밸런스가 틀어집니다.
-  const scoreA = rollA.base * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1);
-  const scoreB = rollB.base * (1 - takenByB);
+  // 🛡️ 수비형 곤충(나비·기타) 기본 힘 보정 — 수비 성공이 반으로 줄어든 만큼 (10/3 밤, 시뮬레이션으로 맞춤)
+  const defType = (keys: SpecialMoveKey[]) => keys.some((k) => SPECIAL_MOVES[k]?.kind === 'defense' && k !== 'commonDefense');
+  const kA = extra.defTypeA ?? (defType(specialsA) || (!!extra.a && defType([extra.a]))) ? DEF_TYPE_POWER : 1;
+  const kB = extra.defTypeB ?? (defType(specialsB) || (!!extra.b && defType([extra.b]))) ? DEF_TYPE_POWER : 1;
+  const scoreA = rollA.base * kA * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1);
+  const scoreB = rollB.base * kB * (1 - takenByB);
 
   const a: BattleSideResult = {
     score: Math.round(scoreA),

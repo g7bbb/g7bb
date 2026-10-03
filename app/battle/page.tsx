@@ -765,14 +765,19 @@ export default function BattlePage() {
       let guard = 1;
       if (!foeGuardShown && foeGuards.length) {
         foeGuardShown = true;
-        for (const g of foeGuards) await playSpecial('B', g.move, false, '🛡️ 상대가 막았다!');
-        // 🔄 수비형 상대가 막고 되받아치려는 순간에도 되받아치기 찬스 (성공하면 안 막힌 셈)
-        guard = (await tryCounter(foeGuards[0].move)) ? 1 : 0.5;
+        if (rolls.b.guardFail) {
+          // 🛡️ 수비 기술은 50% 만 성공 (10/3 밤 Jin) — 실패하면 그대로 맞는다
+          for (const g of foeGuards) await playSpecial('B', g.move, false, '😵 상대가 막기 실패!');
+        } else {
+          for (const g of foeGuards) await playSpecial('B', g.move, false, '🛡️ 상대가 막았다!');
+          // 🔄 수비형 상대가 막고 되받아치려는 순간에도 되받아치기 찬스 (성공하면 안 막힌 셈)
+          guard = (await tryCounter(foeGuards[0].move)) ? 1 : 0.5;
+        }
       }
       await hit('A', hitSize(rolls.a.crit && !bonus) * guard, rolls.a.crit && !bonus);
     }
     // 내가 공격을 못 했어도 상대 수비형은 되받아치기를 한다 (계산에도 들어가 있음)
-    if (!foeGuardShown && foeGuards.length) {
+    if (!foeGuardShown && foeGuards.length && !rolls.b.guardFail) {
       foeGuardShown = true;
       for (const g of foeGuards) await playSpecial('B', g.move, false, '💥 상대가 되받아쳤다!');
       if (!(await tryCounter(foeGuards[0].move))) await hit('B', 12, false);
@@ -803,6 +808,11 @@ export default function BattlePage() {
         if (!tier) continue;
         if (g.bonus) extraA = g.move.key;
         else usedKeys.push(g.move.key);
+        if (rolls.a.guardFail) {
+          // 🛡️ 수비 기술은 50% 만 성공 (10/3 밤 Jin)
+          await playSpecial('A', g.move, false, '😵 막기 실패…');
+          continue;
+        }
         await playSpecial('A', g.move, false, '🛡️ 막았다! 되받아치기!');
         guard *= 0.5;
       }
@@ -821,7 +831,14 @@ export default function BattlePage() {
       foeMoves.map((m) => m.key),
       (bestTier as TimingTier | null)?.scoreMultiplier ?? 1,
       undefined,
-      { a: extraA, b: extraB, reflectA: reflected }
+      {
+        a: extraA,
+        b: extraB,
+        reflectA: reflected,
+        // 수비형 곤충 기본 힘 보정은 버튼을 못 눌러도 받는다 (lib/battle-engine.ts DEF_TYPE_POWER)
+        defTypeA: myBase.kind === 'defense',
+        defTypeB: foeBase.kind === 'defense',
+      }
     );
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
