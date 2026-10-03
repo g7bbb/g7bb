@@ -91,6 +91,8 @@ const PROBE_DAMAGE_B = 8;
 // "몇 위까지 올라갔나"라는 목표가 생겨서 무한정 붙는 것보다 이야깃거리가 됩니다.
 const LADDER_SIZE = 3;
 const LADDER_BATTLES = 3;
+/** 연습 상대 목록 한 쪽에 몇 명 */
+const PRACTICE_PAGE = 10;
 
 /** 상대 고르기 목록에 쓰는 가벼운 정보. 이미지(base64)는 무거워서 여기선 안 받아옵니다. */
 interface OpponentSummary {
@@ -180,7 +182,8 @@ export default function BattlePage() {
   const [myBestRank, setMyBestRank] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [visibleCount, setVisibleCount] = useState(20);
+  // 연습 상대 목록은 10명씩 쪽으로 나눈다 (10/3 밤 Jin: "시작 버튼이 맨 아래라 누르기 힘들어. 10위까지 보여주고 나머진 2·3페이지")
+  const [listPage, setListPage] = useState(0);
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
@@ -1753,7 +1756,9 @@ export default function BattlePage() {
             onClick={() => {
               const pool = filtered.length > 0 ? filtered : opponents;
               if (pool.length === 0) return;
-              setPickedId(pool[Math.floor(Math.random() * pool.length)].id);
+              const idx = Math.floor(Math.random() * pool.length);
+              setPickedId(pool[idx].id);
+              if (pool === filtered) setListPage(Math.floor(idx / PRACTICE_PAGE)); // 고른 상대가 있는 쪽으로
             }}
             className="text-xs bg-slate-800 px-3 py-1.5 rounded-full font-semibold"
           >
@@ -1766,7 +1771,7 @@ export default function BattlePage() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setVisibleCount(20);
+            setListPage(0);
           }}
           placeholder="친구 이름으로 찾기"
           className="w-full bg-slate-800 rounded-xl px-4 py-3 text-sm mb-2"
@@ -1783,7 +1788,7 @@ export default function BattlePage() {
         ) : (
           <>
             <ol className="flex flex-col gap-2">
-              {filtered.slice(0, visibleCount).map((o, i) => {
+              {filtered.slice(listPage * PRACTICE_PAGE, (listPage + 1) * PRACTICE_PAGE).map((o, i) => {
                 const move = baseMoveFor(o.species);
                 return (
                   <li key={o.id}>
@@ -1814,21 +1819,34 @@ export default function BattlePage() {
               })}
             </ol>
 
-            {filtered.length > visibleCount && (
-              <button
-                onClick={() => setVisibleCount((v) => v + 20)}
-                className="w-full mt-2 bg-slate-800 py-3 rounded-xl text-sm font-semibold"
-              >
-                더 보기 ({filtered.length - visibleCount}명 더)
-              </button>
+            {filtered.length > PRACTICE_PAGE && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                {Array.from({ length: Math.ceil(filtered.length / PRACTICE_PAGE) }, (_, n) => (
+                  <button
+                    key={n}
+                    onClick={() => setListPage(n)}
+                    className={`min-w-[2.75rem] rounded-xl px-3 py-2 text-sm font-black ${
+                      listPage === n ? 'bg-sky-500 text-slate-900' : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {n + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filtered.length > PRACTICE_PAGE && (
+              <p className="mt-1 text-center text-xs text-slate-500">
+                {listPage * PRACTICE_PAGE + 1}~{Math.min(filtered.length, (listPage + 1) * PRACTICE_PAGE)}위 · 숫자를 누르면 다음 쪽
+              </p>
             )}
           </>
         )}
 
+        {/* 고르면 시작 버튼이 화면 아래에 붙어 있어 바로 누를 수 있다 */}
         <button
           onClick={() => picked && startPractice(picked)}
           disabled={!picked || starting || !status?.canPractice}
-          className="w-full mt-3 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          className="sticky bottom-3 z-10 w-[calc(100%-3.75rem)] mt-3 bg-sky-500 hover:bg-sky-400 disabled:bg-slate-700 disabled:text-slate-400 text-slate-900 font-bold py-4 rounded-2xl text-lg shadow-[0_-6px_20px_rgba(2,6,23,0.9)]"
         >
           {starting
             ? '상대를 데려오는 중...'

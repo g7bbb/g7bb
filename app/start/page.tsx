@@ -1,5 +1,6 @@
 'use client';
 
+import { clearDraft, readDraft, saveDraft } from '@/lib/draft';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -58,6 +59,30 @@ function StartInner() {
   const [manual, setManual] = useState(false);
   // 📷 앱 안에서 QR 찍기 (qr-scanner.tsx)
   const [scanning, setScanning] = useState(false);
+
+  // 📝 임시 저장 (lib/draft.ts, 10/3 밤 Jin "중간에 꺼지면 다 날아가") — 번호·비밀번호가 맞은 뒤부터 이 번호 이름으로
+  const draftKey = pinOk ? `start:${normalizeTicket(ticket) ?? ''}` : '';
+  const [draftLoaded, setDraftLoaded] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
+  useEffect(() => {
+    if (!draftKey || draftLoaded === draftKey) return;
+    const d = readDraft<Record<string, string>>(draftKey);
+    if (d) {
+      if (d.nickname) setNickname(d.nickname);
+      if (d.insectName) setInsectName(d.insectName);
+      if (d.favorite) setFavorite(d.favorite);
+      if (d.favoriteOther) setFavoriteOther(d.favoriteOther);
+      if (d.prize) setPrize(d.prize);
+      if (d.collecting) setCollecting(d.collecting);
+      if (d.game) setGame(d.game);
+      if (Object.values(d).some(Boolean)) setDraftRestored(true);
+    }
+    setDraftLoaded(draftKey);
+  }, [draftKey, draftLoaded]);
+  useEffect(() => {
+    if (!draftKey || draftLoaded !== draftKey) return;
+    saveDraft(draftKey, { nickname, insectName, favorite, favoriteOther, prize, collecting, game });
+  }, [draftKey, draftLoaded, nickname, insectName, favorite, favoriteOther, prize, collecting, game]);
 
   /** 번호+비밀번호가 맞은 뒤에만: 이미 온 아이인지 · 직원이 금액을 올려둔 자리인지 본다 */
   function lookup(code: string) {
@@ -265,6 +290,7 @@ function friendlyError(message?: string): string {
       참여시각: new Date().toLocaleString('ko-KR'),
     });
 
+    if (draftKey) clearDraft(draftKey); // 📝 다 냈으니 임시 저장도 지운다
     playSound('next'); // 설정을 마치고 다음 장으로 (Jin 효과음)
     router.push('/upload');
   }
@@ -279,6 +305,11 @@ function friendlyError(message?: string): string {
   return (
     <main className="max-w-md mx-auto min-h-screen px-6 py-8 flex flex-col gap-7">
       {scanning && <QrScanner onClose={() => setScanning(false)} />}
+      {draftRestored && (
+        <p className="rounded-2xl bg-emerald-500 text-slate-900 font-black px-4 py-3 text-center animate-pop" style={{ wordBreak: 'keep-all' }}>
+          📝 아까 쓰던 거 불러왔어! 이어서 하면 돼
+        </p>
+      )}
       {checking && (
         <p className="text-center text-xs text-slate-500">번호를 확인하는 중...</p>
       )}

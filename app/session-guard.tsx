@@ -14,6 +14,8 @@ const SKIP = ['/admin', '/print', '/qr', '/live'];
 // 💤 아무것도 안 누르고 이만큼 지나면 로그아웃 (10/3 Jin: "횟수를 다 안 쓰고 간 사람들은 로그아웃하고, 나중에 QR 로 다시 들어오게")
 // 배틀 한 판·AI 그림 만들기는 1분 안쪽이라 3분이면 넉넉하다. 마지막 30초는 "계속할게" 버튼을 띄운다.
 const IDLE_MS = 3 * 60_000;
+// ✏️ 글을 쓰고 고르는 화면(/start·/upload)은 생각하는 시간이 길어서 넉넉히 (10/3 밤 Jin "글 쓰다가 다 날아감")
+const IDLE_MS_WRITING = 8 * 60_000;
 const IDLE_WARN_MS = 30_000;
 
 export default function SessionGuard() {
@@ -80,14 +82,16 @@ export default function SessionGuard() {
     const poke = () => {
       lastActive.current = Date.now();
     };
-    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+    // 'input': 한글 자판(폰·태블릿)은 글자를 쳐도 keydown 이 안 올 때가 있다
+    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'input'];
+    const idleMs = pathname.startsWith('/start') || pathname.startsWith('/upload') ? IDLE_MS_WRITING : IDLE_MS;
     events.forEach((e) => window.addEventListener(e, poke, { passive: true, capture: true }));
     const id = window.setInterval(() => {
       if (!hasStoredPlayer() || readGameOverAt()) {
         setIdleLeft(null);
         return;
       }
-      const remain = lastActive.current + IDLE_MS - Date.now();
+      const remain = lastActive.current + idleMs - Date.now();
       if (remain <= 0) {
         signOut();
         setIdleLeft(null);

@@ -3,6 +3,7 @@
 import { readTicketPin } from '@/lib/ticket-pin-client';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import LookTips, { LOOK_MAX } from './look-tips';
+import { clearDraft, readDraft, saveDraft } from '@/lib/draft';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
@@ -49,6 +50,21 @@ const MAX_ATTEMPTS = 3;
 interface Attempt {
   image: string;
   mime: string;
+}
+
+/** 📝 임시 저장하는 칸들 (lib/draft.ts) */
+interface UploadDraft {
+  species: string;
+  mutations: ReturnType<typeof defaultMutations>;
+  customSpecies: string;
+  customLook: string;
+  origin: EnvironmentKey;
+  ageStage: AgeStageKey;
+  bodyParts: ReturnType<typeof defaultBodyParts>;
+  insectName: string;
+  color: string;
+  mood: string;
+  friendInput: string;
 }
 
 export default function UploadPage() {
@@ -107,6 +123,9 @@ export default function UploadPage() {
   // 이번 게임에서 곤충을 더 만들 수 없는 경우 (이미 만들었음)
   const [blocked, setBlocked] = useState(false);
   const [showHowTo, setShowHowTo] = useState(true);
+  // 📝 임시 저장 (lib/draft.ts) — 불러오기가 끝나기 전에는 저장하지 않는다 (빈 값으로 덮어쓰지 않게)
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
     getCurrentPlayer().then((p) => {
@@ -115,6 +134,32 @@ export default function UploadPage() {
         return;
       }
       setPlayer(p);
+      // 📝 아까 쓰던 게 있으면 채운다 (탭이 꺼졌다 다시 열린 경우)
+      const d = readDraft<UploadDraft>(`upload:${p.ticket_code}`);
+      if (d) {
+        if (typeof d.species === 'string') setSpecies(d.species);
+        if (d.mutations) setMutations(d.mutations);
+        if (typeof d.customSpecies === 'string') setCustomSpecies(d.customSpecies);
+        if (typeof d.customLook === 'string') setCustomLook(d.customLook);
+        if (d.origin) setOrigin(d.origin);
+        if (d.ageStage) setAgeStage(d.ageStage);
+        if (d.bodyParts) setBodyParts(d.bodyParts);
+        if (typeof d.insectName === 'string') setInsectName(d.insectName);
+        if (typeof d.color === 'string') setColor(d.color);
+        if (typeof d.mood === 'string') setMood(d.mood);
+        if (typeof d.friendInput === 'string') setFriendInput(d.friendInput);
+        lookTipsShown.current = true;
+        setShowHowTo(false);
+        setDraftRestored(true);
+      }
+      // 이미 만든 AI 그림도 (그림 만들기는 돈·시간이 들어서 날아가면 제일 아깝다)
+      const imgs = readDraft<{ attempts: Attempt[]; picked: number }>(`upload-img:${p.ticket_code}`);
+      if (imgs?.attempts?.length) {
+        setAttempts(imgs.attempts);
+        setPicked(Math.min(imgs.picked ?? 0, imgs.attempts.length - 1));
+        setDraftRestored(true);
+      }
+      setDraftReady(true);
       // 👫 나를 먼저 친구로 적어둔 형제·친구가 있으면 나도 버프 (10/3 Jin)
       void adoptFriendLinks(p).then((q) => q !== p && setPlayer(q));
       // 첫 화면에서 곤충 이름을 지어왔으면 채워둡니다. 여기서 바꿔도 됩니다.
@@ -130,6 +175,26 @@ export default function UploadPage() {
       });
     });
   }, [router]);
+
+  // 📝 고칠 때마다 임시 저장
+  useEffect(() => {
+    if (!draftReady || !player) return;
+    const draft: UploadDraft = {
+      species, mutations, customSpecies, customLook, origin, ageStage, bodyParts, insectName, color, mood, friendInput,
+    };
+    saveDraft(`upload:${player.ticket_code}`, draft);
+  }, [draftReady, player, species, mutations, customSpecies, customLook, origin, ageStage, bodyParts, insectName, color, mood, friendInput]);
+  useEffect(() => {
+    if (!draftReady || !player || !attempts.length) return;
+    // 그림 3장이면 1.5MB 남짓 — 저장 공간이 모자라면 조용히 건너뛴다
+    saveDraft(`upload-img:${player.ticket_code}`, { attempts, picked });
+  }, [draftReady, player, attempts, picked]);
+  // 불러왔다는 안내는 잠깐만
+  useEffect(() => {
+    if (!draftRestored) return;
+    const id = window.setTimeout(() => setDraftRestored(false), 6000);
+    return () => window.clearTimeout(id);
+  }, [draftRestored]);
 
   const stats = calculateStats(bodyParts, ageStage, mutations, species, origin);
   // 🕸️ 밸런스 도형의 "보통 곤충" 점선 — 전부 3점 · 1년충 · 진화 없음 · 상성 없는 운석충돌 (같은 종류)
@@ -257,6 +322,9 @@ export default function UploadPage() {
       if (insertError) throw insertError;
       // 다음 곤충에 같은 이름이 또 채워지지 않게 비웁니다.
       rememberInsectName('');
+      // 📝 다 만들었으니 임시 저장도 지운다
+      clearDraft(`upload:${player.ticket_code}`);
+      clearDraft(`upload-img:${player.ticket_code}`);
       // 이번 게임의 곤충은 만들었다고 적어둡니다 (한 게임에 곤충 하나).
       await markInsectMade(player.id).catch(() => {});
       // 저장 직후에는 배틀보다 **카드**를 먼저 보여줍니다.
@@ -292,6 +360,11 @@ export default function UploadPage() {
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-6 px-6 py-10">
       {showHowTo && <HowTo onClose={() => setShowHowTo(false)} />}
+      {draftRestored && (
+        <div className="fixed top-3 inset-x-3 z-[70] mx-auto max-w-md rounded-2xl bg-emerald-500 text-slate-900 font-black px-4 py-3 text-center shadow-xl animate-pop" style={{ wordBreak: 'keep-all' }}>
+          📝 아까 쓰던 거 불러왔어! 이어서 하면 돼
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 만들기</h1>
