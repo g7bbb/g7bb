@@ -1,7 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
@@ -460,7 +460,7 @@ export default function BattlePage() {
     const target = attacker === 'A' ? 'B' : 'A';
 
     setAttackSide(attacker);
-    await pause(170);
+    await pause(280); // 들렸다가 날아가 부딪히는 순간 (animate-hs-attack 의 45%)
     playSound(hitSoundRef.current[attacker]); // 🥊 때리는 쪽 곤충 종류의 일반 공격 소리 (10/2 Jin)
 
     setHitSide(target);
@@ -483,7 +483,7 @@ export default function BattlePage() {
   async function whiff(attacker: 'A' | 'B') {
     const target = attacker === 'A' ? 'B' : 'A';
     setAttackSide(attacker);
-    await pause(170);
+    await pause(280);
     setImpact({ id: nextFxId(), side: target, amount: 0, crit: false, miss: true });
     await pause(430);
     setAttackSide(null);
@@ -879,7 +879,7 @@ export default function BattlePage() {
 
     setPhase('final');
     setAttackSide(winner);
-    await pause(200);
+    await pause(280); // 하스스톤식으로 날아가 부딪히는 순간
     if (winner === 'A' || winner === 'B') playSound(hitSoundRef.current[winner]);
     setHitSide(loser);
     setImpact({
@@ -1443,6 +1443,16 @@ export default function BattlePage() {
                   ? '💀 내 곤충이 버티지 못했어…'
                   : '🤝 무승부'}
             </p>
+            {/* ⚔️ 연습이 끝났는데 랭킹 도전이 남았으면 반짝이는 큰 버튼 (10/3 밤 Jin: "본게임으로 가는 버튼을 찾기 힘들어") */}
+            {practiceRef.current && !ladder && player && playStatus(player, now).canLadder && opponents.length > 0 && (
+              <button
+                onClick={startLadder}
+                disabled={starting}
+                className="btn-sparkle relative overflow-hidden rounded-2xl py-5 text-2xl font-black text-slate-900 disabled:opacity-60"
+              >
+                ⚔️ 이제 진짜 배틀시작 !
+              </button>
+            )}
             {practiceRef.current ? (
               <p className="text-sm text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임이라 점수·경험치는 안 남아. 실력만 쑥쑥!</p>
             ) : (
@@ -1911,8 +1921,22 @@ function Fighter({
   barColor,
   crit,
 }: FighterProps) {
-  // 내 곤충(위쪽)은 아래로, 상대(아래쪽)는 위로 달려들어야 서로 부딪히는 느낌이 납니다.
-  const lunge = side === 'A' ? 'animate-lunge-down' : 'animate-lunge-up';
+  // 🃏 하스스톤처럼 (10/3 밤 Jin): 때리는 카드가 크게 들렸다가 **상대 카드까지** 휙 날아가 부딪히고 돌아온다.
+  // 거리는 화면마다 달라서(폰·태블릿) 공격하는 순간 두 카드 사이를 재서 CSS 변수로 넘긴다.
+  const lunge = 'animate-hs-attack';
+  const cardRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!attacking || !el) return;
+    const other = document.querySelector<HTMLElement>(`[data-fighter="${side === 'A' ? 'B' : 'A'}"]`);
+    if (!other) return;
+    const a = el.getBoundingClientRect();
+    const b = other.getBoundingClientRect();
+    // 상대 카드 가운데까지의 70% — 반쯤 겹치게 부딪힌다
+    const dist = (b.top + b.height / 2 - (a.top + a.height / 2)) * 0.7;
+    el.style.setProperty('--hs-dist', `${Math.round(dist)}px`);
+    el.style.setProperty('--hs-back', `${dist > 0 ? -14 : 14}px`);
+  }, [attacking, side]);
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -1920,18 +1944,20 @@ function Fighter({
         {/* 카드와 같은 등급 테두리를 둘러, 금색·홀로그램 곤충이 배틀에서도 티가 납니다.
             ⚠️ 움직임(공격·피격)은 **테두리째** 걸어야 합니다. 그림에만 걸면 곤충만 액자 밖으로
             튀어나가 보입니다. 그래서 애니메이션 클래스를 테두리 쪽에 둡니다. */}
-        <TierFrame
-          visit={visit}
-          width={3}
-          className={`h-[32vh] aspect-[4/5] mx-auto ${
+        <div
+          ref={cardRef}
+          data-fighter={side}
+          className={`relative ${attacking ? 'z-40' : 'z-0'} ${
             hit ? 'animate-hit-flash' : attacking ? lunge : powered ? `animate-power-up ${powerColor}` : ''
           }`}
         >
+        <TierFrame visit={visit} width={3} className="h-[32vh] aspect-[4/5] mx-auto">
           {/* 🃏 카드 모양으로 통일 (10/2 Jin: "모든 곤충을 배틀 때 카드 형식으로").
               전에는 그림을 넓은 칸에 맞춰 줄여서(contain) 양옆에 검은 띠가 생기고 곤충마다 크기가 달랐다.
               이제 카드와 같은 4:5 칸을 꽉 채우고(cover), 카드처럼 LV·출신지·이름을 얹는다. */}
           <FighterCardFace insect={insect} visit={visit} label={label} />
         </TierFrame>
+        </div>
 
         {/* 💨 피했다 — 달려든 쪽은 움직이고, 맞는 쪽엔 MISS 만 뜬다 */}
         {impact?.miss && (
