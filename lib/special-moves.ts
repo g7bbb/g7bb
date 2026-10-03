@@ -282,6 +282,19 @@ export const TIMING_TIERS: TimingTier[] = [
   },
 ];
 
+// ── 🔄 되받아치기 (2026-10-03 밤 Jin: "상대 공격·필살기 때 30% 확률로, 내 필살기 고리보다 2.5~3배 빠르게.
+//    퍼펙트면 그 기술 그대로 되받아치기, 피해 그대로") ─────────────────────────
+// 배틀마다 한 번 굴려서 COUNTER_CHANCE 면, 상대가 처음 공격할 때 **빨간 고리**가 뜬다.
+// 고리는 COUNTER_SPEED 배 빠르고(4초 → 1.6초) 퍼펙트 칸도 같은 비율로 좁다(±250 → ±100ms). **퍼펙트만** 성공.
+// 성공하면 그 공격을 안 맞고 그대로 상대가 맞는다 (resolveBattle 의 reflectA).
+export const COUNTER_CHANCE = 0.3;
+export const COUNTER_SPEED = 2.5;
+
+/** 되받아치기 고리에서 퍼펙트인지 */
+export function judgeCounter(elapsedMs: number): boolean {
+  return Math.abs(elapsedMs - PERFECT_AT_MS / COUNTER_SPEED) <= TIMING_TIERS[0].withinMs / COUNTER_SPEED;
+}
+
 /** 버튼이 뜬 뒤 몇 ms에 눌렀는지로 등급을 매깁니다. */
 export function judgeTiming(elapsedMs: number): TimingTier {
   const off = Math.abs(elapsedMs - PERFECT_AT_MS);

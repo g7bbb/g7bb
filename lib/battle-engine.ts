@@ -180,7 +180,7 @@ export function resolveBattle(
    * 필살기를 통째로 피하는 회피력이 지나치게 세졌다 (전부5 vs 전부1 승률 58.9% → 45.3%,
    * 부위 점수가 낮을수록 이기는 거꾸로 된 게임). 시뮬레이션으로 잡았다.
    */
-  extra: { a?: SpecialMoveKey | null; b?: SpecialMoveKey | null } = {}
+  extra: { a?: SpecialMoveKey | null; b?: SpecialMoveKey | null; reflectA?: boolean } = {}
 ): BattleResult {
   const moveA = combineMoves(specialsA, rollA.crit, random, rollA.specialBoost ?? 1);
   const moveB = combineMoves(specialsB, rollB.crit, random, rollB.specialBoost ?? 1);
@@ -213,8 +213,12 @@ export function resolveBattle(
   const extraHitB = Math.max(bonusB.attack, bonusB.defense * EXTRA_COUNTER);
 
   // 회피: 피한 쪽은 상대의 공격(반격 포함)을 **통째로** 안 맞는다. ("한 번 더!" 는 빼고)
-  const hitA = 1 - (1 - (rollA.dodged ? 0 : attackB)) * (1 - extraHitB);
-  const hitB = 1 - (1 - (rollB.dodged ? 0 : attackA)) * (1 - extraHitA);
+  const hitAraw = 1 - (1 - (rollA.dodged ? 0 : attackB)) * (1 - extraHitB);
+  const hitBraw = 1 - (1 - (rollB.dodged ? 0 : attackA)) * (1 - extraHitA);
+  // 🔄 되받아치기 (10/3 Jin, lib/special-moves.ts COUNTER_*): 내가 빠른 고리를 퍼펙트로 누르면
+  // 상대 공격·필살기를 **안 맞고, 그 피해 그대로** 상대가 맞는다.
+  const hitA = extra.reflectA ? 0 : hitAraw;
+  const hitB = extra.reflectA ? 1 - (1 - hitBraw) * (1 - hitAraw) : hitBraw;
 
   // 수비도 "한 번 더!" 만큼 단단해진다.
   const guardA = 1 - (1 - moveA.defense) * (1 - bonusA.defense);

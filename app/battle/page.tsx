@@ -17,6 +17,10 @@ import { statsForInsect } from '@/lib/insect-stats';
 import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
   PERFECT_AT_MS,
+  COUNTER_CHANCE,
+  COUNTER_SPEED,
+  TIMING_TIERS,
+  judgeCounter,
   SpecialMove,
   TimingTier,
   judgeTiming,
@@ -63,6 +67,17 @@ const pause = (ms: number) => sleep(ms * BATTLE_PACE);
 // 늘리면 `PERFECT_AT_MS` 와 고리 애니메이션까지 다시 재야 합니다.
 // 연출만 느려지고 누르는 타이밍은 그대로인 게 아이들에게도 덜 헷갈립니다.
 const CHANCE_MS = 4000;
+
+/** 🔄 되받아치기 실패 표시 (퍼펙트가 아니면 전부 실패) */
+const COUNTER_MISS: TimingTier = {
+  key: 'ok',
+  label: '아깝다!',
+  emoji: '😣',
+  withinMs: Number.POSITIVE_INFINITY,
+  scoreMultiplier: 1,
+  textColor: 'text-slate-300',
+  ringColor: 'border-slate-400',
+};
 
 // 1라운드(탐색전)에서 깎이는 고정 수치. 최종 수치는 필살기까지 계산한 뒤에 정해집니다.
 const PROBE_DAMAGE_A = 7;
@@ -228,6 +243,9 @@ export default function BattlePage() {
   // 타이밍 판정용. 버튼이 뜬 시각과, 눌렀을 때의 판정 결과를 담습니다.
   const chanceStart = useRef(0);
   const timingResult = useRef<TimingTier | null>(null);
+  // 🔄 되받아치기 고리인지 (빠른 고리, 퍼펙트만 성공 — lib/special-moves.ts COUNTER_*)
+  const counterMode = useRef(false);
+  const [counterUi, setCounterUi] = useState(false);
 
   // 필살기 기회가 LV3부터 **두 번** 오므로, 지금 뜬 기회가 어떤 기술인지 따로 담습니다.
   const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
@@ -502,7 +520,8 @@ export default function BattlePage() {
     );
     chanceStart.current = performance.now();
 
-    while (performance.now() - chanceStart.current < CHANCE_MS) {
+    const limit = counterMode.current ? CHANCE_MS / COUNTER_SPEED : CHANCE_MS;
+    while (performance.now() - chanceStart.current < limit) {
       if (specialRequested.current) return timingResult.current;
       await sleep(50);
     }
@@ -512,6 +531,17 @@ export default function BattlePage() {
   /** 아이가 필살기 버튼을 눌렀을 때. 누른 순간으로 등급을 매깁니다. */
   function pressSpecial() {
     if (specialRequested.current) return; // 한 배틀에 한 번만
+    if (counterMode.current) {
+      // 🔄 되받아치기 — 퍼펙트만 성공
+      const ok = judgeCounter(performance.now() - chanceStart.current);
+      const tier = ok ? TIMING_TIERS[0] : COUNTER_MISS;
+      timingResult.current = tier;
+      setTiming(tier);
+      specialRequested.current = true;
+      if (ok) playPerfect();
+      else playTap(400);
+      return;
+    }
     const tier = judgeTiming(performance.now() - chanceStart.current);
     timingResult.current = tier;
     setTiming(tier);
@@ -672,6 +702,32 @@ export default function BattlePage() {
       return tier;
     }
 
+    // 🔄 되받아치기 찬스 — 배틀마다 30% 로 한 번, 상대가 처음 공격할 때 (lib/special-moves.ts)
+    let counterLeft = Math.random() < COUNTER_CHANCE;
+    let reflected = false;
+    /** 상대 기술을 그대로 되받아칠 기회. 성공하면 true (그 공격은 안 맞고 상대가 맞는다) */
+    async function tryCounter(move: SpecialMove): Promise<boolean> {
+      if (!counterLeft) return false;
+      counterLeft = false;
+      counterMode.current = true;
+      setCounterUi(true);
+      setChanceNote('🔄 되받아치기 찬스!! 퍼펙트만 성공!');
+      setChanceMove(move);
+      setPhase('chance');
+      const tier = await waitForChance();
+      setChanceNote(null);
+      setPhase('final');
+      counterMode.current = false;
+      if (tier) await pause(900);
+      setCounterUi(false);
+      setTiming(bestTier); // 결과 화면의 "퍼펙트! 내 필살기" 줄은 내 필살기 판정으로 되돌린다
+      if (tier?.key !== 'perfect') return false;
+      reflected = true;
+      await playSpecial('A', move, false, '🔄 그대로 되받아쳤다!!');
+      await hit('A', 40, true);
+      return true;
+    }
+
     const myBase = baseMoveFor(myInsect.species);
     const foeBase = baseMoveFor(foe.species);
     // 🎁 "필살기 한 번 더!" — 레벨이 낮을수록 잘 걸린다 (LV1 50%). 기본기가 한 번 더. 크리 없음·회피 불가.
@@ -710,7 +766,8 @@ export default function BattlePage() {
       if (!foeGuardShown && foeGuards.length) {
         foeGuardShown = true;
         for (const g of foeGuards) await playSpecial('B', g.move, false, '🛡️ 상대가 막았다!');
-        guard = 0.5;
+        // 🔄 수비형 상대가 막고 되받아치려는 순간에도 되받아치기 찬스 (성공하면 안 막힌 셈)
+        guard = (await tryCounter(foeGuards[0].move)) ? 1 : 0.5;
       }
       await hit('A', hitSize(rolls.a.crit && !bonus) * guard, rolls.a.crit && !bonus);
     }
@@ -718,7 +775,7 @@ export default function BattlePage() {
     if (!foeGuardShown && foeGuards.length) {
       foeGuardShown = true;
       for (const g of foeGuards) await playSpecial('B', g.move, false, '💥 상대가 되받아쳤다!');
-      await hit('B', 12, false);
+      if (!(await tryCounter(foeGuards[0].move))) await hit('B', 12, false);
     }
 
     // ② 상대 공격 차례 — 내 수비형 필살기는 **상대가 공격할 때** 버튼이 뜬다 ───
@@ -733,6 +790,8 @@ export default function BattlePage() {
         await whiff('B');
         continue;
       }
+      // 🔄 상대 필살기를 그대로 되받아치면 이 공격은 안 맞는다
+      if (move && !reflected && (await tryCounter(move))) continue;
       // 마지막 공격이면 남은 방패를 다 쓴다 (방패가 공격보다 많을 때)
       const mine = i === incoming.length - 1 ? guards.splice(0) : guards.splice(0, 1);
       let guard = 1;
@@ -747,7 +806,8 @@ export default function BattlePage() {
         await playSpecial('A', g.move, false, '🛡️ 막았다! 되받아치기!');
         guard *= 0.5;
       }
-      await hit('B', (move ? hitSize(rolls.b.crit && !bonus) : 14) * guard, !!move && rolls.b.crit && !bonus);
+      if (reflected) await whiff('B'); // 되받아친 뒤로는 상대 공격이 안 들어온다 (계산과 같게)
+      else await hit('B', (move ? hitSize(rolls.b.crit && !bonus) : 14) * guard, !!move && rolls.b.crit && !bonus);
       if (guard < 1) await hit('A', 10, false); // 막아낸 힘으로 되받아치기
     }
 
@@ -761,7 +821,7 @@ export default function BattlePage() {
       foeMoves.map((m) => m.key),
       (bestTier as TimingTier | null)?.scoreMultiplier ?? 1,
       undefined,
-      { a: extraA, b: extraB }
+      { a: extraA, b: extraB, reflectA: reflected }
     );
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
@@ -1274,10 +1334,12 @@ export default function BattlePage() {
           <div className="fixed inset-0 z-[45] flex items-center justify-center px-4 pointer-events-none">
           <button
             onClick={pressSpecial}
-            className="pointer-events-auto w-full max-w-sm bg-slate-950/85 backdrop-blur-sm border-2 border-amber-400/70 rounded-3xl py-4 select-none shadow-2xl"
+            className={`pointer-events-auto w-full max-w-sm bg-slate-950/85 backdrop-blur-sm border-2 rounded-3xl py-4 select-none shadow-2xl ${
+              counterUi ? 'border-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.6)]' : 'border-amber-400/70'
+            }`}
           >
             {chanceNote && (
-              <p className="text-base font-black text-amber-300 animate-pop">{chanceNote}</p>
+              <p className={`text-base font-black animate-pop ${counterUi ? 'text-rose-300 text-lg' : 'text-amber-300'}`}>{chanceNote}</p>
             )}
             <p className={`text-sm font-bold ${chanceMove.textColor}`}>
               {chanceMove.emoji} {chanceMove.name}
@@ -1288,15 +1350,15 @@ export default function BattlePage() {
 
             <div className="relative h-36 my-1">
               {/* 목표 고리 — 여기에 겹칠 때 눌러야 퍼펙트 */}
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-4 border-amber-300 animate-timing-target" />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-amber-400/10" />
+              <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-4 animate-timing-target ${counterUi ? 'border-rose-400' : 'border-amber-300'}`} />
+              <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full ${counterUi ? 'bg-rose-500/15' : 'bg-amber-400/10'}`} />
 
               {/* 줄어드는 고리 — CSS가 60fps로 그립니다 */}
               {!timing && (
                 <span
                   key={chanceId}
-                  className="absolute left-1/2 top-1/2 w-24 h-24 rounded-full border-4 border-white animate-timing-ring"
-                  style={{ animationDuration: `${CHANCE_MS}ms` }}
+                  className={`absolute left-1/2 top-1/2 w-24 h-24 rounded-full border-4 animate-timing-ring ${counterUi ? 'border-rose-300' : 'border-white'}`}
+                  style={{ animationDuration: `${counterUi ? CHANCE_MS / COUNTER_SPEED : CHANCE_MS}ms` }}
                 />
               )}
 
@@ -1320,7 +1382,13 @@ export default function BattlePage() {
             </div>
 
             <p className="text-xs font-bold text-slate-200">
-              {timing
+              {counterUi
+                ? timing
+                  ? timing.key === 'perfect'
+                    ? '🔄 되받아치기 성공!! 그대로 돌려줘!'
+                    : '아깝다! 퍼펙트만 되받아칠 수 있어'
+                  : '⚡ 엄청 빨라! 빨간 고리가 겹칠 때 눌러!'
+                : timing
                 ? timing.scoreMultiplier > 1
                   ? `위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%!`
                   : '필살기 발동!'
