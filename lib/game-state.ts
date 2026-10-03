@@ -91,6 +91,8 @@ export interface GameState {
    * 마지막 게임의 `at` 과 같으면 그 게임 뒤의 대기만 없어진다 (다음 게임을 시작하면 다시 30분).
    */
   waivedAt?: string;
+  /** ➕ 직원이 서비스로 더 준 게임 수 (`grantExtraGame`) */
+  extraGames?: number;
 }
 
 /** 한국 날짜 (YYYY-MM-DD) — 5만원 "하루만" 을 세려고 */
@@ -107,6 +109,7 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
     ...(Number.isFinite(raw.badgeCount) ? { badgeCount: Number(raw.badgeCount) } : {}),
     ...(Array.isArray(raw.friends) ? { friends: raw.friends.filter((t: unknown) => typeof t === 'string') } : {}),
     ...(typeof raw.waivedAt === 'string' ? { waivedAt: raw.waivedAt } : {}),
+    ...(Number.isFinite(raw.extraGames) && raw.extraGames > 0 ? { extraGames: Math.floor(raw.extraGames) } : {}),
   };
 }
 
@@ -143,7 +146,10 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
   // 5만원은 첫 게임을 한 **그날만** (한국 날짜). 날짜가 바뀌면 남은 게임이 있어도 끝 (10/2 Jin)
   const first = state.sessions[0];
   const expired = !test && !!tier.oneDay && !!first && kstDay(Date.parse(first.at)) !== kstDay(now);
-  const left = test ? Infinity : expired ? 0 : Math.max(0, tier.games - used);
+  // ➕ 직원이 서비스로 더 준 게임 (`grantExtraGame`) — 하루권이 끝났어도 이건 쓸 수 있다
+  const extra = state.extraGames ?? 0;
+  const allowance = (expired ? Math.min(used, tier.games) : tier.games) + extra;
+  const left = test ? Infinity : Math.max(0, allowance - used);
   const elapsed = last ? now - Date.parse(last.at) : Infinity;
   const waived = !!last && state.waivedAt === last.at;
   const cooldownMs = last && !test && !waived ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
@@ -401,7 +407,7 @@ export function formatCountdown(ms: number): string {
 }
 
 export function blockedMessage(status: PlayStatus): string {
-  if (status.expired) {
+  if (status.expired && status.left <= 0) {
     return `${status.tier.price} 참가권은 첫날 하루만 쓸 수 있어! 카드·랭킹·뱃지는 계속 볼 수 있어.`;
   }
   if (status.left <= 0) {
@@ -446,6 +452,23 @@ export async function setTierForTicket(rawTicket: string, tier: TierKey): Promis
     .single();
   if (error) throw error;
   return data as Player;
+}
+
+/**
+ * ➕ 직원이 게임 1개(3판)를 더 준다 (10/3 밤 Jin: "끝난 친구에게 서비스로 한 번 — 1만원을 한 번 더 누르면 1게임만 더").
+ * 참가권 금액은 그대로 두고 `extraGames` 만 1 올린다 (3만원 아이를 1만원으로 내리지 않게).
+ * 직원이 눈앞에서 주는 것이라 30분 대기도 같이 푼다.
+ */
+export async function grantExtraGame(playerId: string): Promise<Player> {
+  const player = await freshPlayer(playerId);
+  if (!player) throw new Error('참가 정보를 못 찾았어.');
+  const state = readGameState(player);
+  const last = state.sessions[state.sessions.length - 1];
+  return saveGameState(player, {
+    ...state,
+    extraGames: (state.extraGames ?? 0) + 1,
+    ...(last ? { waivedAt: last.at } : {}),
+  });
 }
 
 /**

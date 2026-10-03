@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Player } from '@/lib/types';
 import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierForPlayer } from '@/lib/tiers';
-import { isPending, playStatus, setTierForTicket, waiveCooldown } from '@/lib/game-state';
+import { grantExtraGame, isPending, playStatus, setTierForTicket, waiveCooldown } from '@/lib/game-state';
 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 참가권 올려주기 (2026-10-01 Jin: "가격마다 종이를 따로 인쇄해야 해? 더 편한 방법은?")
@@ -129,6 +129,24 @@ function TierDesk() {
     setPlayer((data as Player) ?? null);
   }
 
+  /** ➕ 이미 게임을 한 아이에게 1게임(3판) 더 — 금액은 그대로 (10/3 밤 Jin) */
+  async function addGame() {
+    if (!ticket || !player) return;
+    setSaving('A');
+    setMessage('');
+    setError('');
+    try {
+      const updated = await grantExtraGame(player.id);
+      setPlayer(updated);
+      setLog((prev) => [{ ticket, tier: 'A' as TierKey, at: new Date().toLocaleTimeString('ko-KR') }, ...prev].slice(0, 20));
+      setMessage(`✅ ${displayTicket(ticket)} → ➕ 1게임(3판) 더! 지금 바로 할 수 있어요`);
+    } catch (err: any) {
+      setError(err.message || '저장하지 못했어요. 다시 눌러 주세요.');
+    } finally {
+      setSaving(null);
+    }
+  }
+
   async function apply(tier: TierKey) {
     if (!ticket) return;
     setSaving(tier);
@@ -182,6 +200,8 @@ function TierDesk() {
                 ? `${player.display_name} · 지금 ${current.emoji} ${current.price}`
                 : `아직 시작 안 한 번호 · 지금 ${current.emoji} ${current.price}`}
               {status && ` · 게임 ${status.used}/${Number.isFinite(status.tier.games) ? status.tier.games : '∞'} 사용`}
+              {status && (status.state.extraGames ?? 0) > 0 && ` (+서비스 ${status.state.extraGames})`}
+              {status && Number.isFinite(status.left) && ` · 남은 게임 ${status.left}`}
               {status?.expired && ' · 하루권 끝남'}
             </p>
             {/* ⏩ 30분 대기 풀기 (10/2 Jin) — 아이 폰 화면의 "선생님 확인" 과 같은 일 */}
@@ -206,6 +226,21 @@ function TierDesk() {
             {TIER_ORDER.map((key) => {
               const tier = TIERS[key];
               const active = current.key === key;
+              // 이미 게임을 한 아이면 1만원 버튼 = "1게임 더" (서비스·추가 결제). 금액은 안 바뀐다.
+              if (key === 'A' && status && status.used > 0 && Number.isFinite(status.left)) {
+                return (
+                  <button
+                    key={key}
+                    onClick={addGame}
+                    disabled={!!saving}
+                    className="rounded-xl py-3 px-2 font-bold border-2 disabled:opacity-60 bg-emerald-500 text-slate-900 border-emerald-300"
+                  >
+                    <span className="block text-lg">➕ 1게임 더</span>
+                    <span className="block text-xs font-semibold opacity-80">1만원 · 3판 · 바로 시작</span>
+                    {saving === key && <span className="block text-xs">저장 중...</span>}
+                  </button>
+                );
+              }
               return (
                 <button
                   key={key}
