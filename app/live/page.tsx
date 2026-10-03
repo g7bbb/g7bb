@@ -99,19 +99,26 @@ export default function LivePage() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  // 줄이 화면보다 길면 천천히 흘려 보여준다
+  // 줄이 칸보다 길면 **랭킹 칸만** 천천히 흘려 보여준다 (위 제목 띠는 고정 — 10/3 밤 Jin)
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
     let pauseUntil = last + 4000;
+    let pos = 0; // scrollTop 은 정수로 잘려서 느린 속도가 안 쌓이므로 따로 센다
     const step = (now: number) => {
-      const el = document.scrollingElement || document.documentElement;
-      const max = el.scrollHeight - window.innerHeight;
-      if (max > 20 && now > pauseUntil) {
-        el.scrollTop += ((now - last) / 1000) * 28; // 1초에 28px
-        if (el.scrollTop >= max - 1) {
-          pauseUntil = now + 5000;
-          window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 4000);
+      const el = listRef.current;
+      if (el) {
+        const max = el.scrollHeight - el.clientHeight;
+        if (max > 20 && now > pauseUntil) {
+          pos = Math.min(max, pos + ((now - last) / 1000) * 28); // 1초에 28px
+          el.scrollTop = pos;
+          if (pos >= max - 1) {
+            pauseUntil = now + 9000;
+            window.setTimeout(() => {
+              pos = 0;
+              el.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 4000);
+          }
         }
       }
       last = now;
@@ -124,22 +131,30 @@ export default function LivePage() {
   const medal = (i: number) => ['🥇', '🥈', '🥉'][i] ?? `${i + 1}`;
 
   return (
-    <main className="min-h-screen px-4 py-5 flex flex-col gap-4" style={{ wordBreak: 'keep-all' }}>
-      <header className="text-center">
-        <p className="text-3xl font-black">
-          <BrandMark size={40} className="mr-2 -mt-1" />
-          실시간 랭킹
-        </p>
-        <p className="mt-1 text-slate-300 font-bold">{GAME_TITLE} · 2026 대전 곤충박람회</p>
-        <p className="mt-1 text-xs text-slate-500">
-          {updated ? `${updated.getHours()}시 ${String(updated.getMinutes()).padStart(2, '0')}분 기준 · 20초마다 바뀌어요` : '불러오는 중...'}
-        </p>
+    <main className="h-screen overflow-hidden px-4 py-4 flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
+      {/* 🏆 위 제목 띠 — 움직이지 않는다 (10/3 밤 Jin: "로고 넣어서 테두리, 이 글씨는 안 없어지게 고정") */}
+      <header className="shrink-0 relative rounded-3xl p-[3px] bg-gradient-to-r from-amber-300 via-yellow-100 to-amber-500 shadow-[0_0_30px_rgba(251,191,36,0.45)]">
+        <div className="rounded-[1.35rem] bg-slate-950 px-4 py-3 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <BrandMark size={56} className="shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[2rem] leading-tight font-black tracking-tight">
+                <span className="text-amber-300">G7BB 배틀</span> 실시간 랭킹
+              </p>
+              <p className="text-sm text-slate-300 font-bold">{GAME_TITLE} · 2026 대전 곤충박람회</p>
+            </div>
+          </div>
+          <p className="mt-1.5 text-xs text-slate-500">
+            <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-pulse mr-1.5 align-middle" />
+            {updated ? `LIVE · ${updated.getHours()}시 ${String(updated.getMinutes()).padStart(2, '0')}분 기준 · 20초마다 바뀌어요` : '불러오는 중...'}
+          </p>
+        </div>
       </header>
 
       {rows.length === 0 ? (
-        <p className="text-center text-slate-400 text-xl py-10">아직 배틀 기록이 없어. 첫 번째 주인공이 되어봐!</p>
+        <p className="flex-1 text-center text-slate-400 text-xl py-10">아직 배틀 기록이 없어. 첫 번째 주인공이 되어봐!</p>
       ) : (
-        <div ref={listRef} className="flex flex-col gap-2.5">
+        <div ref={listRef} className="flex-1 min-h-0 overflow-hidden flex flex-col gap-2.5 [&>*]:shrink-0">
           {/* 1~3위 — 그림과 함께 크게 */}
           {rows.slice(0, 3).map((r, i) => (
             <div
@@ -179,7 +194,7 @@ export default function LivePage() {
         </div>
       )}
 
-      <p className="text-center text-slate-400 font-bold mt-2">🐛 종이에 곤충을 그리고 QR을 찍으면 너도 도전할 수 있어! 🐞</p>
+      <p className="shrink-0 text-center text-slate-400 font-bold">🐛 종이에 곤충을 그리고 QR을 찍으면 너도 도전할 수 있어! 🐞</p>
     </main>
   );
 }
