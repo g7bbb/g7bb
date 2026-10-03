@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { AUTO_SIGNOUT_MS, getCurrentPlayer, markGameOver, readGameOverAt, signOut } from '@/lib/session';
+import { AUTO_SIGNOUT_MS, getCurrentPlayer, hasStoredPlayer, markGameOver, readGameOverAt, signOut } from '@/lib/session';
 import { playStatus } from '@/lib/game-state';
 
 // 🏁 게임이 끝나면 자동 로그아웃 (2026-10-02 Jin: "게임했던 태블릿에 기존 사용자가 계속 떠 있네").
@@ -11,10 +11,17 @@ import { playStatus } from '@/lib/game-state';
 // 직원 화면·종이·QR 화면에서는 아무것도 안 한다.
 const SKIP = ['/admin', '/print', '/qr', '/live'];
 
+// 💤 아무것도 안 누르고 이만큼 지나면 로그아웃 (10/3 Jin: "횟수를 다 안 쓰고 간 사람들은 로그아웃하고, 나중에 QR 로 다시 들어오게")
+// 배틀 한 판·AI 그림 만들기는 1분 안쪽이라 3분이면 넉넉하다. 마지막 30초는 "계속할게" 버튼을 띄운다.
+const IDLE_MS = 3 * 60_000;
+const IDLE_WARN_MS = 30_000;
+
 export default function SessionGuard() {
   const pathname = usePathname() || '/';
   const router = useRouter();
   const [left, setLeft] = useState<number | null>(null);
+  const [idleLeft, setIdleLeft] = useState<number | null>(null);
+  const lastActive = useRef(Date.now());
   const skip = SKIP.some((p) => pathname.startsWith(p));
 
   // 🛟 10/3 Jin "게임이 끝났는데 로그아웃이 안 돼": 배틀 화면이 게임 끝을 못 적은 경우(중간에 나감 등)를 위한 그물.
@@ -27,7 +34,8 @@ export default function SessionGuard() {
       .then((p) => {
         if (cancelled || !p || readGameOverAt()) return;
         const s = playStatus(p);
-        if (s.used > 0 && !s.canLadder && !s.canPractice) markGameOver();
+        // 🔁 10/3 오후: 연습 1판이 남아 있어도 랭킹 도전을 못 하면 '게임 끝' 으로 본다 (연습은 덤이라, 남아 있으면 태블릿에 계속 남아 있었다)
+        if (s.used > 0 && !s.canLadder) markGameOver();
       })
       .catch(() => undefined);
     return () => {
@@ -59,6 +67,55 @@ export default function SessionGuard() {
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [skip, router, pathname]);
+
+  // 💤 자리를 떠난 아이 — 누르거나 화면을 옮기면 시계가 처음부터
+  useEffect(() => {
+    lastActive.current = Date.now();
+    setIdleLeft(null);
+    if (skip) return;
+    const poke = () => {
+      lastActive.current = Date.now();
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+    events.forEach((e) => window.addEventListener(e, poke, { passive: true, capture: true }));
+    const id = window.setInterval(() => {
+      if (!hasStoredPlayer() || readGameOverAt()) {
+        setIdleLeft(null);
+        return;
+      }
+      const remain = lastActive.current + IDLE_MS - Date.now();
+      if (remain <= 0) {
+        signOut();
+        setIdleLeft(null);
+        router.push('/');
+        return;
+      }
+      setIdleLeft(remain <= IDLE_WARN_MS ? Math.ceil(remain / 1000) : null);
+    }, 1000);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, poke, { capture: true } as any));
+      window.clearInterval(id);
+    };
+  }, [skip, pathname, router]);
+
+  if (left === null && idleLeft !== null) {
+    return (
+      <div className="fixed inset-x-3 bottom-3 z-[95] flex items-center justify-between gap-2 rounded-2xl bg-slate-900/95 border-2 border-amber-300 px-4 py-3 shadow-xl">
+        <span className="font-bold text-amber-200" style={{ wordBreak: 'keep-all' }}>
+          👀 아무도 없어? {idleLeft}초 뒤 로그아웃할게
+        </span>
+        <button
+          onClick={() => {
+            lastActive.current = Date.now();
+            setIdleLeft(null);
+          }}
+          className="shrink-0 rounded-xl bg-emerald-500 text-slate-900 font-black px-4 py-2"
+        >
+          계속할게!
+        </button>
+      </div>
+    );
+  }
 
   if (left === null) return null;
 

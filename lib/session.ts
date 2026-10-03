@@ -25,6 +25,11 @@ export function rememberPlayer(playerId: string) {
   }
 }
 
+/** 이 기기에 들어와 있는 아이가 있나 (DB 조회 없이) */
+export function hasStoredPlayer(): boolean {
+  return !!readStoredId();
+}
+
 export async function getCurrentPlayer(): Promise<Player | null> {
   const playerId = readStoredId();
   if (!playerId) return null;

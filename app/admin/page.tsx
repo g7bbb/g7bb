@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import AdminGate from './admin-gate';
 import { forgetAdmin } from '@/lib/ticket-pin-client';
+import { signOut } from '@/lib/session';
 
 // 🧑‍🏫 직원 메뉴 (10/3 Jin: "직원용 화면에서 뒤로가기가 있으면 좋겠어. 주소를 다 못 외우니")
 // 직원 화면 주소를 한곳에 모았다. 각 직원 화면 왼쪽 위 "← 직원 메뉴" 로 여기로 돌아온다.
@@ -33,10 +34,19 @@ export default function AdminHome() {
         ))}
         <button
           onClick={() => {
+            signOut();
+            window.alert('이 기기에 들어와 있던 아이를 로그아웃했어요.');
+          }}
+          className="mt-4 bg-amber-400 text-slate-900 font-black py-4 rounded-2xl"
+        >
+          👋 이 기기의 아이 로그아웃 (다음 친구 차례)
+        </button>
+        <button
+          onClick={() => {
             forgetAdmin();
             window.location.href = '/';
           }}
-          className="mt-4 text-sm text-slate-400 underline self-center"
+          className="mt-2 bg-slate-700 font-bold py-3 rounded-2xl"
         >
           🔒 직원 로그아웃 (이 기기에서 암호 지우기)
         </button>

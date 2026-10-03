@@ -367,7 +367,8 @@ export default function BattlePage() {
     // 랭킹 도전·연습을 막 시작한 순간(ladder·starting)에는 게임을 방금 써서 "남은 게 없어" 보일 수 있으니 건드리지 않는다
     if (phase !== null || starting || ladder || !player || readGameOverAt()) return;
     const s = playStatus(player);
-    if (s.used > 0 && !s.canLadder && !s.canPractice) markGameOver();
+    // 연습 1판이 남았어도 랭킹 도전을 못 하면 시계를 켠다 (연습을 시작하면 claimSlot 뒤에 다시 꺼진다)
+    if (s.used > 0 && !s.canLadder) markGameOver();
   }, [phase, player, starting, ladder]);
 
   // 👹 중간보스: 정해둔 판이 끝나고 결과가 뜨면, 조금 뒤에 경고 화면이 **갑자기** 뜬다.
@@ -1091,12 +1092,23 @@ export default function BattlePage() {
           </div>
         )}
         {ladder && opponent && opponent.id !== BOSS_ID && (
-          <div className="flex items-center justify-between text-xs bg-slate-800 rounded-xl px-3 py-2">
-            <span className="font-bold text-amber-300">
-              🏆 랭킹 도전 {Math.min(phase === 'done' ? ladder.used : ladder.used + 1, LADDER_BATTLES)}/
-              {LADDER_BATTLES}
+          <div className="flex items-center justify-between gap-2 bg-slate-800 rounded-xl px-3 py-1.5" style={{ wordBreak: 'keep-all' }}>
+            {/* 10/3 Jin: "총 3판인지 잘 모르는 것 같아" → 몇 판째 · 남은 판을 크게 */}
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="text-base font-black text-amber-300 whitespace-nowrap">
+                ⚔️ {Math.min(phase === 'done' ? ladder.used : ladder.used + 1, LADDER_BATTLES)}판째
+                <span className="text-xs font-bold text-slate-400"> / 총 {LADDER_BATTLES}판</span>
+              </span>
+              <span className="flex gap-1">
+                {Array.from({ length: LADDER_BATTLES }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${i < (phase === 'done' ? ladder.used : ladder.used + 1) ? 'bg-amber-300' : 'bg-slate-600'}`}
+                  />
+                ))}
+              </span>
             </span>
-            <span className="text-slate-300">
+            <span className="text-xs text-slate-300 min-w-0 truncate">
               {oppMedal(ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)])}{' '}
               {ladder.targets[Math.min(ladder.index, ladder.targets.length - 1)].nickname}
             </span>
@@ -1282,16 +1294,21 @@ export default function BattlePage() {
                   <p className="text-sm font-bold text-amber-300 mt-1">
                     {ladder.index >= ladder.targets.length
                       ? '👑 전부 이겼다! 최고 기록이야'
-                      : `도전 끝! ${LADDER_BATTLES}번 다 썼어`}
+                      : `🏁 도전 끝! ${LADDER_BATTLES}판 다 했어`}
                   </p>
                 ) : (
-                  <p className="text-sm text-slate-300 mt-1">
+                  <>
+                  <p className="text-xl font-black text-amber-300 mt-1">
+                    🎯 남은 판: {LADDER_BATTLES - ladder.used}판! <span className="text-sm text-slate-400">(총 {LADDER_BATTLES}판)</span>
+                  </p>
+                  <p className="text-sm text-slate-300">
                     {bossRef.current
                       ? `랭킹 도전 계속! 다음 상대는 ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}`
                       : battle.winner === 'A'
                       ? `다음 상대는 ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}!`
                       : `한 번 더! ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}에게 다시 도전`}
                   </p>
+                  </>
                 )}
               </div>
             )}
@@ -1445,9 +1462,11 @@ export default function BattlePage() {
       <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3 border border-emerald-500/40">
         <div>
           <p className="font-bold text-emerald-300">🏆 랭킹 도전</p>
+          <p className="mt-1 text-xl font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
+            ⚔️ 총 {LADDER_BATTLES}판 할 수 있어!
+          </p>
           <p className="text-xs text-slate-400 mt-1">
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
-            기회는 <b className="text-slate-200">{LADDER_BATTLES}번</b>이야.
           </p>
           {myBestRank === 1 && opponents.some((o) => !o.bot) && (
             <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>

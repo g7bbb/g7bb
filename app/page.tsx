@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getCurrentPlayer } from '@/lib/session';
+import { getCurrentPlayer, signOut } from '@/lib/session';
 import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import { BrandLogo } from '@/app/brand-logo';
@@ -141,6 +141,17 @@ function HomeInner() {
           >
             🏅 내 뱃지
           </Link>
+          {/* 👋 바로 로그아웃 (10/3 Jin: "로그아웃 안 된 태블릿, 직원이 누를 키가 없어") — 다음 친구 차례 */}
+          <button
+            type="button"
+            onClick={() => {
+              signOut();
+              setPlayer(null);
+            }}
+            className="block text-center bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-3 rounded-2xl"
+          >
+            👋 {player.display_name} 끝내기 (다음 친구 차례)
+          </button>
         </div>
       )}
 
