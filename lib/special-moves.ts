@@ -255,8 +255,8 @@ export const TIMING_TIERS: TimingTier[] = [
   },
   {
     key: 'great',
-    label: '그레이트!',
-    emoji: '🔥',
+    label: '굿!',
+    emoji: '👍',
     withinMs: 550,
     scoreMultiplier: 1.2,
     textColor: 'text-emerald-300',
@@ -273,11 +273,11 @@ export const TIMING_TIERS: TimingTier[] = [
   },
   {
     key: 'ok',
-    label: '발동!',
-    emoji: '💥',
+    label: '안돼!!',
+    emoji: '😣',
     withinMs: Number.POSITIVE_INFINITY,
     scoreMultiplier: 1,
-    textColor: 'text-slate-200',
+    textColor: 'text-rose-300',
     ringColor: 'border-slate-300',
   },
 ];

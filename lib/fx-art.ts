@@ -27,12 +27,14 @@ export interface FxArt {
   height?: number;
 }
 
-/** ⚡버튼 타이밍 판정 (퍼펙트/그레이트/굿/발동) */
+/**
+ * ⚡버튼 타이밍 판정. 10/3 Jin: "딱 맞추면 퍼펙트! · 거의 맞추면 굿! · 아예 못 맞추면 안돼!!"
+ * → 그레이트도 굿! 그림을 쓰고(위력 +20% 는 그대로), '발동' 그림 대신 "😣 안돼!!" 글씨.
+ */
 export const TIMING_ART: Partial<Record<TimingTier['key'], FxArt>> = {
   perfect: { src: '/fx/timing-perfect.png' },
-  great: { src: '/fx/timing-great.png' },
+  great: { src: '/fx/timing-good.png' },
   good: { src: '/fx/timing-good.png' },
-  ok: { src: '/fx/timing-ok.png' },
 };
 
 /** 필살기 이름 8개. */

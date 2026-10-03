@@ -71,7 +71,7 @@ const CHANCE_MS = 4000;
 /** 🔄 되받아치기 실패 표시 (퍼펙트가 아니면 전부 실패) */
 const COUNTER_MISS: TimingTier = {
   key: 'ok',
-  label: '아깝다!',
+  label: '안돼!!',
   emoji: '😣',
   withinMs: Number.POSITIVE_INFINITY,
   scoreMultiplier: 1,
@@ -695,13 +695,14 @@ export default function BattlePage() {
       setChanceMove(move);
       setPhase('chance');
       const tier = await waitForChance();
+      // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다 (두 번 다 곱하면 최대 1.8배가 되어 무너짐).
+      if (tier && (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier)) bestTier = tier;
+      // 판정 글자(`퍼펙트!` 등)를 보여준 **뒤에** 화면을 넘깁니다.
+      // ⚠️ 판정 글자는 'chance' 화면 안에 있어서, phase 를 먼저 바꾸면 글자가 바로 사라진다
+      //    (10/3 Jin "퍼펙트! 이펙트가 안 떠" — 그 버그).
+      if (tier) await pause(1000);
       setChanceNote(null);
       setPhase('final');
-      if (!tier) return null;
-      // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다 (두 번 다 곱하면 최대 1.8배가 되어 무너짐).
-      if (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier) bestTier = tier;
-      // 판정 글자(`퍼펙트!` 등)를 끝까지 보여주고 넘어갑니다 (judge-pop 2초와 짝).
-      await pause(1000);
       return tier;
     }
 
@@ -718,10 +719,10 @@ export default function BattlePage() {
       setChanceMove(move);
       setPhase('chance');
       const tier = await waitForChance();
+      counterMode.current = false;
+      if (tier) await pause(900); // 판정 글자를 보여준 뒤에 화면을 넘긴다 (위 myChance 와 같은 이유)
       setChanceNote(null);
       setPhase('final');
-      counterMode.current = false;
-      if (tier) await pause(900);
       setCounterUi(false);
       setTiming(bestTier); // 결과 화면의 "퍼펙트! 내 필살기" 줄은 내 필살기 판정으로 되돌린다
       if (tier?.key !== 'perfect') return false;
@@ -1406,12 +1407,12 @@ export default function BattlePage() {
                 ? timing
                   ? timing.key === 'perfect'
                     ? '🔄 되받아치기 성공!! 그대로 돌려줘!'
-                    : '아깝다! 퍼펙트만 되받아칠 수 있어'
+                    : '안돼!! 퍼펙트만 되받아칠 수 있어'
                   : '⚡ 엄청 빨라! 빨간 고리가 겹칠 때 눌러!'
                 : timing
                 ? timing.scoreMultiplier > 1
                   ? `위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%!`
-                  : '필살기 발동!'
+                  : '타이밍은 놓쳤지만 필살기는 나가!'
                 : '고리가 딱 겹칠 때 눌러!'}
             </p>
           </button>
@@ -1462,7 +1463,7 @@ export default function BattlePage() {
             )}
             {usedSpecial && timing && myMove && (
               <p className={`text-xs ${timing.textColor}`}>
-                {timing.emoji} {timing.label} {myMove.name}
+                {timing.key === 'ok' ? `💥 ${myMove.name}` : `${timing.emoji} ${timing.label} ${myMove.name}`}
                 {timing.scoreMultiplier > 1
                   ? ` · 위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%`
                   : ' · 타이밍을 맞추면 더 세져!'}
