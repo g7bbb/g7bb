@@ -125,6 +125,8 @@ interface ImpactFx {
   side: 'A' | 'B';
   amount: number; // 양수면 깎임, 음수면 회복
   crit: boolean;
+  /** 💨 회피 — 달려들었는데 피했다 (깎임 없음) */
+  miss?: boolean;
 }
 
 interface SpecialFx {
@@ -453,6 +455,20 @@ export default function BattlePage() {
     await pause(160);
   }
 
+  /**
+   * 💨 필살기를 피했을 때도 **달려드는 모션은 보여준다** (10/3 Jin "퍼펙트가 떴는데 공격 모션이 없었대").
+   * 전에는 기술 이름만 뜨고 바로 넘어가서, 회피를 모르는 아이 눈에는 "공격이 안 나갔다" 로 보였다.
+   */
+  async function whiff(attacker: 'A' | 'B') {
+    const target = attacker === 'A' ? 'B' : 'A';
+    setAttackSide(attacker);
+    await pause(170);
+    setImpact({ id: nextFxId(), side: target, amount: 0, crit: false, miss: true });
+    await pause(430);
+    setAttackSide(null);
+    await pause(400);
+  }
+
   /** 필살기 연출: 화면이 하얗게 번쩍이고 기술 이름이 크게 뜹니다. */
   async function playSpecial(side: 'A' | 'B', move: SpecialMove, dodged = false, caption?: string) {
     playSound(specialSoundFor(move)); // ⚡ 기술마다 다른 소리 (10/2 Jin)
@@ -685,7 +701,10 @@ export default function BattlePage() {
       else usedKeys.push(move.key);
       const dodged = !bonus && rolls.b.dodged; // "한 번 더" 는 회피로 못 피한다
       await playSpecial('A', move, dodged);
-      if (dodged) continue;
+      if (dodged) {
+        await whiff('A');
+        continue;
+      }
       // 상대가 수비형이면 내 공격을 맞는 이 순간에 방패가 터진다
       let guard = 1;
       if (!foeGuardShown && foeGuards.length) {
@@ -710,7 +729,10 @@ export default function BattlePage() {
       const { move, bonus } = incoming[i];
       const dodged = !!move && !bonus && rolls.a.dodged;
       if (move) await playSpecial('B', move, dodged);
-      if (dodged) continue;
+      if (dodged) {
+        await whiff('B');
+        continue;
+      }
       // 마지막 공격이면 남은 방패를 다 쓴다 (방패가 공격보다 많을 때)
       const mine = i === incoming.length - 1 ? guards.splice(0) : guards.splice(0, 1);
       let guard = 1;
@@ -1808,8 +1830,16 @@ function Fighter({
           <FighterCardFace insect={insect} visit={visit} label={label} />
         </TierFrame>
 
+        {/* 💨 피했다 — 달려든 쪽은 움직이고, 맞는 쪽엔 MISS 만 뜬다 */}
+        {impact?.miss && (
+          <div key={impact.id} className="absolute inset-0 pointer-events-none">
+            <span className="absolute left-1/2 top-[30%] -translate-x-1/2 whitespace-nowrap text-4xl font-black text-sky-300 animate-damage-float drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+              💨 MISS!
+            </span>
+          </div>
+        )}
         {/* 타격 순간 이펙트 */}
-        {impact && (
+        {impact && !impact.miss && (
           <div key={impact.id} className="absolute inset-0 pointer-events-none">
             <span
               className={`absolute left-1/2 top-1/2 w-24 h-24 rounded-full border-4 ${
