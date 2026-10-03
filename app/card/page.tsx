@@ -14,6 +14,7 @@ import { Player } from '@/lib/types';
 import InsectCard, { InsectCardData } from './insect-card';
 import { BrandMark } from '@/app/brand-logo';
 import { visitorNumber } from '@/lib/badge-state';
+import { LEVELUP_HEADLINE } from '@/lib/levelup-tips';
 import { VISITOR_MARKS } from '@/lib/badges';
 
 // 아이에게 보여주고 현장에서 출력해 줄 **곤충 카드** 화면입니다.
@@ -134,6 +135,12 @@ function CardInner() {
             </div>
           )}
           <InsectCard data={cards[picked]} />
+
+          {/* 🆙 레벨업이 중요해! (10/4 Jin) */}
+          <div className="rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-3 text-center" style={{ wordBreak: 'keep-all' }}>
+            <p className="text-lg font-black text-amber-200">🆙 {LEVELUP_HEADLINE}</p>
+            <p className="mt-1 text-sm text-amber-100/90">배틀을 하면 경험치가 쌓여서 레벨이 올라. 지금 바로 배틀하러 가자!</p>
+          </div>
 
           {/* 두 번 이상 만든 아이는 지난 카드도 넘겨볼 수 있어야 합니다.
               회차마다 테두리가 달라지는 게 이 체험의 재미 포인트라, 모아보는 맛이 있어야 합니다. */}

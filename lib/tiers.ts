@@ -40,6 +40,11 @@ export interface Tier {
   eventChance: number;
   /** 🎁 첫 이벤트는 무조건 "레벨 1 업" 보너스 스테이지 (한 번) — 2만원 이상 (10/4 Jin "레벨업 보너스게임 1회 무조건!") */
   levelUpOnce?: boolean;
+  /**
+   * ⏩ 30분 대기 없이 **연달아** 다음 게임 — 2만원 이상 (10/4 Jin "한 번에 연달아 다 할 수 있게, 로그아웃됐다 다시 와도 연달아").
+   * 3판이 끝나면 '게임 끝' 로그아웃 대신 "다음 게임 바로!" 버튼이 뜨고, QR 로 다시 와도 기다림 없이 다음 게임.
+   */
+  continuous?: boolean;
 }
 
 // 🔁 2026-10-02 밤 Jin (카톡 채널 안내 글과 맞춤): 3만원 2 → **3게임**, 5만원 2일간 5 → **첫날 하루 6게임**.
@@ -71,11 +76,13 @@ export const TIERS: Record<TierKey, Tier> = {
     label: '9판',
     eventChance: 1,
     levelUpOnce: true,
+    continuous: true,
     card: 'normal',
     perks: [
       '9판 참여',
       '레벨업 보너스 게임 (1회 무조건!)',
       '중간보스·보너스 게임 무조건 등장',
+      '기다림 없이 9판 연달아',
       '랭킹 상품 도전',
       '내 곤충 카드 발급',
       '다시 참여하면 레벨업',
@@ -91,6 +98,7 @@ export const TIERS: Record<TierKey, Tier> = {
     oneDay: true,
     eventChance: 1,
     levelUpOnce: true,
+    continuous: true,
     card: 'gold',
     perks: [
       '하루 6게임(18판) 참여',
@@ -109,6 +117,7 @@ export const TIERS: Record<TierKey, Tier> = {
     games: Infinity,
     eventChance: 1,
     levelUpOnce: true,
+    continuous: true,
     card: 'diamond',
     perks: [
       '2일간 무제한 참여',

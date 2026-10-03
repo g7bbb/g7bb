@@ -7,7 +7,7 @@ import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
-import { awardBadges, blockedMessage, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
+import { awardBadges, blockedMessage, canContinueNow, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
 import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
@@ -41,6 +41,7 @@ import { BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, mak
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { BonusKey, bonusInfo, planLadderEvent, readBonus, rollBonus } from '@/lib/bonus-stage';
 import { tierForPlayer } from '@/lib/tiers';
+import { LEVELUP_HEADLINE, LevelUpIntroPopup, LoseLevelPopup, levelTipSeen, levelUpUpsell, markLevelTipSeen } from '@/lib/levelup-tips';
 import BonusStage from './bonus-stage';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -201,6 +202,9 @@ export default function BattlePage() {
   const [bossAlert, setBossAlert] = useState(false);
   /** 🎁 보너스 스테이지 화면이 떠 있는지 */
   const [bonusOpen, setBonusOpen] = useState(false);
+  // 🆙 레벨업 안내 (10/4 Jin) — 처음 한 번 팝업 / 졌을 때 팝업 (lib/levelup-tips.tsx)
+  const [levelIntro, setLevelIntro] = useState(false);
+  const [losePopup, setLosePopup] = useState(false);
   // 게임을 시작하면(claimSlot) player 가 바뀌는데, 배틀 함수 안에서는 옛 값이 보여서 최신 값을 따로 들고 있는다.
   const playerRef = useRef<Player | null>(null);
   useEffect(() => {
@@ -381,7 +385,11 @@ export default function BattlePage() {
     soundedBattle.current = battle;
     let at = 0;
     if (battle.winner === 'A') playSound('win');
-    else if (battle.winner === 'B') playSound('lose');
+    else if (battle.winner === 'B') {
+      playSound('lose');
+      // 😢 "레벨업이 필요해..ㅠ" (10/4 Jin) — 결과를 잠깐 본 뒤에
+      window.setTimeout(() => setLosePopup(true), 900);
+    }
     if (leveledUp) playSound('levelUp', (at += 1000));
     // 연습 게임은 랭킹 도전까지 끝났을 때만 '게임 끝' (10/3 Jin "연습만 하면 게임이 끝나버려" — 연습을 먼저 한 1만원 아이)
     const over = practiceRef.current
@@ -389,7 +397,10 @@ export default function BattlePage() {
       : ladder ? ladderFinished(ladder) : false;
     if (over) {
       playSound('gameOver', at + 1300);
-      markGameOver(); // 90초 뒤 자동 로그아웃 (부스 태블릿에 앞 아이가 남지 않게, app/session-guard.tsx)
+      // ⏩ 2만원 이상이고 게임이 남았으면 로그아웃하지 않는다 → "다음 게임 바로 시작!" (10/4 Jin)
+      const p = playerRef.current;
+      const keepGoing = !!p && tierForPlayer(p).continuous && playStatus(p).canStartNew;
+      if (!keepGoing) markGameOver(); // 90초 뒤 자동 로그아웃 (부스 태블릿에 앞 아이가 남지 않게, app/session-guard.tsx)
     }
     // 게임이 끝났으면 이번 게임에서 모은 업적을 하나씩 보여준다
     if (over && (gameBadges.current.keys.length || gameBadges.current.milestones.length)) {
@@ -424,6 +435,13 @@ export default function BattlePage() {
     }, 1800);
     return () => window.clearTimeout(id);
   }, [bossDue]);
+
+  // 🆙 배틀 준비 화면에 처음 온 아이에게 한 번 "레벨업이 중요해!" 팝업 (10/4 Jin, lib/levelup-tips.tsx)
+  useEffect(() => {
+    if (phase !== null || !player || !myInsect || levelTipSeen(player.id)) return;
+    const id = window.setTimeout(() => setLevelIntro(true), 600);
+    return () => window.clearTimeout(id);
+  }, [phase, player, myInsect]);
 
   // 🏅 업적 음악 (10/2 Jin): "업적 달성!" 배너나 업적 정리 화면이 떠 있는 동안 계속 돌린다.
   // 이김/짐 소리와 겹치지 않게 조금 뒤에 시작한다. 화면을 나가면 원래 음악으로.
@@ -564,6 +582,7 @@ export default function BattlePage() {
   // ───────────────────────────────────────────────
   async function startBattle(summary: OpponentSummary) {
     if (!player || !myInsect) return;
+    setLosePopup(false);
     setStarting(true);
     setError('');
     try {
@@ -1450,7 +1469,8 @@ export default function BattlePage() {
             {/* ⚔️ 연습이 끝났는데 랭킹 도전이 남았으면 반짝이는 큰 버튼 (10/3 밤 Jin: "본게임으로 가는 버튼을 찾기 힘들어") */}
             {practiceRef.current && !ladder && player && playStatus(player, now).canLadder && opponents.length > 0 && (
               <button
-                onClick={startLadder}
+                // ⏩ 이번 게임 랭킹 도전을 이미 끝낸 2만원 이상 아이는 다음 게임 화면으로 (레벨업·새 곤충 고르기)
+                onClick={() => (playStatus(player, now).ladderPending ? startLadder() : router.push('/next-game'))}
                 disabled={starting}
                 className="btn-sparkle relative overflow-hidden rounded-2xl py-5 text-2xl font-black text-slate-900 disabled:opacity-60"
               >
@@ -1516,6 +1536,20 @@ export default function BattlePage() {
               </div>
             )}
 
+            {/* ⏩ 2만원 이상: 3판이 끝났고 게임이 남았으면 바로 다음 게임 (10/4 Jin "연달아 다 할 수 있게") */}
+            {ladder && ladderFinished(ladder) && !bossDue && !practiceRef.current && player &&
+              tierForPlayer(player).continuous && playStatus(player, now).canStartNew && (
+              <button
+                onClick={() => router.push('/next-game')}
+                className="btn-sparkle relative overflow-hidden rounded-2xl py-5 text-2xl font-black text-slate-900"
+                style={{ wordBreak: 'keep-all' }}
+              >
+                ⏩ 다음 게임 바로 시작!
+                <span className="block text-sm font-bold">
+                  {Number.isFinite(playStatus(player, now).left) ? `남은 ${playStatus(player, now).left * LADDER_BATTLES}판 · 기다림 없이 연달아!` : '무제한 · 기다림 없이 연달아!'}
+                </span>
+              </button>
+            )}
             {/* 🎯 랭킹 도전 3판이 끝나면 연습 1판을 눈에 띄게 (10/3 Jin: "3만원 이상도 연습 1판, 자기가 고르는 곤충이랑")
                 연습은 모든 참가권에 게임마다 1판씩 있다. 전에는 준비 화면 아래 접힌 글자라 다들 몰랐다. */}
             {ladder && ladderFinished(ladder) && !bossDue && player && playStatus(player, now).canPractice && (
@@ -1574,6 +1608,9 @@ export default function BattlePage() {
 
         {/* 🎁 보너스 스테이지 (lib/bonus-stage.ts) */}
         {bonusOpen && <BonusStage onClaim={claimBonus} onClose={() => setBonusOpen(false)} />}
+
+        {/* 😢 졌을 때 "레벨업이 필요해..ㅠ" (10/4 Jin) */}
+        {losePopup && phase === 'done' && <LoseLevelPopup upsell={levelUpUpsell(player)} onClose={() => setLosePopup(false)} />}
 
         {/* 👹 중간보스 경고 (lib/bots.ts) */}
         {bossAlert && bossDue && !ladder?.bonus && myInsect && typeof document !== 'undefined' &&
@@ -1636,6 +1673,38 @@ export default function BattlePage() {
       )}
       {player && hasFriendBuff(player) && (
         <p className="-mt-3 text-center text-sm font-bold text-pink-300">👨‍👩‍👧 친구 버프! 경험치 +10%</p>
+      )}
+
+      {/* ⏩ 2만원 이상: 이번 게임 3판을 다 했으면 다음 게임으로 (레벨업·새 곤충 고르기) — 10/4 Jin "연달아" */}
+      {player && canContinueNow(player, now) && (
+        <button
+          type="button"
+          onClick={() => router.push('/next-game')}
+          className="btn-sparkle relative overflow-hidden rounded-2xl py-4 text-xl font-black text-slate-900"
+          style={{ wordBreak: 'keep-all' }}
+        >
+          ⏩ 다음 게임 바로 시작! <span className="block text-sm font-bold">레벨업 받고 바로 랭킹 도전</span>
+        </button>
+      )}
+
+      {/* 🆙 레벨업이 중요해! (10/4 Jin: "처음 시작할 때 몇 번 보여줘") — 누르면 설명 팝업 다시 */}
+      <button
+        type="button"
+        onClick={() => setLevelIntro(true)}
+        className="-mt-2 rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-3 text-center"
+        style={{ wordBreak: 'keep-all' }}
+      >
+        <p className="text-base font-black text-amber-200">🆙 {LEVELUP_HEADLINE}</p>
+        <p className="mt-0.5 text-xs text-amber-100/80 underline">어떻게 레벨업 해? 👉 눌러봐</p>
+      </button>
+      {levelIntro && player && (
+        <LevelUpIntroPopup
+          upsell={levelUpUpsell(player)}
+          onClose={() => {
+            markLevelTipSeen(player.id);
+            setLevelIntro(false);
+          }}
+        />
       )}
 
       {/* 곤충 이름 + 레벨 + XP 숫자 (Jin 10/1) */}

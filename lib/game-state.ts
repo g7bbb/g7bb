@@ -154,7 +154,8 @@ export function playStatus(player: Player, now = Date.now()): PlayStatus {
   const left = test ? Infinity : Math.max(0, allowance - used);
   const elapsed = last ? now - Date.parse(last.at) : Infinity;
   const waived = !!last && state.waivedAt === last.at;
-  const cooldownMs = last && !test && !waived ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
+  // ⏩ 2만원 이상은 30분 대기 없이 연달아 (Tier.continuous, 10/4 Jin)
+  const cooldownMs = last && !test && !waived && !tier.continuous ? Math.max(0, COOLDOWN_MS - elapsed) : 0;
   const canStartNew = left > 0 && cooldownMs === 0;
   // 랭킹 도전을 시작했어도 판이 남았으면 아직 '할 수 있음' (이어하기)
   const ladderPending = !!last && (!last.ladder || !ladderComplete(last));
@@ -271,7 +272,16 @@ export async function repairLadderRun(player: Player): Promise<Player> {
 export function gameIsOver(player: Player, now = Date.now()): boolean {
   const s = playStatus(player, now);
   const last = s.state.sessions[s.state.sessions.length - 1];
+  // ⏩ 2만원 이상(연달아)은 게임이 남아 있으면 3판을 다 해도 끝이 아니다 — 바로 다음 게임
+  if (s.tier.continuous && s.canStartNew) return false;
   return s.used > 0 && (!s.canLadder || ladderComplete(last));
+}
+
+/** ⏩ 이번 3판을 다 했고, 연달아 다음 게임을 바로 할 수 있는지 (2만원 이상) */
+export function canContinueNow(player: Player, now = Date.now()): boolean {
+  const s = playStatus(player, now);
+  const last = s.state.sessions[s.state.sessions.length - 1];
+  return !!s.tier.continuous && s.canStartNew && !!last && ladderComplete(last);
 }
 
 /**
