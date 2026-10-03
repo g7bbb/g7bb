@@ -1,5 +1,8 @@
 'use client';
 
+import { isAdminRemembered, rememberAdminLogin } from '@/lib/ticket-pin-client';
+import { AdminBack } from '../admin-gate';
+
 import { fetchTicketPins } from '@/lib/ticket-pin-client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -34,7 +37,7 @@ export default function AdminTierPage() {
 
   useEffect(() => {
     try {
-      if (window.sessionStorage.getItem('insect-battle-admin') === 'ok') setAuthed(true);
+      if (isAdminRemembered()) setAuthed(true);
     } catch {
       // 저장소가 막혀 있으면 매번 암호를 다시 입력하면 됩니다.
     }
@@ -54,7 +57,7 @@ export default function AdminTierPage() {
       return;
     }
     try {
-      window.sessionStorage.setItem('insect-battle-admin', 'ok');
+      rememberAdminLogin(code);
     } catch {
       // 저장 실패는 무시합니다.
     }
@@ -148,6 +151,7 @@ function TierDesk() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-4 px-5 py-8" style={{ wordBreak: 'keep-all' }}>
+      <AdminBack />
       <h1 className="text-xl font-bold text-center">💰 참가권 올려주기 (직원용)</h1>
       <p className="text-xs text-slate-400 text-center">
         종이는 모두 1만원으로 시작해요. 3만원 이상 낸 아이만 번호를 치고 금액을 눌러 주세요.

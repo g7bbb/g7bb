@@ -11,7 +11,7 @@ import { readGameState } from '@/lib/game-state';
 export default function BgmPlayer() {
   const pathname = usePathname() ?? '/';
   // 보호자용 설명 화면(/guide·/about, 종이 아래 QR)도 음악 없이 — 엄마·아빠가 조용히 읽는 화면이다.
-  const off = ['/print', '/admin', '/guide', '/about'].some((p) => pathname.startsWith(p));
+  const off = ['/print', '/admin', '/guide', '/about', '/live'].some((p) => pathname.startsWith(p));
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {

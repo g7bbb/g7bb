@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { clearGameOver, getCurrentPlayer, markGameOver } from '@/lib/session';
+import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
@@ -361,6 +361,14 @@ export default function BattlePage() {
       window.setTimeout(() => setRecap(got), at + 2600);
     }
   }, [phase, battle, ladder, leveledUp]);
+
+  // 🛟 준비 화면에서 더 할 수 있는 게 없으면(게임 다 씀 · 30분 대기) 자동 로그아웃 시계를 켠다 (10/3 Jin "로그아웃이 안 돼")
+  useEffect(() => {
+    // 랭킹 도전·연습을 막 시작한 순간(ladder·starting)에는 게임을 방금 써서 "남은 게 없어" 보일 수 있으니 건드리지 않는다
+    if (phase !== null || starting || ladder || !player || readGameOverAt()) return;
+    const s = playStatus(player);
+    if (s.used > 0 && !s.canLadder && !s.canPractice) markGameOver();
+  }, [phase, player, starting, ladder]);
 
   // 👹 중간보스: 정해둔 판이 끝나고 결과가 뜨면, 조금 뒤에 경고 화면이 **갑자기** 뜬다.
   const bossDue =

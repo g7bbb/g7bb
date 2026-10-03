@@ -109,6 +109,12 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
+      {/* 10/3 Jin: "모두 거기서 누르려고 노력중이더라" → 설명 칸이라는 걸 장마다 크게 알려준다 */}
+      <div className="mx-6 -mt-2 rounded-2xl border-2 border-amber-300 bg-amber-400/15 px-4 py-2.5 text-center" style={{ wordBreak: 'keep-all' }}>
+        <p className="text-lg font-black text-amber-200">📖 이건 설명 칸이야!!</p>
+        <p className="text-sm text-amber-100">여기는 누르는 곳이 아니야. 아래 <b>다음 →</b> 버튼으로 넘겨봐!</p>
+      </div>
+
       <div className="flex-1 flex flex-col items-center justify-center gap-5 px-8 text-center">
         <div key={`emoji-${index}`} className="text-7xl animate-pop">
           {slide.emoji}
@@ -125,8 +131,11 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
           </p>
         )}
         {slide.visual && (
-          <div key={`visual-${index}`} className="w-full max-w-xs animate-slide-up">
-            {slide.visual}
+          <div key={`visual-${index}`} className="relative w-full max-w-xs animate-slide-up">
+            <p className="mb-1 text-xs font-bold text-slate-400">👀 예시 그림 (누르는 곳 아님)</p>
+            <div className="pointer-events-none select-none opacity-70 border-2 border-dashed border-slate-600 rounded-2xl p-2">
+              {slide.visual}
+            </div>
           </div>
         )}
       </div>
@@ -156,7 +165,7 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
             onClick={() => (isLast ? onClose() : setIndex(index + 1))}
             className="flex-[2] bg-emerald-500 text-slate-900 font-bold py-4 rounded-2xl text-lg"
           >
-            {isLast ? '곤충 만들러 가기! 🐛' : '다음'}
+            {isLast ? '곤충 만들러 가기! 🐛' : '다음 →'}
           </button>
         </div>
       </div>

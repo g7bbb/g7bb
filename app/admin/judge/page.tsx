@@ -1,5 +1,8 @@
 'use client';
 
+import { isAdminRemembered, rememberAdminLogin } from '@/lib/ticket-pin-client';
+import { AdminBack } from '../admin-gate';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { loadHeartCounts } from '@/lib/hearts';
@@ -31,7 +34,7 @@ export default function JudgePage() {
 
   useEffect(() => {
     try {
-      if (window.sessionStorage.getItem('insect-battle-admin') === 'ok') setAuthed(true);
+      if (isAdminRemembered()) setAuthed(true);
     } catch {
       // 저장소가 막혀 있으면 매번 암호를 다시 입력하면 됩니다.
     }
@@ -51,7 +54,7 @@ export default function JudgePage() {
       return;
     }
     try {
-      window.sessionStorage.setItem('insect-battle-admin', 'ok');
+      rememberAdminLogin(code);
     } catch {
       // 저장 실패는 무시합니다.
     }
@@ -163,6 +166,7 @@ function JudgeBoard() {
 
   return (
     <main className="max-w-5xl mx-auto min-h-screen flex flex-col gap-5 px-5 py-8">
+      <AdminBack />
       <header>
         <h1 className="text-2xl font-bold">🎨 곤충 사생대회 심사 (1~3등)</h1>
         <p className="mt-1 text-sm text-slate-400">

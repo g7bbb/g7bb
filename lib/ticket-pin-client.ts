@@ -40,19 +40,50 @@ export function readTicketPin(ticket: string | null | undefined): string | null 
   }
 }
 
-/** 직원 화면: 들어올 때 친 암호를 이 탭에만 기억 (비밀번호 목록을 받을 때 쓴다) */
+/**
+ * 직원 화면: 들어올 때 친 암호를 **그 기기에** 기억 (비밀번호 목록을 받을 때 쓴다).
+ * 🔁 10/3 Jin: "사진 출력할 때도 다시 로그인해야 함" → 탭마다 묻던 것(sessionStorage)을 기기 기억(localStorage)으로.
+ * 직원 메뉴(/admin)의 "🔒 직원 로그아웃" 으로 지울 수 있다.
+ */
+const ADMIN_FLAG_KEY = 'insect-battle-admin';
 export function rememberAdminCode(code: string) {
   try {
-    window.sessionStorage.setItem(ADMIN_CODE_KEY, code);
+    window.localStorage.setItem(ADMIN_CODE_KEY, code);
   } catch {
     // 무시
   }
 }
 export function readAdminCode(): string {
   try {
-    return window.sessionStorage.getItem(ADMIN_CODE_KEY) ?? '';
+    return window.localStorage.getItem(ADMIN_CODE_KEY) ?? window.sessionStorage.getItem(ADMIN_CODE_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+/** 직원 암호를 통과한 기기인가 */
+export function isAdminRemembered(): boolean {
+  try {
+    return window.localStorage.getItem(ADMIN_FLAG_KEY) === 'ok' && !!readAdminCode();
+  } catch {
+    return false;
+  }
+}
+export function rememberAdminLogin(code: string) {
+  try {
+    window.localStorage.setItem(ADMIN_FLAG_KEY, 'ok');
+  } catch {
+    // 무시
+  }
+  rememberAdminCode(code);
+}
+export function forgetAdmin() {
+  try {
+    window.localStorage.removeItem(ADMIN_FLAG_KEY);
+    window.localStorage.removeItem(ADMIN_CODE_KEY);
+    window.sessionStorage.removeItem(ADMIN_FLAG_KEY);
+    window.sessionStorage.removeItem(ADMIN_CODE_KEY);
+  } catch {
+    // 무시
   }
 }
 
