@@ -384,17 +384,18 @@ export default function BattlePage() {
     if (phase !== 'done' || !battle || soundedBattle.current === battle) return;
     soundedBattle.current = battle;
     let at = 0;
-    if (battle.winner === 'A') playSound('win');
-    else if (battle.winner === 'B') {
-      playSound('lose');
-      // 😢 "레벨업이 필요해..ㅠ" (10/4 Jin) — 결과를 잠깐 본 뒤에
-      window.setTimeout(() => setLosePopup(true), 900);
-    }
-    if (leveledUp) playSound('levelUp', (at += 1000));
     // 연습 게임은 랭킹 도전까지 끝났을 때만 '게임 끝' (10/3 Jin "연습만 하면 게임이 끝나버려" — 연습을 먼저 한 1만원 아이)
     const over = practiceRef.current
       ? !!playerRef.current && gameIsOver(playerRef.current)
       : ladder ? ladderFinished(ladder) : false;
+    if (battle.winner === 'A') playSound('win');
+    else if (battle.winner === 'B') {
+      playSound('lose');
+      // 😢 "레벨업이 필요해..ㅠ" (10/4 Jin) — 결과를 잠깐 본 뒤에.
+      //    게임 마지막 판이면 안 띄운다 (곧 "이번 게임 업적" 화면이 떠서 두 번 눌러야 함 — 10/4 Jin "마지막 판은 빼줘")
+      if (!over) window.setTimeout(() => setLosePopup(true), 900);
+    }
+    if (leveledUp) playSound('levelUp', (at += 1000));
     if (over) {
       playSound('gameOver', at + 1300);
       // ⏩ 2만원 이상이고 게임이 남았으면 로그아웃하지 않는다 → "다음 게임 바로 시작!" (10/4 Jin)
