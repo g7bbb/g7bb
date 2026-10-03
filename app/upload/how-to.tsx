@@ -102,20 +102,33 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
   const isLast = index === SLIDES.length - 1;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/95 flex flex-col">
-      <div className="flex justify-end p-4">
+    // 10/3 Jin: "설명 중 뒤로 넘어가기 버튼이 없어, 건너뛰기밖에" — 장이 길면 아래 버튼이 화면 밖으로 밀려났다.
+    // → 가운데만 스크롤되고, 아래 이전/다음 버튼은 항상 화면 안에 붙어 있게. 위에도 ← 이전.
+    <div className="fixed inset-0 z-50 bg-slate-950/95 flex flex-col h-[100dvh]">
+      <div className="flex justify-between items-center p-3 shrink-0">
+        {index > 0 ? (
+          <button onClick={() => setIndex(index - 1)} className="text-slate-200 font-bold text-base px-3 py-1.5 rounded-xl bg-slate-800">
+            ← 이전
+          </button>
+        ) : (
+          <span />
+        )}
+        <span className="text-sm text-slate-400 font-bold">
+          {index + 1} / {SLIDES.length}
+        </span>
         <button onClick={onClose} className="text-slate-400 text-sm px-3 py-1">
           건너뛰기 ✕
         </button>
       </div>
 
       {/* 10/3 Jin: "모두 거기서 누르려고 노력중이더라" → 설명 칸이라는 걸 장마다 크게 알려준다 */}
-      <div className="mx-6 -mt-2 rounded-2xl border-2 border-amber-300 bg-amber-400/15 px-4 py-2.5 text-center" style={{ wordBreak: 'keep-all' }}>
+      <div className="mx-6 shrink-0 rounded-2xl border-2 border-amber-300 bg-amber-400/15 px-4 py-2.5 text-center" style={{ wordBreak: 'keep-all' }}>
         <p className="text-lg font-black text-amber-200">📖 이건 설명 칸이야!!</p>
         <p className="text-sm text-amber-100">여기는 누르는 곳이 아니야. 아래 <b>다음 →</b> 버튼으로 넘겨봐!</p>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-5 px-8 text-center">
+      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="min-h-full flex flex-col items-center justify-center gap-4 px-8 py-4 text-center">
         <div key={`emoji-${index}`} className="text-7xl animate-pop">
           {slide.emoji}
         </div>
@@ -140,7 +153,9 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-4 px-8 pb-10">
+      </div>
+
+      <div className="shrink-0 flex flex-col gap-3 pl-6 pr-[4.5rem] pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-slate-800 bg-slate-950">
         <div className="flex justify-center gap-2">
           {SLIDES.map((_, i) => (
             <div
