@@ -172,7 +172,7 @@ function TierDesk() {
       <AdminBack />
       <h1 className="text-xl font-bold text-center">💰 참가권 올려주기 (직원용)</h1>
       <p className="text-xs text-slate-400 text-center">
-        종이는 모두 1만원으로 시작해요. 2만원 이상 낸 아이만 번호를 치고 금액을 눌러 주세요.
+        종이는 모두 1.5만원으로 시작해요. 2만원 이상 낸 아이만 번호를 치고 금액을 눌러 주세요.
       </p>
 
       <form onSubmit={lookup} className="flex gap-2">
@@ -236,7 +236,7 @@ function TierDesk() {
                     className="rounded-xl py-3 px-2 font-bold border-2 disabled:opacity-60 bg-emerald-500 text-slate-900 border-emerald-300"
                   >
                     <span className="block text-lg">➕ 1게임 더</span>
-                    <span className="block text-xs font-semibold opacity-80">1만원 · 3판 · 바로 시작</span>
+                    <span className="block text-xs font-semibold opacity-80">1.5만원 · 1게임 · 바로 시작</span>
                     {saving === key && <span className="block text-xs">저장 중...</span>}
                   </button>
                 );

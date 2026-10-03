@@ -50,6 +50,8 @@ export interface SavedLadder {
   bossAfter: number | null;
   bossDone: boolean;
   bonus?: boolean;
+  /** 보너스 스테이지 상품을 무조건 "레벨 1 업" 으로 (2만원 이상 첫 보너스, lib/bonus-stage.ts planLadderEvent) */
+  bonusLevel?: boolean;
 }
 
 /** 랭킹 도전 한 게임의 판 수 */

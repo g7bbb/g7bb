@@ -22,6 +22,23 @@ export const BONUS_REWARDS: { key: BonusKey; emoji: string; title: string; desc:
   { key: 'def', emoji: '🛡️', title: '수비력 +20', desc: '내 곤충 수비력이 영원히 20 늘었어!', amount: 20, color: '#60a5fa' },
 ];
 
+/**
+ * 🎲 랭킹 도전을 새로 시작할 때 이번 게임의 이벤트를 정한다 (10/4 Jin).
+ * - 참가권의 `eventChance` 로 나올지 정함 (1.5만원 15% · 2만원 이상 무조건). 나오면 1판 또는 2판 뒤.
+ * - 그중 BONUS_SHARE(40%) 는 보스 대신 보너스 스테이지.
+ * - `levelUpOnce`(2만원 이상) 인데 아직 보너스 스테이지를 한 번도 안 받았으면 → **무조건 보너스 + 상품은 레벨 1 업**.
+ */
+export function planLadderEvent(
+  tier: { eventChance: number; levelUpOnce?: boolean },
+  hadBonusBefore: boolean,
+  rand: () => number = Math.random
+): { bossAfter: number | null; bonus: boolean; bonusLevel: boolean } {
+  if (rand() >= tier.eventChance) return { bossAfter: null, bonus: false, bonusLevel: false };
+  const bossAfter = 1 + Math.floor(rand() * 2);
+  if (tier.levelUpOnce && !hadBonusBefore) return { bossAfter, bonus: true, bonusLevel: true };
+  return { bossAfter, bonus: rand() < BONUS_SHARE, bonusLevel: false };
+}
+
 export function rollBonus(): BonusKey {
   return BONUS_REWARDS[Math.floor(Math.random() * BONUS_REWARDS.length)].key;
 }

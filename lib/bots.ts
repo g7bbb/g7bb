@@ -54,6 +54,7 @@ export const BOT_INSECTS: Insect[] = [
 // - 기술은 사마귀 것(당랑권, 공격형)을 쓴다. 생김새는 잠자리 날개 + 사마귀 앞발 + 벌 꼬리.
 // - 이기면 경험치는 보통 배틀처럼 받는다. **랭킹 점수(battles)는 안 남긴다** (보스를 이긴 점수로 순위가 흔들리지 않게).
 export const BOSS_ID = 'bot-boss';
+// ⚠️ 10/4 부터 실제 확률은 참가권마다 다르다 (`Tier.eventChance`, lib/tiers.ts · `planLadderEvent`, lib/bonus-stage.ts). 이 값은 옛 기준.
 export const BOSS_CHANCE = 0.45;
 export const BOSS_PERKS = { hp: 1.06, def: 1.06, special: 1 };
 

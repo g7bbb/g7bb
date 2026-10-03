@@ -37,9 +37,10 @@ import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
-import { BOSS_CHANCE, BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, makeBoss } from '@/lib/bots';
+import { BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, makeBoss } from '@/lib/bots';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
-import { BONUS_SHARE, BonusKey, bonusInfo, readBonus, rollBonus } from '@/lib/bonus-stage';
+import { BonusKey, bonusInfo, planLadderEvent, readBonus, rollBonus } from '@/lib/bonus-stage';
+import { tierForPlayer } from '@/lib/tiers';
 import BonusStage from './bonus-stage';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -123,6 +124,8 @@ interface LadderState {
   bossDone: boolean;
   /** 🎁 이번 이벤트가 중간보스 대신 보너스 스테이지인지 (lib/bonus-stage.ts) */
   bonus?: boolean;
+  /** 🎁 보너스 상품이 무조건 레벨 1 업인지 (2만원 이상 첫 보너스) */
+  bonusLevel?: boolean;
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
@@ -1048,11 +1051,11 @@ export default function BattlePage() {
 
     // 상대 3명을 먼저 정하고 시작과 함께 적어둔다 (이어하기용)
     const targets = opponents.slice(0, LADDER_SIZE).reverse();
-    // 👹 45% 확률로 1판 또는 2판 뒤에 이벤트가 갑자기 나타난다 (lib/bots.ts)
-    const bossAfter = Math.random() < BOSS_CHANCE ? 1 + Math.floor(Math.random() * 2) : null;
-    // 🎁 그중 40% 는 보스 대신 보너스 스테이지 (lib/bonus-stage.ts)
-    const bonus = bossAfter !== null && Math.random() < BONUS_SHARE;
-    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false, bonus };
+    // 👹🎁 1판 또는 2판 뒤에 중간보스나 보너스 스테이지가 갑자기 나타난다.
+    //    참가권마다 확률이 다르다 (10/4 Jin: 1.5만원 15% · 2만원 이상 무조건 + 첫 보너스는 레벨 1 업) — lib/bonus-stage.ts
+    const hadBonus = readGameState(player).sessions.some((s) => s.ladderRun?.bonus);
+    const { bossAfter, bonus, bonusLevel } = planLadderEvent(tierForPlayer(player), hadBonus);
+    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false, bonus, bonusLevel };
     try {
       setPlayer(await claimSlot(player.id, 'ladder', run as SavedLadder));
       clearGameOver(); // 더 하는 중이니 자동 로그아웃 시계를 멈춘다
@@ -1100,8 +1103,8 @@ export default function BattlePage() {
 
   /** 🎁 보너스 스테이지 상자를 열었을 때 — 상품 하나를 무작위로 주고 바로 저장 (판 수에 안 셈) */
   async function claimBonus(): Promise<{ key: BonusKey; ok: boolean }> {
-    const key = rollBonus();
     const run = ladderRef.current;
+    const key: BonusKey = run?.bonusLevel ? 'level' : rollBonus();
     if (run) {
       const next = { ...run, bossDone: true };
       ladderRef.current = next;

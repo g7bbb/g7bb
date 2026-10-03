@@ -2,12 +2,12 @@
 // 참가 금액(등급) — 2026-10-01 Jin 확정
 //
 // **앱은 아이가 얼마를 냈는지 알 방법이 종이 번호밖에 없다.** 그래서 번호 앞 글자로 구분한다.
-//   A-001 → 1만원 / B-001 → 2만원(10/3 밤 전엔 3만원) / C-001 → 5만원 / D-001 → 10만원
+//   A-001 → 1.5만원(10/4 전엔 1만원) / B-001 → 2만원(10/3 밤 전엔 3만원) / C-001 → 5만원 / D-001 → 10만원
 // 종이를 금액별로 따로 뽑아서, 부스에서 돈을 받고 그 금액의 종이를 건네주면 된다.
 // (`/print` 에서 금액을 고르면 그 글자부터 뽑힌다.)
 //
 // 🔁 **2026-10-01 바뀜 (Jin: "가격마다 종이를 따로 인쇄해야 해? 더 편한 방법은?")**
-// 종이는 **한 종류(A, 1만원)만** 뽑고, 2만원 이상 낸 아이만 **직원이 `/admin/tier` 에서 올려준다.**
+// 종이는 **한 종류(A, 1.5만원)만** 뽑고, 2만원 이상 낸 아이만 **직원이 `/admin/tier` 에서 올려준다.**
 // 올려준 금액은 `players.survey.game.tier` 에 저장되고, 번호 앞 글자보다 **우선한다** (`tierForPlayer`).
 // 금액별로 따로 인쇄하는 방법(`/print?tier=B`)도 그대로 남아 있어서 섞어 써도 된다.
 //
@@ -31,21 +31,36 @@ export interface Tier {
   card: TierCardStyle;
   /** 아이·부모님에게 보여줄 혜택 */
   perks: string[];
+  /** 게임 수 대신 보여줄 말 (10/4 Jin: 1.5만원은 "1게임", 2만원은 "9판" 으로 부른다) */
+  label?: string;
+  /**
+   * 🎲 랭킹 도전 한 게임에 중간보스·보너스 스테이지가 나올 확률 (lib/bonus-stage.ts `planLadderEvent`).
+   * 10/4 Jin: 1.5만원 15% · 2만원 이상 **무조건**(1).
+   */
+  eventChance: number;
+  /** 🎁 첫 이벤트는 무조건 "레벨 1 업" 보너스 스테이지 (한 번) — 2만원 이상 (10/4 Jin "레벨업 보너스게임 1회 무조건!") */
+  levelUpOnce?: boolean;
 }
 
 // 🔁 2026-10-02 밤 Jin (카톡 채널 안내 글과 맞춤): 3만원 2 → **3게임**, 5만원 2일간 5 → **첫날 하루 6게임**.
 // 🔁 2026-10-03 밤 Jin: **3만원권 → 2만원권** (게임 수 3게임 그대로) + "앱이 나오면 데이터 보존".
 //    1만원은 그대로 1게임인데 **데이터 보존 안 함**을 안내에 적는다. 5만·10만원은 그대로.
 //    ⚠️ 이미 B(3만원)로 올려준 아이는 표시만 2만원으로 바뀌고 게임 수(3)는 같다.
+// 🔁 2026-10-04 아침 Jin: "5만원 이상은 거의 안 써서, 초반 가격을 1.5만원·2만원으로 단순하게 하고 2만원을 고르게 만들 것".
+//    1.5만원(A) = 1게임(3판) + 보너스 게임(가끔, 15%) · 데이터 보존 안 됨
+//    2만원(B)   = 9판(= 3게임) + 레벨업 보너스 게임 1회 무조건 + 매 게임 중간보스/보너스 하나는 무조건 · 앱에서 캐릭터 보존
+//    5만·10만원 혜택 그대로 (이벤트는 2만원처럼 무조건 — 2만원보다 덜 주면 안 되니까).
 export const TIERS: Record<TierKey, Tier> = {
   A: {
     key: 'A',
-    price: '1만원',
+    price: '1.5만원',
     name: '참가권',
     emoji: '🎟️',
     games: 1,
+    label: '1게임',
+    eventChance: 0.15,
     card: 'normal',
-    perks: ['1게임(3판) 참여', '랭킹 상품 도전', '내 곤충 카드 발급', '게임 데이터 보존 안 됨'],
+    perks: ['1게임 참여', '보너스 게임 (가끔 나와요)', '랭킹 상품 도전', '내 곤충 카드 발급', '게임 데이터 보존 안 됨'],
   },
   B: {
     key: 'B',
@@ -53,13 +68,18 @@ export const TIERS: Record<TierKey, Tier> = {
     name: '레벨업권',
     emoji: '⬆️',
     games: 3,
+    label: '9판',
+    eventChance: 1,
+    levelUpOnce: true,
     card: 'normal',
     perks: [
-      '3게임(9판) 참여',
+      '9판 참여',
+      '레벨업 보너스 게임 (1회 무조건!)',
+      '중간보스·보너스 게임 무조건 등장',
       '랭킹 상품 도전',
       '내 곤충 카드 발급',
       '다시 참여하면 레벨업',
-      '게임 데이터 보존 (G7BB 앱이 나오면 QR로 이어서 참여)',
+      'G7BB 앱에서 내 캐릭터 보존 (앱이 나오면 QR로 이어서 참여)',
     ],
   },
   C: {
@@ -69,6 +89,8 @@ export const TIERS: Record<TierKey, Tier> = {
     emoji: '🥇',
     games: 6,
     oneDay: true,
+    eventChance: 1,
+    levelUpOnce: true,
     card: 'gold',
     perks: [
       '하루 6게임(18판) 참여',
@@ -85,6 +107,8 @@ export const TIERS: Record<TierKey, Tier> = {
     name: '다이아',
     emoji: '💎',
     games: Infinity,
+    eventChance: 1,
+    levelUpOnce: true,
     card: 'diamond',
     perks: [
       '2일간 무제한 참여',
@@ -120,6 +144,7 @@ export function tierStartIndex(key: TierKey): number {
 export const ROUNDS_PER_GAME = 3;
 
 export function gamesLabel(tier: Tier): string {
+  if (tier.label) return tier.label;
   if (!Number.isFinite(tier.games)) return '무제한';
   const rounds = `(${tier.games * ROUNDS_PER_GAME}판)`;
   return tier.oneDay ? `하루 ${tier.games}게임 ${rounds}` : `${tier.games}게임 ${rounds}`;
