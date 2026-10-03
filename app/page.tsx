@@ -90,6 +90,11 @@ function HomeInner() {
       {scanning && <QrScanner onClose={() => setScanning(false)} />}
       {!player ? (
         <div className="flex flex-col gap-3">
+          {/* 📷 버튼 바로 위 안내 (10/3 Jin: "종이 오른쪽 위에 QR을 찍어줘!!! 이렇게") */}
+          <div className="bg-amber-400/15 border-2 border-amber-300 rounded-2xl px-4 py-3 text-center" style={{ wordBreak: 'keep-all' }}>
+            <p className="text-xl font-black text-amber-200">📄 종이 오른쪽 위에 QR을 찍어줘!!!</p>
+            <p className="mt-1 text-sm text-amber-100">아래 초록 버튼을 누르고, 종이 오른쪽 위 QR을 카메라에 비춰줘</p>
+          </div>
           <button
             type="button"
             onClick={() => setScanning(true)}
