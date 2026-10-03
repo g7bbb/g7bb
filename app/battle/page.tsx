@@ -35,6 +35,8 @@ import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
 import { BOSS_CHANCE, BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, makeBoss } from '@/lib/bots';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
+import { BONUS_SHARE, BonusKey, bonusInfo, readBonus, rollBonus } from '@/lib/bonus-stage';
+import BonusStage from './bonus-stage';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -100,8 +102,10 @@ interface LadderState {
   log: { rank: number; nickname: string; won: boolean; bot?: boolean }[];
   /** 👹 중간보스가 나타나는 때 (이 판 수가 끝난 뒤). null 이면 이번 게임엔 안 나옴 (lib/bots.ts) */
   bossAfter: number | null;
-  /** 중간보스와 이미 싸웠나 */
+  /** 중간보스와 이미 싸웠나 (보너스 스테이지도 이걸로 '지나감' 표시) */
   bossDone: boolean;
+  /** 🎁 이번 이벤트가 중간보스 대신 보너스 스테이지인지 (lib/bonus-stage.ts) */
+  bonus?: boolean;
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
@@ -172,6 +176,8 @@ export default function BattlePage() {
   const bossRef = useRef(false);
   /** 중간보스 경고 화면이 떠 있는지 */
   const [bossAlert, setBossAlert] = useState(false);
+  /** 🎁 보너스 스테이지 화면이 떠 있는지 */
+  const [bonusOpen, setBonusOpen] = useState(false);
   // 게임을 시작하면(claimSlot) player 가 바뀌는데, 배틀 함수 안에서는 옛 값이 보여서 최신 값을 따로 들고 있는다.
   const playerRef = useRef<Player | null>(null);
   useEffect(() => {
@@ -382,8 +388,13 @@ export default function BattlePage() {
   useEffect(() => {
     if (!bossDue) return;
     const id = window.setTimeout(() => {
-      setBossAlert(true);
-      playSound('spCommonAttack');
+      if (ladderRef.current?.bonus) {
+        setBonusOpen(true);
+        playSound('next');
+      } else {
+        setBossAlert(true);
+        playSound('spCommonAttack');
+      }
     }, 1800);
     return () => window.clearTimeout(id);
   }, [bossDue]);
@@ -936,7 +947,9 @@ export default function BattlePage() {
     const targets = opponents.slice(0, LADDER_SIZE).reverse();
     // 👹 45% 확률로 1판 또는 2판 뒤에 이벤트가 갑자기 나타난다 (lib/bots.ts)
     const bossAfter = Math.random() < BOSS_CHANCE ? 1 + Math.floor(Math.random() * 2) : null;
-    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false };
+    // 🎁 그중 40% 는 보스 대신 보너스 스테이지 (lib/bonus-stage.ts)
+    const bonus = bossAfter !== null && Math.random() < BONUS_SHARE;
+    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false, bonus };
     try {
       setPlayer(await claimSlot(player.id, 'ladder', run as SavedLadder));
       clearGameOver(); // 더 하는 중이니 자동 로그아웃 시계를 멈춘다
@@ -980,6 +993,40 @@ export default function BattlePage() {
     // 여기서 화면을 비우면 상대 그림을 받아오는 동안 준비 화면이 한 번 번쩍입니다.
     // 결과 카드를 띄워둔 채로 다음 상대를 불러오고, 연출은 runFight 가 알아서 초기화합니다.
     startBattle(ladder.targets[ladder.index]);
+  }
+
+  /** 🎁 보너스 스테이지 상자를 열었을 때 — 상품 하나를 무작위로 주고 바로 저장 (판 수에 안 셈) */
+  async function claimBonus(): Promise<{ key: BonusKey; ok: boolean }> {
+    const key = rollBonus();
+    const run = ladderRef.current;
+    if (run) {
+      const next = { ...run, bossDone: true };
+      ladderRef.current = next;
+      setLadder(next);
+      if (player) void saveLadderRun(player.id, next as SavedLadder);
+    }
+    if (!myInsect) return { key, ok: false };
+    try {
+      if (key === 'level') {
+        const gain = addXp(myInsect.level, myInsect.xp, 1);
+        const { error } = await supabase.from('insects').update({ xp: gain.xp, level: gain.level }).eq('id', myInsect.id);
+        if (error) throw error;
+        setMyInsect({ ...myInsect, xp: gain.xp, level: gain.level });
+      } else {
+        // stats 안의 다른 기록(포인트·수비 경험치)을 덮지 않게 최신 값을 받아서 bonus 만 고친다
+        const { data: fresh } = await supabase.from('insects').select('stats').eq('id', myInsect.id).maybeSingle();
+        const stats = { ...(((fresh as any)?.stats ?? myInsect.stats ?? {}) as object) } as any;
+        const cur = readBonus(stats);
+        cur[key] += bonusInfo(key).amount;
+        stats.bonus = cur;
+        const { error } = await supabase.from('insects').update({ stats }).eq('id', myInsect.id);
+        if (error) throw error;
+        setMyInsect({ ...myInsect, stats });
+      }
+      return { key, ok: true };
+    } catch {
+      return { key, ok: false };
+    }
   }
 
   /** 👹 중간보스와 싸우기 — 랭킹 도전 판 수는 그대로 두고 덤으로 한 판 */
@@ -1361,7 +1408,14 @@ export default function BattlePage() {
               </button>
             )}
             <div className="flex gap-2">
-              {bossDue ? (
+              {bossDue && ladder?.bonus ? (
+                <button
+                  onClick={() => setBonusOpen(true)}
+                  className="flex-1 bg-amber-400 text-slate-900 font-black py-3 rounded-xl animate-pulse"
+                >
+                  ✨ 뭔가 반짝인다…
+                </button>
+              ) : bossDue ? (
                 <button
                   onClick={() => setBossAlert(true)}
                   className="flex-1 bg-rose-500 text-white font-black py-3 rounded-xl animate-pulse"
@@ -1394,8 +1448,11 @@ export default function BattlePage() {
           </div>
         )}
 
+        {/* 🎁 보너스 스테이지 (lib/bonus-stage.ts) */}
+        {bonusOpen && <BonusStage onClaim={claimBonus} onClose={() => setBonusOpen(false)} />}
+
         {/* 👹 중간보스 경고 (lib/bots.ts) */}
-        {bossAlert && bossDue && myInsect && typeof document !== 'undefined' &&
+        {bossAlert && bossDue && !ladder?.bonus && myInsect && typeof document !== 'undefined' &&
           createPortal(
             <div className="fixed inset-0 z-[80] flex items-center justify-center px-6 bg-black/85">
               <div className="boss-alert w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-3xl border-4 border-rose-500 bg-slate-950 p-5 text-center flex flex-col gap-3 shadow-[0_0_60px_rgba(244,63,94,0.6)]">

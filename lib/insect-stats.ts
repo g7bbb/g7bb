@@ -1,3 +1,4 @@
+import { applyBonus, readBonus } from './bonus-stage';
 import {
   AgeStageKey,
   BodyPart,
@@ -240,8 +241,8 @@ export function statsForInsect(
       insect.species,
       insect.origin
     );
-    // 다시 와서 레벨업할 때 아이가 직접 나눠 준 포인트 (lib/alloc.ts)
-    return applyAlloc(base, readAlloc(insect.stats));
+    // 다시 와서 레벨업할 때 아이가 직접 나눠 준 포인트 (lib/alloc.ts) + 🎁 보너스 스테이지에서 받은 HP·수비력 (lib/bonus-stage.ts)
+    return applyBonus(applyAlloc(base, readAlloc(insect.stats)), readBonus(insect.stats));
   }
   const old = (insect.stats ?? {}) as Partial<CoreStats> & { surv?: number };
   return {
