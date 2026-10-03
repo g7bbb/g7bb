@@ -1465,7 +1465,7 @@ export default function BattlePage() {
         <div>
           <p className="font-bold text-emerald-300">🏆 랭킹 도전</p>
           <p className="mt-1 text-xl font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
-            ⚔️ 총 {LADDER_BATTLES}판 할 수 있어!
+            ⚔️ 이번 게임은 {LADDER_BATTLES}판 할 수 있어!
           </p>
           <p className="text-xs text-slate-400 mt-1">
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.

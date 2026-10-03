@@ -42,7 +42,7 @@ export const TIERS: Record<TierKey, Tier> = {
     emoji: '🎟️',
     games: 1,
     card: 'normal',
-    perks: ['1게임 참여', '랭킹 상품 도전', '내 곤충 카드 발급'],
+    perks: ['1게임(3판) 참여', '랭킹 상품 도전', '내 곤충 카드 발급'],
   },
   B: {
     key: 'B',
@@ -51,7 +51,7 @@ export const TIERS: Record<TierKey, Tier> = {
     emoji: '⬆️',
     games: 3,
     card: 'normal',
-    perks: ['3게임 참여', '랭킹 상품 도전', '내 곤충 카드 발급', '다시 참여하면 레벨업'],
+    perks: ['3게임(9판) 참여', '랭킹 상품 도전', '내 곤충 카드 발급', '다시 참여하면 레벨업'],
   },
   C: {
     key: 'C',
@@ -62,7 +62,7 @@ export const TIERS: Record<TierKey, Tier> = {
     oneDay: true,
     card: 'gold',
     perks: [
-      '하루 6게임 참여',
+      '하루 6게임(18판) 참여',
       '랭킹 상품 도전 (랭킹 선물은 별도)',
       '내 곤충 카드 발급',
       '내 곤충 피규어·포스터 선물 배송',
@@ -107,9 +107,13 @@ export function tierStartIndex(key: TierKey): number {
   return TIER_ORDER.indexOf(key) * 999;
 }
 
+/** 1게임 = 랭킹 도전 3판 (10/3 Jin: "1만원 1게임 = 3판, 3만원 3게임 = 9판") */
+export const ROUNDS_PER_GAME = 3;
+
 export function gamesLabel(tier: Tier): string {
   if (!Number.isFinite(tier.games)) return '무제한';
-  return tier.oneDay ? `하루 ${tier.games}게임` : `${tier.games}게임`;
+  const rounds = `(${tier.games * ROUNDS_PER_GAME}판)`;
+  return tier.oneDay ? `하루 ${tier.games}게임 ${rounds}` : `${tier.games}게임 ${rounds}`;
 }
 
 /**

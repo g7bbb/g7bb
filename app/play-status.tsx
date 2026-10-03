@@ -1,12 +1,12 @@
 'use client';
 
 import { PlayStatus, formatCountdown } from '@/lib/game-state';
-import { gamesLabel } from '@/lib/tiers';
+import { ROUNDS_PER_GAME, gamesLabel } from '@/lib/tiers';
 
 /** 내 참가권 · 남은 게임 · 30분 대기 시계 */
 export default function PlayStatusCard({ status }: { status: PlayStatus }) {
   const { tier } = status;
-  const leftText = Number.isFinite(status.left) ? `남은 게임 ${status.left}` : '무제한';
+  const leftText = Number.isFinite(status.left) ? `남은 게임 ${status.left} (${status.left * ROUNDS_PER_GAME}판)` : '무제한';
   return (
     <div className="bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-2">
       <span className="font-bold">
