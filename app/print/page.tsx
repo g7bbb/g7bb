@@ -24,7 +24,7 @@ import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/ti
 //   보호자용 QR 은 우리 사이트 화면을 가리키므로, **뽑은 뒤에도 그 화면 내용은 얼마든지 고칠 수 있다.**
 //
 // 💰 **금액별로 따로 뽑습니다 (2026-10-01).** 번호 앞 글자가 곧 금액입니다 (`lib/tiers.ts`).
-//   /print?tier=B&count=100 → B-001 ~ B-100 (3만원 종이)
+//   /print?tier=B&count=100 → B-001 ~ B-100 (2만원 종이)
 // `start` 는 그 금액 안에서 몇 번째부터인지입니다 (?tier=B&start=100 → B-101 부터).
 
 /**
@@ -170,7 +170,7 @@ function PrintInner() {
           보호자용 QR: ① 게임 설명 <b>{GUIDE_URL}</b> · ② 곤충본부 소개 <b>{ABOUT_URL}</b>
         </p>
         <p className="hint">
-          💰 <b>보통은 A(기본) 한 종류만 뽑으면 됩니다.</b> 3만원 이상 낸 아이는 직원이{' '}
+          💰 <b>보통은 A(기본) 한 종류만 뽑으면 됩니다.</b> 2만원 이상 낸 아이는 직원이{' '}
           <b>/admin/tier</b> 에서 번호를 치고 금액을 눌러 올려줍니다. 지금 고른 금액:{' '}
           <b>{tierInfo.emoji} {tierInfo.price}</b> (번호가 <b>{tier}-</b> 로 시작).
           {printable < count && ` (한 금액은 999장까지라 ${printable}장만 뽑힙니다)`}

@@ -14,7 +14,7 @@ import { grantExtraGame, isPending, playStatus, setTierForTicket, waiveCooldown 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 참가권 올려주기 (2026-10-01 Jin: "가격마다 종이를 따로 인쇄해야 해? 더 편한 방법은?")
 //
-// 종이는 한 종류(A, 1만원)만 뽑는다. 3만원 이상 낸 아이만 직원이 여기서 번호를 치고 금액을 누른다.
+// 종이는 한 종류(A, 1만원)만 뽑는다. 2만원 이상 낸 아이만 직원이 여기서 번호를 치고 금액을 누른다.
 // 아이가 아직 QR 을 안 찍었어도 먼저 올려둘 수 있다 (이름 없는 자리를 만들어 둠 → lib/game-state.ts).
 // 나중에 추가로 돈을 내면 같은 방법으로 다시 올려주면 된다.
 //
@@ -172,7 +172,7 @@ function TierDesk() {
       <AdminBack />
       <h1 className="text-xl font-bold text-center">💰 참가권 올려주기 (직원용)</h1>
       <p className="text-xs text-slate-400 text-center">
-        종이는 모두 1만원으로 시작해요. 3만원 이상 낸 아이만 번호를 치고 금액을 눌러 주세요.
+        종이는 모두 1만원으로 시작해요. 2만원 이상 낸 아이만 번호를 치고 금액을 눌러 주세요.
       </p>
 
       <form onSubmit={lookup} className="flex gap-2">

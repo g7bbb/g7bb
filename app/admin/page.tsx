@@ -10,7 +10,7 @@ import { signOut } from '@/lib/session';
 // 암호는 그 기기에 기억된다 (lib/ticket-pin-client.ts) — 아이들도 쓰는 태블릿이면 다 쓰고 "직원 로그아웃".
 
 const MENU: { href: string; emoji: string; title: string; desc: string }[] = [
-  { href: '/admin/tier', emoji: '💰', title: '참가권 올려주기', desc: '3만·5만·10만원 · 30분 대기 풀기 · 종이 비밀번호 보기' },
+  { href: '/admin/tier', emoji: '💰', title: '참가권 올려주기', desc: '2만·5만·10만원 · 30분 대기 풀기 · 종이 비밀번호 보기' },
   { href: '/admin/poster', emoji: '🖨️', title: '포스터 · 카드 출력', desc: '원본 그림 받기 · A3 포스터 · 셀피 카드' },
   { href: '/admin/judge', emoji: '🎨', title: '곤충 사생대회 심사', desc: '1~3등 고르기 (하트는 참고)' },
   { href: '/live', emoji: '📺', title: '실시간 랭킹 (모니터용)', desc: '영상 옆 모니터에 띄워두기 · 자동으로 새로고침' },
