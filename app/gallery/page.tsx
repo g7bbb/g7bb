@@ -97,7 +97,7 @@ export default function GalleryPage() {
       <header className="text-center">
         <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />친구들 곤충 구경하기</h1>
         <p className="mt-2 text-sm text-slate-400">
-          멋진 곤충에 하트를 눌러줘! 예쁜 곤충 상은 하트를 참고해서 정해져!
+          멋진 곤충에 하트를 눌러줘! 🎨 곤충 사생대회 1~3등은 하트를 참고해서 선생님이 뽑아!
         </p>
       </header>
 

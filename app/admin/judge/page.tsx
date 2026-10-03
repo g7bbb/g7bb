@@ -7,11 +7,12 @@ import { filterWorldQuery, loadTestPlayerIds } from '@/lib/test-world';
 
 // "예쁜 곤충 랭킹" 심사 화면입니다. 운영자 전용.
 //
-// 아이들 하트 수는 **참고용으로만** 보여주고, 최종 1~4위는 운영자가 직접 정합니다.
+// 아이들 하트 수는 **참고용으로만** 보여주고, 최종 1~3등은 운영자가 직접 정합니다.
 // 하트가 많아도 운영자 선택이 다를 수 있다는 것이 사용자가 정한 방침입니다.
 
 const PAGE_SIZE = 24;
-const RANKS = [1, 2, 3, 4];
+// 🎨 곤충 사생대회 1~3등 (10/3 Jin, 예전엔 1~4위)
+const RANKS = [1, 2, 3];
 
 interface JudgeInsect {
   id: string;
@@ -163,7 +164,7 @@ function JudgeBoard() {
   return (
     <main className="max-w-5xl mx-auto min-h-screen flex flex-col gap-5 px-5 py-8">
       <header>
-        <h1 className="text-2xl font-bold">🎨 예쁜 곤충 심사</h1>
+        <h1 className="text-2xl font-bold">🎨 곤충 사생대회 심사 (1~3등)</h1>
         <p className="mt-1 text-sm text-slate-400">
           하트 수는 참고용이에요. 최종 순위는 직접 정하시면 됩니다.
         </p>

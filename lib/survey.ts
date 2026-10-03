@@ -29,6 +29,16 @@ export const RANKING_REWARDS: { rank: string; emoji: string; text: string }[] = 
   { rank: '31~100위', emoji: '⭐', text: '100위권 업적 뱃지 + 시즌1 100위권 버프 (시즌2에서 사용 가능)' },
 ];
 
+/**
+ * 🎨 곤충 사생대회 (10/3 Jin) — 전체 참여자 중 예쁘고 멋지고 독특한 곤충 3명.
+ * 운영자가 /admin/judge 에서 1~3위를 고른다 (하트는 참고). 뽑히면 '시즌1 미술인' 뱃지(lib/badges.ts beauty).
+ */
+export const DRAWING_CONTEST_REWARDS: { rank: string; emoji: string; text: string }[] = [
+  { rank: '1등', emoji: '🥇', text: '수채화 세트 + 시즌1 미술인 업적' },
+  { rank: '2등', emoji: '🥈', text: '색연필 세트 + 시즌1 미술인 업적' },
+  { rank: '3등', emoji: '🥉', text: '그리기 세트 + 시즌1 미술인 업적' },
+];
+
 // 좋아하는 곤충 선택지. 목록에 없으면 '기타'를 눌러 직접 적을 수 있습니다.
 export const FAVORITE_INSECTS: string[] = [
   '장수풍뎅이',

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { TIERS, TIER_ORDER } from '@/lib/tiers';
-import { RANKING_REWARDS } from '@/lib/survey';
+import { DRAWING_CONTEST_REWARDS, RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 
 // 📖 보호자용 게임 설명 (2026-10-02 Jin) — 종이 아래 "① 게임 설명" QR 이 여는 화면.
@@ -87,6 +87,21 @@ export default function GuidePage() {
           ))}
         </ul>
         <p className="mt-2 text-sm text-slate-300">결과는 10월 4일 행사가 끝나면 곤충본부 액티비티 카카오톡 채널로 알려드려요. 채널을 꼭 친구 추가해주세요!</p>
+      </section>
+
+      <section className="bg-slate-800/80 rounded-2xl p-4">
+        <p className="font-black">🎨 곤충 사생대회 (전체 참여자 중 3명)</p>
+        <p className="mt-1 text-sm text-slate-400">배틀 성적과 상관없이, 예쁘고 멋지고 독특한 곤충을 뽑아요.</p>
+        <ul className="mt-2 text-sm text-slate-300 flex flex-col gap-2">
+          {DRAWING_CONTEST_REWARDS.map((r) => (
+            <li key={r.rank}>
+              <b className="text-amber-300">
+                {r.emoji} {r.rank}
+              </b>{' '}
+              · {r.text}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="bg-slate-800/80 rounded-2xl p-4">

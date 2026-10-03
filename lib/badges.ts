@@ -61,7 +61,7 @@ export const BADGES: BadgeDef[] = [
   { key: 'mySpecies', emoji: '🔍', name: '나만의 곤충', how: '목록에 없는 곤충을 직접 적어서 만들기' },
   { key: 'heart1', emoji: '💖', name: '첫 하트', how: '친구에게 하트 받기' },
   { key: 'heart10', emoji: '💘', name: '인기 곤충', how: '하트 10개 받기' },
-  { key: 'beauty', emoji: '🌸', name: '예쁜 곤충 입상', how: '예쁜 곤충 랭킹 1~4위' },
+  { key: 'beauty', emoji: '🎨', name: '시즌1 미술인', how: '곤충 사생대회 1~3등 (10/3 Jin)' },
   // 곤충 도장 깨기 (2026-10-01 Jin: "자기 곤충으로 각 곤충을 이겼을 때도 업적") — 랭킹 도전·연습 모두
   { key: 'beat_rhino', emoji: '🦏', name: '장수풍뎅이 격파', how: '장수풍뎅이를 배틀에서 이기기' },
   { key: 'beat_stag', emoji: '🦌', name: '사슴벌레 격파', how: '사슴벌레를 배틀에서 이기기' },
