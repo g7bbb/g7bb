@@ -7,6 +7,34 @@ import { readGameState, saveBadgeCount } from './game-state';
 import { tierForPlayer } from './tiers';
 import { findSpecies } from './species';
 import { hasAnyMutation } from './mutations';
+import { isStaffTicket, isTestTicket } from './ticket';
+
+/**
+ * 🎊 이 아이가 행사에서 몇 번째 손님인지 (10/3 Jin: "1·10·100·200·300·400·500번째 손님 업적").
+ * = 곤충을 처음 만든 순서. 테스트 번호(900~)와 직원 번호(450~500)는 빼고 센다.
+ * 곤충을 아직 안 만들었거나 못 읽으면 null. 곤충 수백 줄의 player_id·시각만 받아서 가볍다.
+ */
+export async function visitorNumber(playerId: string): Promise<number | null> {
+  try {
+    const [{ data: insects }, { data: players }] = await Promise.all([
+      supabase.from('insects').select('player_id, created_at').order('created_at', { ascending: true }).limit(5000),
+      supabase.from('players').select('id, ticket_code').limit(5000),
+    ]);
+    const skip = new Set(
+      (players || []).filter((p: any) => isTestTicket(p.ticket_code) || isStaffTicket(p.ticket_code)).map((p: any) => p.id)
+    );
+    const rows = [...(insects || [])].sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)));
+    const seen = new Set<string>();
+    for (const row of rows as any[]) {
+      if (skip.has(row.player_id) || seen.has(row.player_id)) continue;
+      seen.add(row.player_id);
+      if (row.player_id === playerId) return seen.size;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export interface BadgeSnapshot {
   facts: BadgeFacts;
@@ -24,12 +52,13 @@ export async function loadBadgeSnapshot(player: Player): Promise<BadgeSnapshot> 
     .eq('player_id', player.id);
   const ids = (insects || []).map((row: any) => row.id);
 
-  const [{ count: battles }, { data: winRows }, { count: hearts }] = await Promise.all([
+  const [{ count: battles }, { data: winRows }, { count: hearts }, visitorNo] = await Promise.all([
     supabase.from('battles').select('id', { count: 'exact', head: true }).eq('player_id', player.id),
     supabase.from('battles').select('opponent_insect_id').eq('player_id', player.id).eq('result', 'win').limit(500),
     ids.length
       ? supabase.from('hearts').select('insect_id', { count: 'exact', head: true }).in('insect_id', ids)
       : Promise.resolve({ count: 0 } as any),
+    ids.length ? visitorNumber(player.id) : Promise.resolve(null),
   ]);
 
   // 이긴 상대들의 곤충 종류 (도장 깨기 뱃지). 연습 게임 승리는 배틀 기록이 없어서
@@ -55,6 +84,7 @@ export async function loadBadgeSnapshot(player: Player): Promise<BadgeSnapshot> 
     tierKey: tierForPlayer(player).key,
     beatSpecies,
     stored: { ...state.badges },
+    visitorNo,
   };
   const earned = earnedBadges(facts);
   const held = heldBadges(facts);

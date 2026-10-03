@@ -18,6 +18,9 @@
 
 import { findSpecies } from './species';
 
+/** N번째 손님 뱃지를 주는 순서들 */
+export const VISITOR_MARKS = [1, 10, 100, 200, 300, 400, 500];
+
 export interface BadgeDef {
   key: string;
   emoji: string;
@@ -28,6 +31,8 @@ export interface BadgeDef {
   special?: 'daejeon';
   /** 참가권 뱃지 — 보여주기만 하고 개수에는 안 센다 */
   paid?: boolean;
+  /** 🎊 N번째 손님 뱃지 — 운으로 받는 것이라 개수에는 안 센다 (10/3 Jin) */
+  lucky?: boolean;
 }
 
 export const BADGES: BadgeDef[] = [
@@ -72,6 +77,15 @@ export const BADGES: BadgeDef[] = [
   { key: 'beatAll', emoji: '🏆', name: '곤충 도장 깨기', how: '여섯 종류 곤충을 모두 이기기' },
   { key: 'gold', emoji: '🥇', name: '골드 회원', how: '5만원 이상 참가권 (개수에는 안 세)', paid: true },
   { key: 'diamond', emoji: '💎', name: '다이아 회원', how: '10만원 다이아 참가권 (개수에는 안 세)', paid: true },
+  // 🎊 N번째 손님 (2026-10-03 Jin) — 행사에서 몇 번째로 곤충을 만든 친구인지. lib/badge-state.ts visitorNumber.
+  //    딱 한 명씩만 받을 수 있는 운 뱃지라 **개수에는 안 센다** (세면 '전부 모으기' 가 아무도 못 하는 목표가 된다).
+  ...VISITOR_MARKS.map((n) => ({
+    key: `visitor${n}`,
+    emoji: n === 1 ? '🥇' : n === 10 ? '🔟' : n === 100 ? '💯' : '🎊',
+    name: `${n}번째 손님`,
+    how: `행사에서 ${n}번째로 곤충을 만든 친구 (개수에는 안 세)`,
+    lucky: true,
+  })),
 ];
 
 /** 곤충 종류(저장된 한글 이름) → 도장 깨기 키. 목록에 없는 이름(물방개 등)은 기타 곤충. */
@@ -80,7 +94,7 @@ export function speciesBeatKey(species: string | null | undefined): string {
 }
 
 /** 개수에 세는 뱃지 (참가권 뱃지 빼고) */
-export const COUNTED_BADGES = BADGES.filter((b) => !b.paid);
+export const COUNTED_BADGES = BADGES.filter((b) => !b.paid && !b.lucky);
 export const COUNTED_TOTAL = COUNTED_BADGES.length;
 
 export function countBadges(earned: Set<string>): number {
@@ -153,6 +167,8 @@ export interface BadgeFacts {
   beatSpecies?: string[];
   /** 저장된 뱃지 (lib/game-state.ts) */
   stored: Record<string, string>;
+  /** 행사에서 몇 번째 손님인지 (곤충을 처음 만든 순서, 테스트·직원 번호 빼고). 모르면 없음 */
+  visitorNo?: number | null;
 }
 
 /** 조건을 채운 뱃지 전부 (게임 수 한도 적용 전) */
@@ -181,6 +197,7 @@ export function allEarnedBadges(f: BadgeFacts): Set<string> {
   if (['rhino', 'stag', 'mantis', 'bee', 'butterfly', 'other'].every((k) => got.has(`beat_${k}`))) got.add('beatAll');
   if (f.tierKey === 'C' || f.tierKey === 'D') got.add('gold');
   if (f.tierKey === 'D') got.add('diamond');
+  if (f.visitorNo && VISITOR_MARKS.includes(f.visitorNo)) got.add(`visitor${f.visitorNo}`);
   // 1위를 했으면 2위·3위 "안에 든" 것도 맞으므로 같이 켭니다.
   if (got.has('rank1')) got.add('rank2');
   if (got.has('rank2')) got.add('rank3');
@@ -210,7 +227,7 @@ function splitByCap(f: BadgeFacts): { shown: Set<string>; held: Set<string> } {
   let n = 0;
   for (const b of BADGES) {
     if (!all.has(b.key)) continue;
-    if (b.paid) {
+    if (b.paid || b.lucky) {
       shown.add(b.key);
     } else if (n < cap) {
       shown.add(b.key);

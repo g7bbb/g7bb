@@ -8,6 +8,7 @@ import { normalizeTicket, displayTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
+import QrScanner from '@/app/start/qr-scanner';
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
@@ -46,6 +47,8 @@ function HomeInner() {
   const params = useSearchParams();
   const [player, setPlayer] = useState<Player | null>(null);
   const [copied, setCopied] = useState(false);
+  // 📷 화면 안에서 종이 QR 찍기 (부스 태블릿 카메라가 QR 을 못 읽어서, 10/3 Jin)
+  const [scanning, setScanning] = useState(false);
 
   // 종이 QR이 첫 화면을 향하더라도 번호를 들고 시작 화면으로 넘겨줍니다.
   useEffect(() => {
@@ -84,13 +87,23 @@ function HomeInner() {
         )}
       </div>
 
+      {scanning && <QrScanner onClose={() => setScanning(false)} />}
       {!player ? (
-        <Link
-          href="/start"
-          className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-4 rounded-2xl text-lg"
-        >
-          🎫 시작하기
-        </Link>
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setScanning(true)}
+            className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-4 rounded-2xl text-lg"
+          >
+            📷 종이 QR 찍고 시작하기
+          </button>
+          <Link
+            href="/start"
+            className="block text-center bg-slate-800 text-slate-200 font-bold py-3 rounded-2xl"
+          >
+            🎫 시작하기
+          </Link>
+        </div>
       ) : (
         <div className="flex flex-col gap-4">
           <Link

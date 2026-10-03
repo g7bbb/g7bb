@@ -37,6 +37,16 @@ export function ticketAt(index: number): string {
  * ⚠️ 종이를 900장 넘게 뽑으면 진짜 아이가 이 번호를 받게 된다 — 그때는 숫자를 올릴 것.
  */
 export const TEST_TICKET_FROM = 900;
+/**
+ * 🧑‍🏫 직원이 상대 곤충을 만들어 둔 번호 (10/3 Jin: "캐릭터가 하나도 없어서 450~500번으로 몇 개 만들게").
+ * 종이 묶음에서 빼둔 번호다. 지금은 'N번째 손님' 순서에서만 뺀다 (배틀 상대·랭킹에는 그대로 나옴).
+ */
+export const STAFF_TICKET_RANGE: [number, number] = [450, 500];
+export function isStaffTicket(code: string | null | undefined): boolean {
+  const m = /^[A-Z]-(\d{3})$/.exec(code ?? '');
+  return !!m && Number(m[1]) >= STAFF_TICKET_RANGE[0] && Number(m[1]) <= STAFF_TICKET_RANGE[1];
+}
+
 export function isTestTicket(code: string | null | undefined): boolean {
   const m = /^[A-Z]-(\d{3})$/.exec(code ?? '');
   return !!m && Number(m[1]) >= TEST_TICKET_FROM;

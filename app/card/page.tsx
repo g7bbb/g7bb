@@ -13,6 +13,8 @@ import { normalizeTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import InsectCard, { InsectCardData } from './insect-card';
 import { BrandMark } from '@/app/brand-logo';
+import { visitorNumber } from '@/lib/badge-state';
+import { VISITOR_MARKS } from '@/lib/badges';
 
 // 아이에게 보여주고 현장에서 출력해 줄 **곤충 카드** 화면입니다.
 //
@@ -43,6 +45,8 @@ function CardInner() {
   const [picked, setPicked] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // 🎊 N번째 손님이면 축하 (lib/badges.ts VISITOR_MARKS) — 없어도 되는 장식이라 따로 받아온다
+  const [visitorNo, setVisitorNo] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +75,7 @@ function CardInner() {
         .order('created_at', { ascending: true });
 
       const rows = (data || []) as InsectRow[];
+      void visitorNumber(player.id).then(setVisitorNo);
       if (rows.length === 0) {
         setError('아직 만든 곤충이 없어. 곤충을 먼저 만들어줘!');
         return;
@@ -120,6 +125,14 @@ function CardInner() {
         </div>
       ) : (
         <>
+          {visitorNo && VISITOR_MARKS.includes(visitorNo) && (
+            <div className="boss-alert bg-amber-400/20 border-2 border-amber-300 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-black text-amber-200">🎊 {visitorNo}번째 손님! 🎊</p>
+              <p className="mt-1 text-sm text-amber-100" style={{ wordBreak: 'keep-all' }}>
+                축하해! 오늘 행사에서 {visitorNo}번째로 곤충을 만들었어. 특별 업적을 받았어!
+              </p>
+            </div>
+          )}
           <InsectCard data={cards[picked]} />
 
           {/* 두 번 이상 만든 아이는 지난 카드도 넘겨볼 수 있어야 합니다.
