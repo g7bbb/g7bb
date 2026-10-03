@@ -70,17 +70,22 @@ export async function POST(req: NextRequest) {
     const clean = (value: unknown, max: number) =>
       typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
     const ownName = clean(customSpecies, 20);
-    const ownLook = clean(customLook, 120);
+    const ownLook = clean(customLook, 200);
+    // 아이가 직접 쓴 생김새·효과 (10/3 Jin: 번개·불꽃 같은 효과를 자세히 쓰면 그림이 훨씬 멋지게 나옴)
+    const lookText = ownLook
+      ? `아이가 직접 설명한 생김새·효과: "${ownLook}". 이 설명(번개·불꽃·얼음 같은 효과, 색, 배경 포함)을 하나도 빠짐없이 크고 분명하게 반영해라. ` +
+        `앞의 색깔·느낌 규칙과 부딪히면 아이가 직접 쓴 이 설명을 따라라. `
+      : '';
     const speciesName = ownName || matchedSpecies?.label || species;
     const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
     const speciesAnatomy = ownName
       ? `아이가 직접 "${ownName}"을(를) 그렸다고 알려줬다. 실제 ${ownName}의 생김새를 따라 그려라. ` +
-        (ownLook ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. ` : '')
+        (ownLook ? lookText : '')
       : matchedSpecies?.anatomy
         ? `${speciesName}의 실제 생김새는 이렇다: ${matchedSpecies.anatomy} ` +
-          (ownLook ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. ` : '')
+          (ownLook ? lookText : '')
         : ownLook
-          ? `아이가 설명한 생김새: "${ownLook}". 이 설명을 꼭 반영해라. `
+          ? lookText
           : '';
 
     // 🚨 큰 생김새는 고른 곤충을 반드시 따른다 (2026-10-02 Jin: "나비를 골랐는데 얼굴이 사슴벌레").

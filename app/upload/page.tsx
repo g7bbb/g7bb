@@ -2,6 +2,7 @@
 
 import { readTicketPin } from '@/lib/ticket-pin-client';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
+import LookTips, { LOOK_MAX } from './look-tips';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import { useEffect, useRef, useState } from 'react';
@@ -63,6 +64,9 @@ export default function UploadPage() {
    */
   const [customSpecies, setCustomSpecies] = useState('');
   const [customLook, setCustomLook] = useState('');
+  // 💡 "어떻게 생겼어?" 도우미 팝업 — 처음 칸을 누를 때 한 번 저절로 뜬다 (10/3 Jin)
+  const [lookTips, setLookTips] = useState(false);
+  const lookTipsShown = useRef(false);
   const [origin, setOrigin] = useState<EnvironmentKey>('lowland');
   const [ageStage, setAgeStage] = useState<AgeStageKey>('yearling');
   const [bodyParts, setBodyParts] = useState(defaultBodyParts());
@@ -198,7 +202,8 @@ export default function UploadPage() {
           species,
           // 기타 곤충일 때 아이가 직접 적은 이름·생김새. 빠뜨리면 AI 가 아무 곤충이나 그린다.
           customSpecies: species === 'other' ? customSpecies.trim() : '',
-          customLook: species === 'other' ? customLook.trim() : '',
+          // 생김새·효과 설명은 모든 곤충에 (10/3 Jin: 자세히 쓰면 그림이 훨씬 멋지게 나옴)
+          customLook: customLook.trim(),
           bodyParts,
           mutations,
           color,
@@ -415,21 +420,41 @@ export default function UploadPage() {
                   placeholder="예: 물방개, 장수말벌, 반딧불이"
                   className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
-                {/* 생김새는 칸을 따로 크게 (Jin 10/1). AI 프롬프트에만 쓰고 저장은 안 한다. */}
-                <p className="mt-1 text-sm font-bold text-sky-300">✏️ 어떻게 생겼어?</p>
-                <textarea
-                  value={customLook}
-                  onChange={(e) => setCustomLook(e.target.value.slice(0, 120))}
-                  maxLength={120}
-                  rows={3}
-                  placeholder="예: 꼬리에서 빛이 나, 뿔이 3개야, 등에 빨간 점무늬가 있어"
-                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
-                />
-                <p className="text-xs text-amber-200/90" style={{ wordBreak: 'keep-all' }}>
-                  안 써도 돼! 자세히 쓸수록 더 정확하고 멋있는 곤충을 그려줄 거야!
-                </p>
               </div>
             )}
+            {/* ✏️ 생김새·효과 설명 — 모든 곤충 (10/1 기타 곤충만 → 10/3 Jin: 자세히 쓰니까 그림이 엄청 멋지게 나옴).
+                AI 프롬프트에만 쓰고 저장은 안 한다. */}
+            <div className="mt-3 bg-slate-800/60 border border-amber-400/50 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-amber-300" style={{ wordBreak: 'keep-all' }}>
+                  ✏️ 어떻게 생겼어? 어떤 효과를 넣을까?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLookTips(true)}
+                  className="shrink-0 rounded-full bg-amber-400 text-slate-900 text-xs font-black px-3 py-1.5"
+                >
+                  💡 예시 보기
+                </button>
+              </div>
+              <textarea
+                value={customLook}
+                onChange={(e) => setCustomLook(e.target.value.slice(0, LOOK_MAX))}
+                onFocus={() => {
+                  if (lookTipsShown.current) return;
+                  lookTipsShown.current = true;
+                  setLookTips(true);
+                }}
+                maxLength={LOOK_MAX}
+                rows={3}
+                placeholder="예: 날개 끝에서 파란 번개가 파지직 튀고, 등은 금색으로 반짝여!"
+                className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+              />
+              <p className="text-xs text-amber-200/90" style={{ wordBreak: 'keep-all' }}>
+                ⚡ 번개 · 🔥 불꽃 · ❄️ 얼음 · ✨ 반짝이… <b>자세히 쓸수록 더 멋진 곤충</b>이 나와! (안 써도 돼)
+              </p>
+            </div>
+            {lookTips && <LookTips value={customLook} onChange={setCustomLook} onClose={() => setLookTips(false)} />}
           </div>
 
           <div>
