@@ -13,6 +13,7 @@ import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import Returning from './returning';
+import QrScanner from './qr-scanner';
 import { isPending } from '@/lib/game-state';
 import { tierForPlayer } from '@/lib/tiers';
 import {
@@ -55,6 +56,8 @@ function StartInner() {
   const [pinError, setPinError] = useState('');
   // QR 이 안 찍힐 때만 번호·비밀번호 칸을 연다 (직원이 도와줄 때)
   const [manual, setManual] = useState(false);
+  // 📷 앱 안에서 QR 찍기 (qr-scanner.tsx)
+  const [scanning, setScanning] = useState(false);
 
   /** 번호+비밀번호가 맞은 뒤에만: 이미 온 아이인지 · 직원이 금액을 올려둔 자리인지 본다 */
   function lookup(code: string) {
@@ -273,6 +276,7 @@ function friendlyError(message?: string): string {
 
   return (
     <main className="max-w-md mx-auto min-h-screen px-6 py-8 flex flex-col gap-7">
+      {scanning && <QrScanner onClose={() => setScanning(false)} />}
       {checking && (
         <p className="text-center text-xs text-slate-500">번호를 확인하는 중...</p>
       )}
@@ -298,6 +302,13 @@ function friendlyError(message?: string): string {
               ① 종이에 곤충을 다 그렸으면
               <br />② 폰 카메라로 <b className="text-amber-300">종이의 QR</b>을 찍어서 들어와!
             </p>
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="bg-emerald-500 text-slate-900 font-black text-lg py-4 rounded-2xl"
+            >
+              📷 여기서 바로 QR 찍기
+            </button>
             <p className="text-xs text-slate-500">종이는 부스에서 참가 신청을 한 친구만 받을 수 있어.</p>
             <button type="button" onClick={() => setManual(true)} className="text-xs text-slate-500 underline">
               QR이 안 찍혀요 (선생님이 도와줄게)
