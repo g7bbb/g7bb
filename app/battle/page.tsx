@@ -368,7 +368,9 @@ export default function BattlePage() {
     if (phase !== null || starting || ladder || !player || readGameOverAt()) return;
     const s = playStatus(player);
     // 연습 1판이 남았어도 랭킹 도전을 못 하면 시계를 켠다 (연습을 시작하면 claimSlot 뒤에 다시 꺼진다)
-    if (s.used > 0 && !s.canLadder) markGameOver();
+    const last = s.state.sessions[s.state.sessions.length - 1];
+    // 이번 게임의 랭킹 도전을 이미 했으면 횟수가 남아도 '이번 게임 끝' (다음 게임은 QR 로 다시 — 10/3 저녁 Jin)
+    if (s.used > 0 && (!s.canLadder || !!last?.ladder)) markGameOver();
   }, [phase, player, starting, ladder]);
 
   // 👹 중간보스: 정해둔 판이 끝나고 결과가 뜨면, 조금 뒤에 경고 화면이 **갑자기** 뜬다.

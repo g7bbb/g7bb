@@ -35,7 +35,10 @@ export default function SessionGuard() {
         if (cancelled || !p || readGameOverAt()) return;
         const s = playStatus(p);
         // 🔁 10/3 오후: 연습 1판이 남아 있어도 랭킹 도전을 못 하면 '게임 끝' 으로 본다 (연습은 덤이라, 남아 있으면 태블릿에 계속 남아 있었다)
-        if (s.used > 0 && !s.canLadder) markGameOver();
+        // 🔁 10/3 저녁 Jin "개미귀신태하도 로그아웃 안 됐어" (횟수가 남은 아이): **마지막 게임의 랭킹 도전을 이미 시작/끝냈으면**
+        // 횟수가 남아도 '이번 게임 끝' 으로 본다. 다음 게임은 종이 QR 로 다시 들어와서 (다시 온 화면에서 새 게임을 열면 시계가 지워진다).
+        const last = s.state.sessions[s.state.sessions.length - 1];
+        if (s.used > 0 && (!s.canLadder || !!last?.ladder)) markGameOver();
       })
       .catch(() => undefined);
     return () => {
