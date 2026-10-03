@@ -40,8 +40,30 @@ export const BOT_INSECTS: Insect[] = [
   bot('bot-stag', '숲지기 사슴이', '사슴벌레', 'meteor', '/bots/stag.jpg'),
   bot('bot-butterfly', '꽃밭 팔랑이', '나비', 'water', '/bots/butterfly.jpg'),
   bot('bot-mantis', '풀숲 사마', '사마귀', 'highland', '/bots/mantis.jpg'),
-  bot('bot-dragonfly', '연못 잠잠이', '잠자리', 'lowland', '/bots/dragonfly.jpg'),
 ];
+
+// ── 👹 중간보스 (2026-10-03 Jin: "기본 배틀 횟수 말고 갑자기 나타나는 이벤트. 여러 곤충을 합성한 생김새,
+//    곤충들보다 아주 조금 셈. 등장 확률 45%") ───────────────────────────────────────────
+//
+// - 랭킹 도전(1게임)을 시작할 때 한 번 굴려서 45% 면, 1판 또는 2판이 끝난 뒤 **갑자기** 나타난다.
+//   랭킹 도전 3판에는 안 센다(덤 배틀). 연습 게임에는 안 나온다.
+// - 레벨은 **내 곤충과 같게** 맞춘다 → 몇 회차든 "살짝 센 상대".
+// - 세기: 보통 곤충(전부 3점) + HP·수비 ×1.06. 시뮬레이션(scratchpad bosssim.ts, 같은 레벨 아이 무작위):
+//   아이가 ⚡를 그냥 누르면(발동) 보스가 약 55% · 굿 이상이면 아이가 이길 때가 더 많다.
+//   (보통 곤충이면 48% · 37%) — 숫자는 BOSS_PERKS 하나만 고치면 된다.
+// - 기술은 사마귀 것(당랑권, 공격형)을 쓴다. 생김새는 잠자리 날개 + 사마귀 앞발 + 벌 꼬리.
+// - 이기면 경험치는 보통 배틀처럼 받는다. **랭킹 점수(battles)는 안 남긴다** (보스를 이긴 점수로 순위가 흔들리지 않게).
+export const BOSS_ID = 'bot-boss';
+export const BOSS_CHANCE = 0.45;
+export const BOSS_PERKS = { hp: 1.06, def: 1.06, special: 1 };
+
+export function makeBoss(level: number): Insect {
+  return {
+    ...bot(BOSS_ID, '👹 합체곤충 키메라', '사마귀', 'meteor', '/bots/boss.jpg'),
+    species_label: '합성 곤충 · 잠자리+사마귀+벌',
+    level: Math.max(1, level),
+  };
+}
 
 export function isBotId(id: string | null | undefined): boolean {
   return !!id && id.startsWith('bot-');

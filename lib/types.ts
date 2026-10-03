@@ -47,6 +47,8 @@ export interface Insect {
   mime_type: string;
   /** 🤖 연습 곤충(lib/bots.ts)만 — 그림 파일 주소. 진짜 곤충은 없음 */
   image_url?: string;
+  /** 👹 중간보스처럼 카드에 종류 대신 보여줄 글 (lib/bots.ts) */
+  species_label?: string;
   stats: CoreStats;
   level: number;
   xp: number;

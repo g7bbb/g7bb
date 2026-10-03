@@ -33,7 +33,7 @@ import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
-import { BOT_INSECTS, findBot, insectImageSrc, isBotId } from '@/lib/bots';
+import { BOSS_CHANCE, BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, makeBoss } from '@/lib/bots';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -98,6 +98,10 @@ interface LadderState {
   /** 지금까지 치른 배틀 수 */
   used: number;
   log: { rank: number; nickname: string; won: boolean; bot?: boolean }[];
+  /** 👹 중간보스가 나타나는 때 (이 판 수가 끝난 뒤). null 이면 이번 게임엔 안 나옴 (lib/bots.ts) */
+  bossAfter: number | null;
+  /** 중간보스와 이미 싸웠나 */
+  bossDone: boolean;
 }
 
 /** 배틀 화면에서 쓰는 효과음 — 시작 버튼을 누를 때 미리 받아둡니다 */
@@ -164,6 +168,10 @@ export default function BattlePage() {
   // 연습 게임(랭커와 1판)인지. 연습은 점수·경험치를 남기지 않습니다.
   // 연출 루프(runFight)가 시작할 때의 값을 봐야 해서 state 가 아니라 ref 로 둡니다.
   const practiceRef = useRef(false);
+  // 👹 지금 배틀이 중간보스 배틀인지 (lib/bots.ts). 판 수·랭킹 점수에 안 센다.
+  const bossRef = useRef(false);
+  /** 중간보스 경고 화면이 떠 있는지 */
+  const [bossAlert, setBossAlert] = useState(false);
   // 게임을 시작하면(claimSlot) player 가 바뀌는데, 배틀 함수 안에서는 옛 값이 보여서 최신 값을 따로 들고 있는다.
   const playerRef = useRef<Player | null>(null);
   useEffect(() => {
@@ -354,6 +362,19 @@ export default function BattlePage() {
     }
   }, [phase, battle, ladder, leveledUp]);
 
+  // 👹 중간보스: 정해둔 판이 끝나고 결과가 뜨면, 조금 뒤에 경고 화면이 **갑자기** 뜬다.
+  const bossDue =
+    phase === 'done' && !!ladder && !bossRef.current && !ladder.bossDone &&
+    ladder.bossAfter !== null && ladder.used === ladder.bossAfter && !ladderFinished(ladder);
+  useEffect(() => {
+    if (!bossDue) return;
+    const id = window.setTimeout(() => {
+      setBossAlert(true);
+      playSound('spCommonAttack');
+    }, 1800);
+    return () => window.clearTimeout(id);
+  }, [bossDue]);
+
   // 🏅 업적 음악 (10/2 Jin): "업적 달성!" 배너나 업적 정리 화면이 떠 있는 동안 계속 돌린다.
   // 이김/짐 소리와 겹치지 않게 조금 뒤에 시작한다. 화면을 나가면 원래 음악으로.
   const celebrating = (phase === 'done' && newBadges.length > 0) || !!recap;
@@ -471,10 +492,10 @@ export default function BattlePage() {
     setError('');
     try {
       // 🤖 연습 곤충은 DB 에 없다 — 코드에 있는 걸 그대로 쓴다.
-      const bot = summary.bot ? findBot(summary.id) : null;
+      const bot = summary.id === BOSS_ID ? makeBoss(myInsect.level) : summary.bot ? findBot(summary.id) : null;
       if (bot) {
         setOpponent(bot);
-        await runFight(bot, 0);
+        await runFight(bot, 0, summary.id === BOSS_ID ? BOSS_PERKS : undefined);
         return;
       }
       // 고른 상대의 그림만 이때 받아옵니다.
@@ -505,7 +526,7 @@ export default function BattlePage() {
     }
   }
 
-  async function runFight(foe: Insect, foeBadges = 0) {
+  async function runFight(foe: Insect, foeBadges = 0, foePerks?: { hp: number; def: number; special: number }) {
     if (!player || !myInsect) return;
     hitSoundRef.current = { A: attackSoundFor(myInsect.species), B: attackSoundFor(foe.species) };
 
@@ -525,7 +546,7 @@ export default function BattlePage() {
         origin: myInsect.origin ?? null,
         perks: badgePerks(badgeRef.current?.count ?? 0),
       },
-      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null, perks: badgePerks(foeBadges) }
+      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null, perks: foePerks ?? badgePerks(foeBadges) }
     );
 
     // 출신지 상성을 VS 화면에서 알려줍니다.
@@ -711,7 +732,7 @@ export default function BattlePage() {
     if (iWon && foe.level > myInsect.level) earned.push('giantSlayer');
     if (practiceRef.current) earned.push('practice');
     const run = ladderRef.current;
-    if (run && iWon) {
+    if (run && iWon && !bossRef.current) {
       const target = run.targets[run.index];
       // 🤖 연습 곤충을 이긴 건 "1위를 쓰러뜨렸다" 로 치지 않는다
       if (target?.rank === 1 && !target.bot) earned.push('beatTop1');
@@ -759,7 +780,8 @@ export default function BattlePage() {
     // 자유 대결(ladder === null)일 때는 아무 일도 일어나지 않습니다.
     const won = final.winner === 'A';
     setLadder((prev) => {
-      if (!prev) return prev;
+      // 👹 중간보스는 랭킹 도전 판 수에 안 센다
+      if (!prev || bossRef.current) return prev;
       const target = prev.targets[prev.index];
       return {
         ...prev,
@@ -782,7 +804,7 @@ export default function BattlePage() {
     const now = new Date().toISOString();
     const facts = { ...before.facts, stored: { ...before.facts.stored } };
     facts.sessions = Math.max(facts.sessions, readGameState(playerRef.current ?? player).sessions.length);
-    if (!practiceRef.current) {
+    if (!practiceRef.current && !bossRef.current) {
       facts.battles += 1;
       if (won) facts.wins += 1;
     }
@@ -819,7 +841,8 @@ export default function BattlePage() {
     const didLevelUp = gain.levelsUp > 0;
 
     try {
-      await supabase.from('battles').insert({
+      // 👹 중간보스 배틀은 랭킹 점수를 안 남긴다 (경험치만)
+      if (!bossRef.current) await supabase.from('battles').insert({
         player_id: player.id,
         insect_id: myInsect.id,
         // 🤖 연습 곤충은 DB 에 없어서 비워 둔다 (외래키라 가짜 id 를 넣으면 저장이 통째로 실패한다)
@@ -880,7 +903,10 @@ export default function BattlePage() {
     // 상위 3명을 낮은 순위부터(3위 → 2위 → 1위) 도전하도록 뒤집습니다.
     // 상대가 3명보다 적으면 있는 만큼만 도전합니다. (행사 초반에는 참가자가 몇 명 없습니다.)
     const targets = opponents.slice(0, LADDER_SIZE).reverse();
-    const run: LadderState = { targets, index: 0, used: 0, log: [] };
+    // 👹 45% 확률로 1판 또는 2판 뒤에 중간보스가 갑자기 나타난다 (lib/bots.ts)
+    const bossAfter = Math.random() < BOSS_CHANCE ? 1 + Math.floor(Math.random() * 2) : null;
+    bossRef.current = false;
+    const run: LadderState = { targets, index: 0, used: 0, log: [], bossAfter, bossDone: false };
     ladderRef.current = run;
     setLadder(run);
     startBattle(targets[0]);
@@ -899,6 +925,7 @@ export default function BattlePage() {
       return;
     }
     practiceRef.current = true;
+    bossRef.current = false;
     gameBadges.current = { keys: [], milestones: [] };
     ladderRef.current = null;
     setLadder(null);
@@ -908,9 +935,33 @@ export default function BattlePage() {
   function nextLadderBattle() {
     if (!ladder || ladderFinished(ladder)) return;
     unlockAudio();
+    bossRef.current = false;
+    setBossAlert(false);
     // 여기서 화면을 비우면 상대 그림을 받아오는 동안 준비 화면이 한 번 번쩍입니다.
     // 결과 카드를 띄워둔 채로 다음 상대를 불러오고, 연출은 runFight 가 알아서 초기화합니다.
     startBattle(ladder.targets[ladder.index]);
+  }
+
+  /** 👹 중간보스와 싸우기 — 랭킹 도전 판 수는 그대로 두고 덤으로 한 판 */
+  function fightBoss() {
+    if (!ladder || !myInsect) return;
+    unlockAudio(BATTLE_SOUNDS);
+    bossRef.current = true;
+    setBossAlert(false);
+    const next = { ...ladder, bossDone: true };
+    ladderRef.current = next;
+    setLadder(next);
+    startBattle({
+      id: BOSS_ID,
+      player_id: 'bot',
+      nickname: '👹 합체곤충 키메라',
+      species: '사마귀',
+      level: myInsect.level,
+      stats: {} as CoreStats,
+      bestScore: 0,
+      rank: 0,
+      bot: true,
+    });
   }
 
   function resetStage() {
@@ -1025,7 +1076,13 @@ export default function BattlePage() {
         {recap && <BadgeRecap recap={recap} onClose={() => { setRecap(null); setNewBadges([]); /* 다 봤으니 배너·업적 음악도 끝 */ }} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
 
         {/* 랭킹 도전 중이면 지금 몇 번째 도전인지, 누구와 붙는지 위에 띄웁니다. */}
-        {ladder && opponent && (
+        {ladder && opponent && opponent.id === BOSS_ID && (
+          <div className="flex items-center justify-between text-xs bg-rose-950 border border-rose-500 rounded-xl px-3 py-2">
+            <span className="font-black text-rose-300">👹 중간보스 이벤트!</span>
+            <span className="text-slate-300">덤 배틀 · 도전 횟수 그대로</span>
+          </div>
+        )}
+        {ladder && opponent && opponent.id !== BOSS_ID && (
           <div className="flex items-center justify-between text-xs bg-slate-800 rounded-xl px-3 py-2">
             <span className="font-bold text-amber-300">
               🏆 랭킹 도전 {Math.min(phase === 'done' ? ladder.used : ladder.used + 1, LADDER_BATTLES)}/
@@ -1165,6 +1222,11 @@ export default function BattlePage() {
             {(battle.a.crit || battle.b.crit) && (
               <p className="text-2xl font-black text-amber-400">💥 크리티컬!</p>
             )}
+            {bossRef.current && (
+              <p className="text-base font-black text-rose-300">
+                {battle.winner === 'A' ? '👹 중간보스를 쓰러뜨렸어!!' : '👹 중간보스가 너무 셌어… 그래도 경험치는 받았어!'}
+              </p>
+            )}
             <p className="text-lg font-bold">
               {battle.winner === 'A'
                 ? '🎉 내 곤충 생존 성공!'
@@ -1216,7 +1278,9 @@ export default function BattlePage() {
                   </p>
                 ) : (
                   <p className="text-sm text-slate-300 mt-1">
-                    {battle.winner === 'A'
+                    {bossRef.current
+                      ? `랭킹 도전 계속! 다음 상대는 ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}`
+                      : battle.winner === 'A'
                       ? `다음 상대는 ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}!`
                       : `한 번 더! ${oppMedal(ladder.targets[ladder.index])} ${ladder.targets[ladder.index].nickname}에게 다시 도전`}
                   </p>
@@ -1225,13 +1289,20 @@ export default function BattlePage() {
             )}
 
             <div className="flex gap-2">
-              {ladder && !ladderFinished(ladder) ? (
+              {bossDue ? (
+                <button
+                  onClick={() => setBossAlert(true)}
+                  className="flex-1 bg-rose-500 text-white font-black py-3 rounded-xl animate-pulse"
+                >
+                  ⚠️ 뭔가 다가온다…
+                </button>
+              ) : ladder && !ladderFinished(ladder) ? (
                 <button
                   onClick={nextLadderBattle}
                   disabled={starting}
                   className="flex-1 bg-emerald-500 disabled:opacity-50 text-slate-900 font-bold py-3 rounded-xl"
                 >
-                  {battle.winner === 'A' ? '⬆️ 다음 도전' : '🔁 다시 도전'}
+                  {bossRef.current ? '⬆️ 랭킹 도전 계속' : battle.winner === 'A' ? '⬆️ 다음 도전' : '🔁 다시 도전'}
                 </button>
               ) : (
                 <button
@@ -1250,6 +1321,32 @@ export default function BattlePage() {
             </div>
           </div>
         )}
+
+        {/* 👹 중간보스 경고 (lib/bots.ts) */}
+        {bossAlert && bossDue && myInsect && typeof document !== 'undefined' &&
+          createPortal(
+            <div className="fixed inset-0 z-[80] flex items-center justify-center px-6 bg-black/85">
+              <div className="boss-alert w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-3xl border-4 border-rose-500 bg-slate-950 p-5 text-center flex flex-col gap-3 shadow-[0_0_60px_rgba(244,63,94,0.6)]">
+                <p className="text-2xl font-black text-rose-400 animate-pulse">⚠️ 경고! ⚠️</p>
+                <p className="text-xl font-black" style={{ wordBreak: 'keep-all' }}>중간보스가 나타났다!!</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/bots/boss.jpg" alt="중간보스" className="w-full max-h-[36vh] aspect-square object-cover rounded-2xl border-2 border-rose-400" />
+                <p className="text-lg font-black text-rose-300">👹 합체곤충 키메라 · LV.{myInsect.level}</p>
+                <p className="text-sm text-slate-300" style={{ wordBreak: 'keep-all' }}>
+                  잠자리 날개 + 사마귀 앞발 + 벌 꼬리를 합친 곤충이야. 보통 곤충보다 조금 더 세!
+                  랭킹 도전 횟수는 안 줄어들고, 이기든 지든 경험치를 받아.
+                </p>
+                <button
+                  onClick={fightBoss}
+                  disabled={starting}
+                  className="bg-rose-500 disabled:opacity-50 text-white font-black py-4 rounded-2xl text-lg"
+                >
+                  ⚔️ 맞서 싸우기!
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
       </main>
     );
   }
@@ -1655,7 +1752,7 @@ function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: numb
           {insect.nickname}
         </div>
         {insect.species && (
-          <div className="text-[0.625rem] font-semibold text-slate-300 truncate">{insect.species}</div>
+          <div className="text-[0.625rem] font-semibold text-slate-300 truncate">{insect.species_label ?? insect.species}</div>
         )}
       </div>
     </div>

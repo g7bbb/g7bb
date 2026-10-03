@@ -365,3 +365,20 @@ html {
     font-size: clamp(16px, calc(100vw / 26), 26px);
   }
 }
+
+/* 👹 중간보스 경고 (lib/bots.ts, 2026-10-03) — 쾅 하고 커지며 흔들림 */
+.boss-alert {
+  animation: boss-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both, boss-shake 0.5s 0.6s ease-in-out 2;
+}
+@keyframes boss-in {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes boss-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px) rotate(-1deg); }
+  75% { transform: translateX(6px) rotate(1deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boss-alert { animation: none; }
+}
