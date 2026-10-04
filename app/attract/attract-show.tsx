@@ -9,13 +9,15 @@ import { baseMoveFor } from '@/lib/special-moves';
 import { IMPACT_ART, MOVE_ART, TIMING_ART } from '@/lib/fx-art';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
+import { loadKidNames } from '@/lib/kid-names';
 
 // 📺 대기 화면 홍보 영상 (2026-10-03 밤 Jin: "대기하는 태블릿·노트북에서 영상이 계속 나오다가 누르면 멈추고 게임 시작.
 //    콰쾅 하는 거, 필살기 쓰는 거, 지금까지 만든 카드들이 확대됐다가 슉슉 지나가게")
 //
 // 진짜 동영상 파일이 아니라 **코드로 그리는 영상**이다 (Claude 컨테이너에서 영상을 녹화할 수 없어서).
 // 그래서 아이들이 만든 **진짜 카드**가 들어가고, 새 곤충이 생기면 15분마다 새로 받아온다.
-// 장면: ① 제목 → ② 배틀(하스스톤 공격·콰쾅·필살기·퍼펙트) → ③ 카드 행진 → ④ "눌러서 시작" → 반복.
+// 장면: ① 제목 → ② 배틀(하스스톤 공격·콰쾅·필살기·퍼펙트) → ③ 카드 행진 → ④ 🏆 지금 랭킹 TOP 3 → ⑤ "눌러서 시작" → 반복.
+// (④ 는 10/4 Jin "현재 1~3위 곤충을 멋지게 보여주는 걸 붙여줘". 랭킹 기록이 없으면 건너뛴다)
 // 소리는 없다 (폰·태블릿은 누르기 전에는 소리를 낼 수 없음).
 
 interface ShowCard {
@@ -30,6 +32,7 @@ const SCENES = [
   { key: 'title', ms: 4500 },
   { key: 'battle', ms: 9000 },
   { key: 'parade', ms: 10500 },
+  { key: 'top3', ms: 9000 },
   { key: 'cta', ms: 4500 },
 ] as const;
 
@@ -66,6 +69,59 @@ async function loadCards(): Promise<ShowCard[]> {
   }
 }
 
+interface TopCard extends ShowCard {
+  rank: number;
+  kid: string;
+  score: number;
+}
+
+/** 🏆 지금 전체 랭킹 1~3위 (랭킹 화면과 같은 기준: 아이별 최고 점수, 테스트 번호 제외). 그림은 3장만 받는다. */
+async function loadTop3(): Promise<TopCard[]> {
+  try {
+    const [{ data }, testIds] = await Promise.all([
+      supabase.from('battles').select('player_id, insect_id, score').order('score', { ascending: false }).limit(300),
+      loadTestPlayerIds(),
+    ]);
+    const best = new Map<string, { insect_id: string; score: number }>();
+    (data || []).forEach((r: any) => {
+      if (testIds.has(r.player_id)) return;
+      const cur = best.get(r.player_id);
+      if (!cur || r.score > cur.score) best.set(r.player_id, { insect_id: r.insect_id, score: r.score });
+    });
+    const top = Array.from(best.entries())
+      .map(([player_id, v]) => ({ player_id, ...v }))
+      .sort((x, y) => y.score - x.score)
+      .slice(0, 3);
+    if (top.length === 0) return [];
+    const [{ data: rows }, kids] = await Promise.all([
+      supabase
+        .from('insects')
+        .select('id, nickname, species, level, image_base64, mime_type')
+        .in('id', top.map((t) => t.insect_id)),
+      loadKidNames(top.map((t) => t.player_id)),
+    ]);
+    const byId = new Map((rows || []).map((r: any) => [r.id, r]));
+    return top
+      .map((t, i) => {
+        const r: any = byId.get(t.insect_id);
+        if (!r?.image_base64) return null;
+        return {
+          id: r.id,
+          nickname: r.nickname || '곤충',
+          species: r.species || '곤충',
+          level: r.level ?? 1,
+          src: `data:${r.mime_type || 'image/jpeg'};base64,${r.image_base64}`,
+          rank: i + 1,
+          kid: kids.get(t.player_id) || '',
+          score: Math.round(t.score),
+        } as TopCard;
+      })
+      .filter(Boolean) as TopCard[];
+  } catch {
+    return [];
+  }
+}
+
 function ShowCardFace({ card, className = '', style }: { card: ShowCard; className?: string; style?: React.CSSProperties }) {
   return (
     <div className={`attract-card ${className}`} style={style}>
@@ -86,12 +142,21 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
   // 📺 영상이 나오는 동안 화면이 꺼지지 않게 (10/4 Jin, lib/wake-lock.ts)
   useWakeLock(true);
   const [cards, setCards] = useState<ShowCard[]>(() => botCards());
+  const [top3, setTop3] = useState<TopCard[]>([]);
+  const top3Ref = useRef<TopCard[]>([]);
   const [scene, setScene] = useState(0);
   const [loop, setLoop] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    const pull = () => loadCards().then((c) => alive && c.length && setCards(c));
+    const pull = () => {
+      void loadCards().then((c) => alive && c.length && setCards(c));
+      void loadTop3().then((t) => {
+        if (!alive) return;
+        top3Ref.current = t;
+        setTop3(t);
+      });
+    };
     pull();
     const id = window.setInterval(pull, REFRESH_MS);
     return () => {
@@ -103,7 +168,9 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const id = window.setTimeout(() => {
       setScene((s) => {
-        const next = (s + 1) % SCENES.length;
+        let next = (s + 1) % SCENES.length;
+        // 랭킹 기록이 아직 없으면 TOP 3 장면은 건너뛴다
+        if (SCENES[next].key === 'top3' && top3Ref.current.length === 0) next = (next + 1) % SCENES.length;
         if (next === 0) setLoop((l) => l + 1);
         return next;
       });
@@ -137,6 +204,7 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
         {key === 'title' && <TitleScene />}
         {key === 'battle' && a && b && <BattleScene a={a} b={b} />}
         {key === 'parade' && <ParadeScene cards={cards} />}
+        {key === 'top3' && top3.length > 0 && <Top3Scene top={top3} />}
         {key === 'cta' && <CtaScene />}
       </div>
 
@@ -304,6 +372,60 @@ function ParadeScene({ cards }: { cards: ShowCard[] }) {
           <ShowCardFace card={c} className="attract-parade-card" />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** 🏆 지금 랭킹 TOP 3 — 3위 → 2위 → 1위 차례로 시상대에 올라오고, 1위는 왕관·금빛 후광과 함께 크게 */
+function Top3Scene({ top }: { top: TopCard[] }) {
+  const byRank = (r: number) => top.find((t) => t.rank === r);
+  // 시상대 순서: 2위 · 1위 · 3위 (가운데가 1위)
+  const order = [byRank(2), byRank(1), byRank(3)].filter(Boolean) as TopCard[];
+  const medal = ['🥇', '🥈', '🥉'];
+  const delay: Record<number, number> = { 3: 400, 2: 1500, 1: 2800 };
+  return (
+    <div className="top3-scene relative w-full h-full flex flex-col items-center justify-center gap-[3vmin] px-[2vmin]" style={{ wordBreak: 'keep-all' }}>
+      <p className="attract-zoom attract-gold text-[7vmin] font-black leading-none">🏆 지금 랭킹 TOP 3</p>
+      <div className="flex items-end justify-center gap-[2.5vmin] w-full">
+        {order.map((t) => {
+          const king = t.rank === 1;
+          return (
+            <div
+              key={t.id}
+              className={`flex flex-col items-center ${king ? 'top3-king z-10' : 'top3-rise'}`}
+              style={{ animationDelay: `${delay[t.rank]}ms` }}
+            >
+              {king && <span className="top3-crown text-[8vmin] leading-none">👑</span>}
+              <div className={`relative ${king ? 'top3-rays-wrap' : ''}`}>
+                {king && <div className="top3-rays" aria-hidden />}
+                <div
+                  className={`relative rounded-[1.2vmin] p-[0.7vmin] ${king ? 'aura aura-gold holo-frame' : 'holo-frame'}`}
+                  style={{
+                    background: king
+                      ? 'linear-gradient(145deg, #fff7c2, #d4a017 30%, #fde68a 52%, #b45309 78%, #fef3c7)'
+                      : t.rank === 2
+                        ? 'linear-gradient(145deg, #f8fafc, #94a3b8 35%, #e2e8f0 55%, #64748b 80%, #f1f5f9)'
+                        : 'linear-gradient(145deg, #fed7aa, #c2410c 35%, #fdba74 55%, #9a3412 80%, #ffedd5)',
+                  }}
+                >
+                  <ShowCardFace card={t} className={king ? 'top3-card-king' : 'top3-card'} />
+                </div>
+              </div>
+              <div className={`mt-[1.5vmin] text-center ${king ? 'w-[min(32vw,30vh)]' : 'w-[min(24vw,24vh)]'}`}>
+                <p className={`${king ? 'text-[5.5vmin]' : 'text-[4vmin]'} leading-none`}>{medal[t.rank - 1]}</p>
+                <p className={`truncate font-black text-white ${king ? 'text-[3.8vmin]' : 'text-[2.8vmin]'}`}>🐞 {t.nickname}</p>
+                {t.kid && <p className={`truncate font-bold text-slate-300 ${king ? 'text-[2.6vmin]' : 'text-[2vmin]'}`}>👦 {t.kid}</p>}
+                <p className={`font-black text-emerald-300 ${king ? 'text-[3.4vmin]' : 'text-[2.4vmin]'}`}>
+                  LV.{t.level} · {t.score}점
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="top3-rise text-[3.6vmin] font-black text-amber-200" style={{ animationDelay: '4200ms' }}>
+        ⚔️ 랭커를 이기면 그 자리를 차지해! 너도 도전!
+      </p>
     </div>
   );
 }
