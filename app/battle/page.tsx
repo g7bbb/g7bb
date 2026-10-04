@@ -70,6 +70,9 @@ const pause = (ms: number) => sleep(ms * BATTLE_PACE);
 // 연출만 느려지고 누르는 타이밍은 그대로인 게 아이들에게도 덜 헷갈립니다.
 const CHANCE_MS = 4000;
 
+/** 🎯 연습 게임 경험치 = 본게임의 50% (10/4 Jin) */
+const PRACTICE_XP_RATE = 0.5;
+
 /** 🔄 되받아치기 실패 표시 (퍼펙트가 아니면 전부 실패) */
 const COUNTER_MISS: TimingTier = {
   key: 'ok',
@@ -193,7 +196,7 @@ export default function BattlePage() {
 
   // ─── 랭킹 도전 ───
   const [ladder, setLadder] = useState<LadderState | null>(null);
-  // 연습 게임(랭커와 1판)인지. 연습은 점수·경험치를 남기지 않습니다.
+  // 연습 게임(랭커와 1판)인지. 연습은 랭킹 점수를 안 남기고 경험치는 본게임의 50% (10/4).
   // 연출 루프(runFight)가 시작할 때의 값을 봐야 해서 state 가 아니라 ref 로 둡니다.
   const practiceRef = useRef(false);
   // 👹 지금 배틀이 중간보스 배틀인지 (lib/bots.ts). 판 수·랭킹 점수에 안 센다.
@@ -979,8 +982,22 @@ export default function BattlePage() {
   async function saveResult(foe: Insect, final: BattleResult) {
     const unchanged = { xpGained: 0, leveledUp: false, level: myInsect?.level ?? 1 };
     if (!player || !myInsect) return unchanged;
-    // 연습 게임은 기록을 남기지 않습니다 (랭킹 점수·경험치 둘 다).
-    if (practiceRef.current) return unchanged;
+    // 🎯 연습 게임: 랭킹 점수(battles)는 안 남기고, 경험치만 **본게임의 50%** (10/4 Jin "연습 게임을 꼭 하게").
+    //    배틀 수·상대 수비 경험치도 안 센다.
+    if (practiceRef.current) {
+      const half = addXp(
+        myInsect.level,
+        myInsect.xp,
+        battleXpRate(myInsect.level, final.winner === 'A') * friendXpMultiplier(playerRef.current ?? player) * PRACTICE_XP_RATE
+      );
+      try {
+        await supabase.from('insects').update({ xp: half.xp, level: half.level }).eq('id', myInsect.id);
+        setMyInsect({ ...myInsect, xp: half.xp, level: half.level });
+      } catch {
+        // 저장이 실패해도 결과 화면은 그대로
+      }
+      return { xpGained: half.shown, leveledUp: half.levelsUp > 0, level: half.level };
+    }
 
     // 경험치: LV1 100%(바로 레벨업) · LV2 70% · LV3 49% … LV3 부터는 지면 절반 (lib/leveling.ts)
     // 친구·가족 버프면 × 1.1 (lib/game-state.ts)
@@ -1478,12 +1495,11 @@ export default function BattlePage() {
                 ⚔️ 이제 진짜 배틀시작 !
               </button>
             )}
-            {practiceRef.current ? (
-              <p className="text-sm text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임이라 점수·경험치는 안 남아. 실력만 쑥쑥!</p>
-            ) : (
-              <p className="text-sm text-emerald-400">
-                +{xpGained} XP{leveledUp ? ' · 🆙 레벨업!' : ''}
-              </p>
+            <p className="text-sm text-emerald-400">
+              +{xpGained} XP{practiceRef.current ? ' (연습 50%)' : ''}{leveledUp ? ' · 🆙 레벨업!' : ''}
+            </p>
+            {practiceRef.current && (
+              <p className="text-xs text-sky-300" style={{ wordBreak: 'keep-all' }}>🎯 연습 게임은 랭킹 점수는 안 남고, 경험치는 본게임의 절반이야!</p>
             )}
             {usedSpecial && timing && myMove && (
               <p className={`text-xs ${timing.textColor}`}>
@@ -1563,7 +1579,7 @@ export default function BattlePage() {
                 className="bg-pink-400 text-slate-900 font-black py-3.5 rounded-xl"
                 style={{ wordBreak: 'keep-all' }}
               >
-                🎯 연습 1판 더! 내가 고른 곤충이랑 (점수는 안 남아)
+                🎯 연습 1판 더! 내가 고른 곤충이랑 (본게임보다 경험치 50%)
               </button>
             )}
             <div className="flex gap-2">
@@ -1823,19 +1839,20 @@ export default function BattlePage() {
         )}
       </div>
 
-      {/* 랭커와 연습 게임 — 게임당 1판, 점수·경험치는 안 남습니다 (2026-10-01 Jin).
+      {/* 랭커와 연습 게임 — 게임당 1판, 랭킹 점수는 안 남고 경험치는 본게임의 50% (10/1 Jin → 10/4 경험치 50%).
           예전에는 횟수 제한 없는 "친구랑 붙기"였는데, 그대로 두면 게임 횟수 제한을 피해 가는 구멍이 됩니다. */}
       {!showPicker ? (
         <button
           onClick={() => setShowPicker(true)}
-          className="text-sm text-slate-300 underline self-center"
+          className="bg-pink-400 text-slate-900 font-black py-3.5 rounded-xl"
+          style={{ wordBreak: 'keep-all' }}
         >
-          🎯 내가 고른 곤충이랑 연습 1판 (게임마다 1판)
+          🎯 내가 고른 곤충이랑 연습 1판 <span className="block text-sm font-bold">(본게임보다 경험치 50%)</span>
         </button>
       ) : (
       <div id="practice-picker">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm text-slate-400">누구랑 연습할까? (랭킹 순 · 기록 안 남음)</p>
+          <p className="text-sm text-slate-400">누구랑 연습할까? (랭킹 순 · 랭킹 점수 안 남음 · 경험치 50%)</p>
           <button
             onClick={() => {
               const pool = filtered.length > 0 ? filtered : opponents;
