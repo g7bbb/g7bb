@@ -11,6 +11,7 @@ import PlayStatusCard from '@/app/play-status';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { getCurrentPlayer } from '@/lib/session';
 import { loadKidNames } from '@/lib/kid-names';
+import { loadInsectImages } from '@/lib/image-cache';
 import { awardBadges, playStatus } from '@/lib/game-state';
 import { EnvironmentKey, Player } from '@/lib/types';
 import { baseMoveFor } from '@/lib/special-moves';
@@ -181,18 +182,8 @@ export default function RankingPage() {
     const ids = top.map((row) => row.insect_id).filter(Boolean);
     if (ids.length === 0) return;
 
-    const { data } = await supabase
-      .from('insects')
-      .select('id, image_base64, mime_type')
-      .in('id', ids);
-
-    const next = new Map<string, string>();
-    (data || []).forEach((row: any) => {
-      if (row.image_base64) {
-        next.set(row.id, `data:${row.mime_type || 'image/jpeg'};base64,${row.image_base64}`);
-      }
-    });
-    setPodium(next);
+    // 기기에 저장해둔 그림은 다시 안 받는다 (lib/image-cache.ts)
+    setPodium(await loadInsectImages(ids));
   }
 
   return (

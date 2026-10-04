@@ -10,6 +10,7 @@ import { IMPACT_ART, MOVE_ART, TIMING_ART } from '@/lib/fx-art';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { loadKidNames } from '@/lib/kid-names';
+import { loadInsectImages } from '@/lib/image-cache';
 
 // 📺 대기 화면 홍보 영상 (2026-10-03 밤 Jin: "대기하는 태블릿·노트북에서 영상이 계속 나오다가 누르면 멈추고 게임 시작.
 //    콰쾅 하는 거, 필살기 쓰는 거, 지금까지 만든 카드들이 확대됐다가 슉슉 지나가게")
@@ -44,23 +45,25 @@ function botCards(): ShowCard[] {
 
 async function loadCards(): Promise<ShowCard[]> {
   try {
+    // 목록은 글자만 받고, 그림은 기기에 없는 것만 받는다 (lib/image-cache.ts — 10/4 Jin "데이터 줄이기")
     const [{ data }, testIds] = await Promise.all([
       supabase
         .from('insects')
-        .select('id, player_id, nickname, species, level, image_base64, mime_type')
+        .select('id, player_id, nickname, species, level')
         .order('created_at', { ascending: false })
         .limit(14),
       loadTestPlayerIds(),
     ]);
-    const real = (data || [])
-      .filter((r: any) => r.image_base64 && !testIds.has(r.player_id))
-      .slice(0, 8)
+    const pick = (data || []).filter((r: any) => !testIds.has(r.player_id)).slice(0, 8);
+    const imgs = await loadInsectImages(pick.map((r: any) => r.id));
+    const real = pick
+      .filter((r: any) => imgs.has(r.id))
       .map((r: any) => ({
         id: r.id,
         nickname: r.nickname || '곤충',
         species: r.species || '곤충',
         level: r.level ?? 1,
-        src: `data:${r.mime_type || 'image/jpeg'};base64,${r.image_base64}`,
+        src: imgs.get(r.id) as string,
       }));
     // 아이들 카드가 모자라면 🤖 연습 곤충 그림으로 채운다
     return real.length >= 3 ? real : [...real, ...botCards()].slice(0, Math.max(3, real.length));
@@ -93,24 +96,24 @@ async function loadTop3(): Promise<TopCard[]> {
       .sort((x, y) => y.score - x.score)
       .slice(0, 3);
     if (top.length === 0) return [];
-    const [{ data: rows }, kids] = await Promise.all([
-      supabase
-        .from('insects')
-        .select('id, nickname, species, level, image_base64, mime_type')
-        .in('id', top.map((t) => t.insect_id)),
+    const ids = top.map((t) => t.insect_id);
+    const [{ data: rows }, kids, imgs] = await Promise.all([
+      supabase.from('insects').select('id, nickname, species, level').in('id', ids),
       loadKidNames(top.map((t) => t.player_id)),
+      loadInsectImages(ids),
     ]);
     const byId = new Map((rows || []).map((r: any) => [r.id, r]));
     return top
       .map((t, i) => {
         const r: any = byId.get(t.insect_id);
-        if (!r?.image_base64) return null;
+        const src = r && imgs.get(r.id);
+        if (!src) return null;
         return {
           id: r.id,
           nickname: r.nickname || '곤충',
           species: r.species || '곤충',
           level: r.level ?? 1,
-          src: `data:${r.mime_type || 'image/jpeg'};base64,${r.image_base64}`,
+          src,
           rank: i + 1,
           kid: kids.get(t.player_id) || '',
           score: Math.round(t.score),

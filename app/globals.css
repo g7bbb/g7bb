@@ -710,3 +710,16 @@ html, body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .top3-rise, .top3-king, .top3-crown, .top3-rays { animation: none; }
 }
+
+/* 🃏 실시간 랭킹(/live) 1~3위 카드 — 0.8초 동안 튀어나왔다가 사라짐 (2026-10-04 Jin). 시간은 SPOT_MS 가 animationDuration 으로 넣는다 */
+.live-spot { animation: live-spot 0.8s ease-out both; }
+@keyframes live-spot {
+  0% { transform: scale(0.55) rotate(-5deg); opacity: 0; }
+  22% { transform: scale(1.06) rotate(1deg); opacity: 1; }
+  34% { transform: scale(1) rotate(0); }
+  84% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.06); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-spot { animation: none; }
+}
