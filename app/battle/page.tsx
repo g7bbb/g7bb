@@ -705,10 +705,9 @@ export default function BattlePage() {
     const top3 = ranker && target!.rank <= 3;
     const capped = ranker && target!.rank <= TIER_A_CAP_RANK && tierForPlayer(playerRef.current ?? player).key === 'A';
     rankRuleRef.current = { target: ranker ? target : null, top3, capped };
+    // 🔒 1.5만원 제한은 화면에 안 알린다 (10/4 Jin "문구 빼도 돼") — 보통 랭커 문구 그대로
     setRankNote(
-      capped
-        ? `🔒 ${target!.rank}위 곤충은 레벨업권(2만원)부터 이길 수 있어!`
-        : top3
+      top3
           ? `🏆 랭킹 ${target!.rank}위 곤충이라 더 강해! (이기면 ${target!.rank}위 자리를 차지해)`
           : ranker
             ? `🏆 이기면 ${target!.rank}위 자리를 차지해!`
@@ -1593,11 +1592,6 @@ export default function BattlePage() {
                 👑 {tookRank}위 자리를 차지했어!
               </p>
             )}
-            {rankRuleRef.current.capped && battle.winner !== 'A' && (
-              <p className="text-sm font-bold text-amber-200" style={{ wordBreak: 'keep-all' }}>
-                🔒 2위·1위 곤충은 레벨업권(2만원)부터 이길 수 있어! 선생님께 물어봐
-              </p>
-            )}
             <p className="text-sm text-emerald-400">
               +{xpGained} XP{practiceRef.current ? ' (연습 50%)' : ''}{leveledUp ? ' · 🆙 레벨업!' : ''}
             </p>
@@ -1929,9 +1923,6 @@ export default function BattlePage() {
           </p>
           <p className="text-xs text-amber-200 mt-1" style={{ wordBreak: 'keep-all' }}>
             🏆 랭커를 이기면 그 순위를 차지해! 3위 안 곤충은 더 강하니까 조심!
-            {player && tierForPlayer(player).key === 'A' && (
-              <b className="block text-amber-300">🔒 2위·1위 곤충은 레벨업권(2만원)부터 이길 수 있어</b>
-            )}
           </p>
           {myBestRank === 1 && opponents.some((o) => !o.bot) && (
             <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>

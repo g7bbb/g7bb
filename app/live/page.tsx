@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { loadKidNames } from '@/lib/kid-names';
+import { useWakeLock } from '@/lib/wake-lock';
 import { BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 
@@ -15,6 +16,11 @@ import { GAME_TITLE } from '@/lib/brand';
 // - 테스트 번호(900번대)는 빠진다 (/ranking 과 같은 규칙). 음악·자동 로그아웃 없음.
 
 const REFRESH_MS = 20_000;
+/**
+ * 화면 통째로 새로 불러오는 간격 (10/4 Jin 사진: 모니터가 옛날 화면 그대로라 아이 닉네임이 안 나옴).
+ * 숫자는 20초마다 바뀌지만 **화면 모양(새 기능)** 은 페이지를 다시 열어야 들어온다 → 10분마다 스스로 새로고침.
+ */
+const RELOAD_MS = 10 * 60_000;
 const SHOW = 50;
 
 interface Row {
@@ -36,6 +42,8 @@ export default function LivePage() {
   const prevRank = useRef<Map<string, number>>(new Map());
   const podiumKey = useRef('');
   const listRef = useRef<HTMLDivElement>(null);
+  // 부스 모니터라 화면이 꺼지지 않게 (lib/wake-lock.ts)
+  useWakeLock(true);
 
   const load = useCallback(async () => {
     try {
@@ -101,7 +109,11 @@ export default function LivePage() {
   useEffect(() => {
     load();
     const id = window.setInterval(load, REFRESH_MS);
-    return () => window.clearInterval(id);
+    const reload = window.setTimeout(() => window.location.reload(), RELOAD_MS);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(reload);
+    };
   }, [load]);
 
   // 줄이 칸보다 길면 **랭킹 칸만** 천천히 흘려 보여준다 (위 제목 띠는 고정 — 10/3 밤 Jin)
