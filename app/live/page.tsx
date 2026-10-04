@@ -30,9 +30,10 @@ const SPOT_MS = 800;
  * 흐르는 속도 (1초에 몇 px) — 10/4 Jin: "1~3위가 가장 느리게, 10위까지는 지금 속도로, 10위 아래는 1.5배".
  * 랭킹 칸 맨 위에 걸친 줄이 몇 위인지로 정한다.
  */
-const SPEED_TOP3 = 16;
-const SPEED_TOP10 = 28; // 원래 속도
-const SPEED_REST = 42; // 원래 속도 × 1.5
+// 10/4 Jin "1~3위 2배로 빠르게, 밑에도 비례해서" → 셋 다 ×2 (16·28·42 → 32·56·84)
+const SPEED_TOP3 = 32;
+const SPEED_TOP10 = 56;
+const SPEED_REST = 84; // 4~10위 × 1.5
 /** 줄이 짧아 흐르지 않을 때도 이 간격으로 1~3위 카드를 다시 보여준다 */
 const SPOT_EVERY_MS = 30_000;
 
