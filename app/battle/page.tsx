@@ -12,7 +12,7 @@ import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadg
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
-import { BattleResult, BattleSide, SideRoll, barPercents, battleHp, resolveBattle, rollBattle } from '@/lib/battle-engine';
+import { BattleResult, BattleSide, SideRoll, TIER_A_CAP_RANK, TOP3_EDGE, barPercents, battleHp, forceLoseA, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
 import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
@@ -109,6 +109,8 @@ interface OpponentSummary {
   level: number;
   stats: CoreStats;
   bestScore: number;
+  /** 이 곤충 주인(아이)의 최고 점수 — 랭킹 화면은 아이별 최고 점수로 줄을 세운다. 이기면 이것보다 1점 높게 기록 (10/4 A안) */
+  playerBest?: number;
   rank: number;
   /** 🤖 연습 곤충 (lib/bots.ts) — 상대가 모자랄 때만 채워진다 */
   bot?: boolean;
@@ -272,6 +274,10 @@ export default function BattlePage() {
   const [chanceNote, setChanceNote] = useState<string | null>(null);
   /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
   const [underdogNote, setUnderdogNote] = useState('');
+  // 🏆 랭커 도전 규칙 (10/4 Jin): 이기면 그 자리 차지 · 3위 안은 더 강함 · 1.5만원은 2위 이상 못 이김
+  const rankRuleRef = useRef<{ target: OpponentSummary | null; top3: boolean; capped: boolean }>({ target: null, top3: false, capped: false });
+  const [rankNote, setRankNote] = useState('');
+  const [tookRank, setTookRank] = useState<number | null>(null);
   // 🎯 연습 게임에서 만난 상대 → 공격 패턴을 읽어서 내 점수 × PRACTICE_EDGE (10/4 Jin)
   const [patternRead, setPatternRead] = useState(false);
   const patternReadRef = useRef(false);
@@ -337,14 +343,16 @@ export default function BattlePage() {
         .from('insects')
         .select('id, player_id, nickname, species, level, stats')
         .limit(400),
-      supabase.from('battles').select('insect_id, score').order('score', { ascending: false }).limit(1000),
+      supabase.from('battles').select('player_id, insect_id, score').order('score', { ascending: false }).limit(1000),
       loadTestPlayerIds(),
     ]);
 
     const best = new Map<string, number>();
+    const bestByPlayer = new Map<string, number>();
     (scores || []).forEach((row: any) => {
       const current = best.get(row.insect_id) ?? 0;
       if (row.score > current) best.set(row.insect_id, row.score);
+      if (row.score > (bestByPlayer.get(row.player_id) ?? 0)) bestByPlayer.set(row.player_id, row.score);
     });
 
     const list: OpponentSummary[] = (rows || [])
@@ -357,6 +365,7 @@ export default function BattlePage() {
       level: row.level ?? 1,
       stats: row.stats,
       bestScore: best.get(row.id) ?? 0,
+      playerBest: bestByPlayer.get(row.player_id) ?? 0,
       rank: 0, // 정렬 직후에 채웁니다.
     }));
 
@@ -685,6 +694,28 @@ export default function BattlePage() {
     setPracticeToast(read);
     if (read) window.setTimeout(() => setPracticeToast(false), 2800);
 
+    // 🏆 랭킹 도전에서 지금 붙는 상대 (연습·중간보스는 아님). 10/4 Jin:
+    //   ① 3위 안 랭커는 이기기 15% 어렵게 (TOP3_EDGE) ② 1.5만원권은 2위·1위를 못 이김 (TIER_A_CAP_RANK)
+    const ladderNow = ladderRef.current;
+    const target =
+      !practiceRef.current && !bossRef.current && ladderNow && ladderNow.targets[ladderNow.index]?.id === foe.id
+        ? ladderNow.targets[ladderNow.index]
+        : null;
+    const ranker = !!target && !target.bot;
+    const top3 = ranker && target!.rank <= 3;
+    const capped = ranker && target!.rank <= TIER_A_CAP_RANK && tierForPlayer(playerRef.current ?? player).key === 'A';
+    rankRuleRef.current = { target: ranker ? target : null, top3, capped };
+    setRankNote(
+      capped
+        ? `🔒 ${target!.rank}위 곤충은 레벨업권(2만원)부터 이길 수 있어!`
+        : top3
+          ? `🏆 랭킹 ${target!.rank}위 곤충이라 더 강해! (이기면 ${target!.rank}위 자리를 차지해)`
+          : ranker
+            ? `🏆 이기면 ${target!.rank}위 자리를 차지해!`
+            : ''
+    );
+    setTookRank(null);
+
     // 상대보다 레벨이 낮으면 크리티컬이 더 잘 터진다 (역전 찬스, lib/leveling.ts)
     const myCrit = critChance(myInsect.level, foe.level);
     setUnderdogNote(
@@ -879,7 +910,7 @@ export default function BattlePage() {
     setUsedSpecial(usedKeys.length > 0 || !!extraA);
 
     // 상대는 자기 필살기를 항상 씁니다. (안 그러면 내가 쓰기만 하면 무조건 이김)
-    const final = resolveBattle(
+    const resolved = resolveBattle(
       rolls.a,
       rolls.b,
       usedKeys,
@@ -894,8 +925,11 @@ export default function BattlePage() {
         defTypeA: myBase.kind === 'defense',
         defTypeB: foeBase.kind === 'defense',
         edgeA: patternReadRef.current ? PRACTICE_EDGE : 1,
+        edgeB: rankRuleRef.current.top3 ? TOP3_EDGE : 1,
       }
     );
+    // 🔒 1.5만원권은 2위·1위를 이길 수 없다 (10/4 Jin) — 이겼어도 아깝게 진 걸로
+    const final = rankRuleRef.current.capped ? forceLoseA(resolved) : resolved;
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
     const savePromise = saveResult(foe, final);
@@ -1040,6 +1074,11 @@ export default function BattlePage() {
     const newXp = gain.xp;
     const newLevel = gain.level;
     const didLevelUp = gain.levelsUp > 0;
+    const rankTarget = rankRuleRef.current.target;
+    const takeOver = !!rankTarget && final.winner === 'A';
+    const theirBest = rankTarget ? Math.max(rankTarget.playerBest ?? 0, rankTarget.bestScore) : 0;
+    const recordScore = takeOver ? Math.max(final.a.score, theirBest + 1) : final.a.score;
+    if (takeOver && !bossRef.current) setTookRank(rankTarget!.rank);
 
     try {
       // 👹 중간보스 배틀은 랭킹 점수를 안 남긴다 (경험치만)
@@ -1050,7 +1089,8 @@ export default function BattlePage() {
         opponent_insect_id: isBotId(foe.id) ? null : foe.id,
         // 예전에는 배틀마다 고른 환경을 적었다. 이제는 내 곤충의 출신지를 적는다.
         environment: myInsect.origin ?? 'meteor',
-        score: final.a.score,
+        // 🏆 랭커를 이기면 그 아이 최고 점수보다 1점 높게 → 랭킹에서 그 자리를 차지한다 (10/4 Jin A안)
+        score: recordScore,
         result: final.winner === 'A' ? 'win' : final.winner === 'B' ? 'lose' : 'draw',
       });
       await supabase
@@ -1345,7 +1385,7 @@ export default function BattlePage() {
         {ladder && opponent && opponent.id === BOSS_ID && (
           <div className="flex items-center justify-between text-xs bg-rose-950 border border-rose-500 rounded-xl px-3 py-2">
             <span className="font-black text-rose-300">👹 중간보스 이벤트!</span>
-            <span className="text-slate-300">덤 배틀 · 도전 횟수 그대로</span>
+            <span className="text-slate-300">보너스 스테이지!! · 도전 횟수 그대로</span>
           </div>
         )}
         {ladder && opponent && opponent.id !== BOSS_ID && (
@@ -1405,6 +1445,11 @@ export default function BattlePage() {
           {patternRead && phase !== 'done' && (
             <p className="mt-1 text-sm font-black text-pink-300" style={{ wordBreak: 'keep-all' }}>
               🎯 연습한 상대! 공격 패턴을 읽었어 → 승리 확률 +10%
+            </p>
+          )}
+          {rankNote && phase !== 'done' && (
+            <p className="mt-1 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
+              {rankNote}
             </p>
           )}
           {underdogNote && phase !== 'done' && (
@@ -1541,6 +1586,17 @@ export default function BattlePage() {
               >
                 ⚔️ 이제 진짜 배틀시작 !
               </button>
+            )}
+            {/* 🏆 랭커를 이겼으면 그 자리를 차지 (10/4 Jin A안) */}
+            {tookRank && battle.winner === 'A' && (
+              <p className="rounded-2xl bg-amber-400/20 border-2 border-amber-300 px-3 py-2 text-xl font-black text-amber-200" style={{ wordBreak: 'keep-all' }}>
+                👑 {tookRank}위 자리를 차지했어!
+              </p>
+            )}
+            {rankRuleRef.current.capped && battle.winner !== 'A' && (
+              <p className="text-sm font-bold text-amber-200" style={{ wordBreak: 'keep-all' }}>
+                🔒 2위·1위 곤충은 레벨업권(2만원)부터 이길 수 있어! 선생님께 물어봐
+              </p>
             )}
             <p className="text-sm text-emerald-400">
               +{xpGained} XP{practiceRef.current ? ' (연습 50%)' : ''}{leveledUp ? ' · 🆙 레벨업!' : ''}
@@ -1870,6 +1926,12 @@ export default function BattlePage() {
           </p>
           <p className="text-xs text-slate-400 mt-1">
             3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
+          </p>
+          <p className="text-xs text-amber-200 mt-1" style={{ wordBreak: 'keep-all' }}>
+            🏆 랭커를 이기면 그 순위를 차지해! 3위 안 곤충은 더 강하니까 조심!
+            {player && tierForPlayer(player).key === 'A' && (
+              <b className="block text-amber-300">🔒 2위·1위 곤충은 레벨업권(2만원)부터 이길 수 있어</b>
+            )}
           </p>
           {myBestRank === 1 && opponents.some((o) => !o.bot) && (
             <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>

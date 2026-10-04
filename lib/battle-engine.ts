@@ -214,6 +214,8 @@ export function resolveBattle(
     defTypeB?: boolean;
     /** 🎯 연습 게임에서 만난 상대면 내 점수에 곱한다 (PRACTICE_EDGE) */
     edgeA?: number;
+    /** 🏆 랭킹 3위 안 곤충에게 도전할 때 상대 점수에 곱한다 (TOP3_EDGE) */
+    edgeB?: number;
   } = {}
 ): BattleResult {
   // 🛡️ 수비 기술이 실패한 쪽은 수비형 기술을 뺀다 (공격형은 그대로)
@@ -272,7 +274,7 @@ export function resolveBattle(
   const kA = extra.defTypeA ?? (defType(specialsA) || (!!extra.a && defType([extra.a]))) ? DEF_TYPE_POWER : 1;
   const kB = extra.defTypeB ?? (defType(specialsB) || (!!extra.b && defType([extra.b]))) ? DEF_TYPE_POWER : 1;
   const scoreA = rollA.base * kA * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1) * (extra.edgeA ?? 1);
-  const scoreB = rollB.base * kB * (1 - takenByB);
+  const scoreB = rollB.base * kB * (1 - takenByB) * (extra.edgeB ?? 1);
 
   const a: BattleSideResult = {
     score: Math.round(scoreA),
@@ -345,4 +347,30 @@ export function calculateBattle(
 ): BattleResult {
   const rolls = rollBattle(a, b);
   return resolveBattle(rolls.a, rolls.b, specialsA, specialsB, timingA);
+}
+
+/**
+ * 🏆 랭킹 3위 안 곤충에게 랭킹 도전으로 붙을 때 상대 점수 배수 (10/4 Jin: "3위까지 랭커는 이기기 15% 정도 더 어렵게.
+ * 방금 시작한 친구가 운으로 3·2·1위를 다 이기는 걸 막고 싶어").
+ * 시뮬레이션(scratchpad top3sim.ts, 4만 판): 같은 레벨 50 → 34% · LV2 vs LV4 38 → 25% · LV1 vs LV5 38 → 25%.
+ * → 처음 온 아이가 3판 연속으로 1위까지 다 이길 확률 ≈ 1.6%. 연습 게임·연습 곤충·중간보스에는 안 붙는다.
+ */
+export const TOP3_EDGE = 1.14;
+
+/** 🔒 1.5만원권(A)은 이 순위 이상(2위·1위)을 랭킹 도전에서 이길 수 없다 (10/4 Jin) */
+export const TIER_A_CAP_RANK = 2;
+
+/** 이긴 판을 "아깝게 진 판" 으로 바꾼다 — 내 점수를 상대의 96% 로 (1.5만원권 2위 이상 제한) */
+export function forceLoseA(result: BattleResult): BattleResult {
+  if (result.winner === 'B') return result;
+  const aScore = Math.max(1, Math.min(result.a.score, Math.round(result.b.score * 0.96)));
+  const a = { ...result.a, score: aScore };
+  const total = aScore + result.b.score || 1;
+  return {
+    ...result,
+    a,
+    winner: 'B',
+    survivalPercentA: Math.round((aScore / total) * 100),
+    survivalPercentB: Math.round((result.b.score / total) * 100),
+  };
 }
