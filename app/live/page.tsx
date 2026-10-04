@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
+import { loadKidNames } from '@/lib/kid-names';
 import { BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 
@@ -20,6 +21,8 @@ interface Row {
   player_id: string;
   insect_id: string;
   nickname: string;
+  /** 아이 닉네임 — 곤충 이름 옆에 작게 (10/4 Jin) */
+  kid?: string;
   species: string | null;
   level: number;
   score: number;
@@ -62,6 +65,8 @@ export default function LivePage() {
       const ranked = Array.from(best.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, SHOW);
+      const kids = await loadKidNames(ranked.map((r) => r.player_id));
+      ranked.forEach((r) => (r.kid = kids.get(r.player_id) || ''));
 
       // 순위가 오른 줄 반짝이기
       const up = new Set<string>();
@@ -171,9 +176,9 @@ export default function LivePage() {
                 <div className="w-28 h-28 rounded-xl bg-slate-800 shrink-0" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-2xl font-black truncate">{r.nickname}</p>
+                <p className="text-2xl font-black truncate">🐞 {r.nickname}</p>
                 <p className="text-sm text-slate-300 truncate">
-                  LV.{r.level} · {r.species || '곤충'}
+                  {r.kid ? `👦 ${r.kid} · ` : ''}LV.{r.level} · {r.species || '곤충'}
                 </p>
                 <p className="text-2xl font-black text-emerald-300">{r.score}점</p>
               </div>
@@ -186,7 +191,10 @@ export default function LivePage() {
               className={`flex items-center gap-3 rounded-xl px-4 py-2.5 bg-slate-800 ${flash.has(r.player_id) ? 'ring-2 ring-emerald-400' : ''}`}
             >
               <span className="w-10 text-center text-xl font-black text-amber-300 shrink-0">{j + 4}</span>
-              <span className="flex-1 min-w-0 truncate text-xl font-bold">{r.nickname}</span>
+              <span className="flex-1 min-w-0 truncate text-xl font-bold">
+                🐞 {r.nickname}
+                {r.kid && <span className="ml-2 text-sm font-normal text-slate-400">👦 {r.kid}</span>}
+              </span>
               <span className="text-sm text-slate-400 shrink-0">LV.{r.level}</span>
               <span className="w-24 text-right text-xl font-black text-emerald-300 shrink-0">{r.score}점</span>
             </div>

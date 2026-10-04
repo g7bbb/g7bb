@@ -106,6 +106,15 @@ export const GUARD_SUCCESS = 0.5;
  */
 export const DEF_TYPE_POWER = 1.2;
 
+/**
+ * 배틀 화면에 보여줄 **HP 총량** (10/4 Jin: "퍼센트 말고 HP 총량으로 — '와 얘는 HP 가 왜 이렇게 높냐' 할 수 있게").
+ * 점수 계산과 똑같이 뱃지 버프(HP)와 레벨 보너스를 얹은 값. 승패 계산에는 안 쓰는 보여주기용 숫자다.
+ */
+export function battleHp(side: BattleSide): number {
+  const hp = side.stats.hp * (side.perks?.hp ?? 1);
+  return Math.max(1, Math.round(statsWithLevelBonus({ ...side.stats, hp }, side.level).hp));
+}
+
 function rollSide(me: BattleSide, foe: BattleSide, random: () => number): SideRoll {
   const perks = me.perks;
   const boosted = perks ? { ...me.stats, hp: me.stats.hp * perks.hp, def: me.stats.def * perks.def } : me.stats;

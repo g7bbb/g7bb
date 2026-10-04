@@ -10,6 +10,7 @@ import { BrandMark } from '@/app/brand-logo';
 import PlayStatusCard from '@/app/play-status';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { getCurrentPlayer } from '@/lib/session';
+import { loadKidNames } from '@/lib/kid-names';
 import { awardBadges, playStatus } from '@/lib/game-state';
 import { EnvironmentKey, Player } from '@/lib/types';
 import { baseMoveFor } from '@/lib/special-moves';
@@ -20,6 +21,8 @@ interface RankRow {
   player_id: string;
   insect_id: string;
   nickname: string;
+  /** 아이 닉네임 — 곤충 이름 아래에 작게 (10/4 Jin) */
+  kid?: string;
   best_score: number;
 }
 
@@ -147,6 +150,8 @@ export default function RankingPage() {
     const ranked = Array.from(best.values())
       .sort((a, b) => b.best_score - a.best_score)
       .slice(0, 20);
+    const kids = await loadKidNames(ranked.map((r) => r.player_id));
+    ranked.forEach((r) => (r.kid = kids.get(r.player_id) || ''));
 
     setRows(ranked);
     setLoading(false);
@@ -232,9 +237,10 @@ export default function RankingPage() {
                   key={row.player_id}
                   className="flex items-center justify-between bg-slate-800 rounded-xl px-4 py-3"
                 >
-                  <span className="font-bold">
-                    {i + 1}. {row.nickname}
+                  <span className="font-bold min-w-0 flex-1 truncate">
+                    {i + 1}. 🐞 {row.nickname}
                     {me?.id === row.player_id && <span className="ml-1 text-xs text-emerald-300">(나)</span>}
+                    {row.kid && <span className="block pl-5 text-xs font-normal text-slate-400 truncate">👦 {row.kid}</span>}
                   </span>
                   <span className="text-emerald-400 font-bold">{row.best_score}점</span>
                 </li>
@@ -249,6 +255,7 @@ export default function RankingPage() {
                 {/* 그림은 나중에 도착하므로, 그 전에는 같은 크기의 빈 자리를 둡니다.
                     자리를 안 잡아두면 그림이 뜰 때 줄이 통째로 밀려서 보기 안 좋습니다. */}
                 {/* 카드와 같은 등급 테두리를 둘러, 금색 아이는 랭킹에서도 금색으로 보입니다. */}
+                <span className="relative shrink-0">
                 <TierFrame visit={visits.get(row.insect_id) ?? 1} level={levels.get(row.insect_id)} round width={2} className="shrink-0">
                   <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
                     {image ? (
@@ -259,10 +266,14 @@ export default function RankingPage() {
                     )}
                   </div>
                 </TierFrame>
+                {/* 메달은 그림 모서리에 얹는다 — 폰(360px)에서 이름 칸을 넓게 쓰려고 (10/4) */}
+                <span className="absolute -left-1.5 -top-1.5 text-2xl leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{MEDALS[i]}</span>
+                </span>
 
-                <span className="text-2xl shrink-0">{MEDALS[i]}</span>
-
-                <span className="font-bold flex-1 truncate">{row.nickname}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold truncate">🐞 {row.nickname}</span>
+                  {row.kid && <span className="block text-xs text-slate-400 truncate">👦 {row.kid}</span>}
+                </span>
 
                 <span className="text-emerald-400 font-bold shrink-0">{row.best_score}점</span>
               </li>

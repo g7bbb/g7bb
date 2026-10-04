@@ -12,7 +12,7 @@ import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadg
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
-import { BattleResult, SideRoll, barPercents, resolveBattle, rollBattle } from '@/lib/battle-engine';
+import { BattleResult, BattleSide, SideRoll, barPercents, battleHp, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
 import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
@@ -243,6 +243,8 @@ export default function BattlePage() {
   // ─── 연출 상태 ───
   const [barA, setBarA] = useState(100);
   const [barB, setBarB] = useState(100);
+  // HP 바는 안에서는 0~100(%)으로 움직이고, 보여줄 때만 이 총량을 곱해 "HP 212 / 212" 로 바꾼다
+  const [hpMax, setHpMax] = useState<{ A: number; B: number }>({ A: 100, B: 100 });
   const [attackSide, setAttackSide] = useState<'A' | 'B' | null>(null);
   const [hitSide, setHitSide] = useState<'A' | 'B' | null>(null);
   const [impact, setImpact] = useState<ImpactFx | null>(null);
@@ -652,16 +654,17 @@ export default function BattlePage() {
     // 필살기 선택 뒤에 다시 굴리면 "필살기를 썼는데 더 나빠졌다"가 생길 수 있기 때문입니다.
     //
     // 능력치는 저장된 값이 아니라 **입력값에서 다시 계산**합니다 (공식이 바뀌어도 모두 같은 규칙으로 싸우게).
-    const rolls: { a: SideRoll; b: SideRoll } = rollBattle(
-      // 뱃지 버프: 10개 HP+10% · 15개 수비+15% · 20개 필살기 공격+10% (lib/badges.ts)
-      {
-        stats: statsForInsect(myInsect),
-        level: myInsect.level,
-        origin: myInsect.origin ?? null,
-        perks: badgePerks(badgeRef.current?.count ?? 0),
-      },
-      { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null, perks: foePerks ?? badgePerks(foeBadges) }
-    );
+    // 뱃지 버프: 10개 HP+10% · 15개 수비+15% · 20개 필살기 공격+10% (lib/badges.ts)
+    const sideA: BattleSide = {
+      stats: statsForInsect(myInsect),
+      level: myInsect.level,
+      origin: myInsect.origin ?? null,
+      perks: badgePerks(badgeRef.current?.count ?? 0),
+    };
+    const sideB: BattleSide = { stats: statsForInsect(foe), level: foe.level, origin: foe.origin ?? null, perks: foePerks ?? badgePerks(foeBadges) };
+    const rolls: { a: SideRoll; b: SideRoll } = rollBattle(sideA, sideB);
+    // ❤️ HP 바에 보여줄 총량 (10/4 Jin "퍼센트 말고 HP 총량으로")
+    setHpMax({ A: battleHp(sideA), B: battleHp(sideB) });
 
     // 출신지 상성을 VS 화면에서 알려줍니다.
     const mine = envOf(myInsect.origin);
@@ -1380,6 +1383,7 @@ export default function BattlePage() {
           powerColor={specialFx?.side === 'A' ? specialFx.move.textColor : ''}
           impact={impact?.side === 'A' ? impact : null}
           barPercent={barA}
+          maxHp={hpMax.A}
           barColor="bg-emerald-400"
           crit={phase === 'done' && !!battle?.a.crit}
         />
@@ -1421,6 +1425,7 @@ export default function BattlePage() {
           powerColor={specialFx?.side === 'B' ? specialFx.move.textColor : ''}
           impact={impact?.side === 'B' ? impact : null}
           barPercent={barB}
+          maxHp={hpMax.B}
           barColor="bg-rose-400"
           crit={phase === 'done' && !!battle?.b.crit}
         />
@@ -2084,6 +2089,8 @@ interface FighterProps {
   powerColor: string;
   impact: ImpactFx | null;
   barPercent: number;
+  /** 이 곤충의 HP 총량 — 바와 깎인 숫자를 HP 로 보여준다 */
+  maxHp: number;
   barColor: string;
   crit: boolean;
 }
@@ -2099,6 +2106,7 @@ function Fighter({
   powerColor,
   impact,
   barPercent,
+  maxHp,
   barColor,
   crit,
 }: FighterProps) {
@@ -2180,7 +2188,10 @@ function Fighter({
                 impact.amount < 0 ? 'text-emerald-300' : impact.crit ? 'text-amber-300' : 'text-rose-300'
               }`}
             >
-              {impact.amount < 0 ? `+${-impact.amount}` : `-${impact.amount}`}
+              {/* 깎인 양도 HP 로 (바 % × 총량) */}
+              {impact.amount < 0
+                ? `+${Math.max(1, Math.round((-impact.amount * maxHp) / 100))}`
+                : `-${Math.max(1, Math.round((impact.amount * maxHp) / 100))}`}
             </span>
           </div>
         )}
@@ -2190,6 +2201,7 @@ function Fighter({
         <HpBar
           label={`${label}${crit ? ' ⚡크리티컬' : ''}`}
           percent={barPercent}
+          max={maxHp}
           color={barColor}
         />
       </div>
@@ -2235,12 +2247,19 @@ function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: numb
   );
 }
 
-function HpBar({ label, percent, color }: { label: string; percent: number; color: string }) {
+function HpBar({ label, percent, max, color }: { label: string; percent: number; max: number; color: string }) {
+  // 숫자도 바처럼 0.7초에 걸쳐 줄어든다 (바는 CSS transition, 숫자는 여기서)
+  const target = Math.max(0, Math.round((percent * max) / 100));
+  const shown = useCountTo(target, 700);
   return (
     <div>
-      <div className="flex justify-between mb-1 text-sm">
+      <div className="flex justify-between items-baseline mb-1 text-sm">
         <span>{label}</span>
-        <span className="font-bold">{percent}%</span>
+        <span className="font-bold tabular-nums">
+          <span className="text-xs text-slate-400 mr-1">HP</span>
+          <span className="text-lg font-black">{shown}</span>
+          <span className="text-slate-400"> / {max}</span>
+        </span>
       </div>
       <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
         <div
@@ -2250,6 +2269,28 @@ function HpBar({ label, percent, color }: { label: string; percent: number; colo
       </div>
     </div>
   );
+}
+
+/** 숫자를 목표값까지 부드럽게 바꾼다 (HP 숫자용) */
+function useCountTo(target: number, ms: number): number {
+  const [value, setValue] = useState(target);
+  const fromRef = useRef(target);
+  useEffect(() => {
+    const from = fromRef.current;
+    if (from === target) return;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const v = Math.round(from + (target - from) * (1 - (1 - t) * (1 - t)));
+      fromRef.current = v;
+      setValue(v);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return value;
 }
 
 /** 준비 화면: 내 출신지가 누구에게 강하고 누구에게 약한지 */
