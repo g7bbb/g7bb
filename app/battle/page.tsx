@@ -253,6 +253,8 @@ export default function BattlePage() {
   const [specialFx, setSpecialFx] = useState<SpecialFx | null>(null);
   const [shaking, setShaking] = useState(false);
   const [chanceId, setChanceId] = useState(0);
+  /** 타이밍 표시의 모양·자리 — 기회마다 무작위 (10/4 Jin: "왼쪽·가운데·오른쪽, 원·세모·네모 랜덤으로") */
+  const [chanceLook, setChanceLook] = useState<{ shape: TimingShape; x: number }>({ shape: 'circle', x: 50 });
   const [timing, setTiming] = useState<TimingTier | null>(null);
   const [usedSpecial, setUsedSpecial] = useState(false);
 
@@ -565,6 +567,10 @@ export default function BattlePage() {
     timingResult.current = null;
     setTiming(null);
     setChanceId((v) => v + 1); // 고리 애니메이션을 처음부터 다시 돌립니다.
+    setChanceLook({
+      shape: TIMING_SHAPES[Math.floor(Math.random() * TIMING_SHAPES.length)],
+      x: TIMING_SPOTS[Math.floor(Math.random() * TIMING_SPOTS.length)],
+    });
 
     // 고리가 **화면에 실제로 그려진** 뒤부터 시간을 잽니다.
     // 여기서 바로 재면 React가 아직 버튼을 그리기 전이라, 아이가 보는 고리보다
@@ -1496,17 +1502,27 @@ export default function BattlePage() {
             </p>
 
             <div className="relative h-36 my-1">
-              {/* 목표 고리 — 여기에 겹칠 때 눌러야 퍼펙트 */}
-              <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-4 animate-timing-target ${counterUi ? 'border-rose-400' : 'border-amber-300'}`} />
-              <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full ${counterUi ? 'bg-rose-500/15' : 'bg-amber-400/10'}`} />
+              {/* 목표 모양 — 여기에 겹칠 때 눌러야 퍼펙트. 모양(원·세모·네모)과 자리(왼·가운데·오른쪽)는 기회마다 무작위.
+                  자리만 바뀌고 누르는 곳은 그대로 버튼 전체라, 아이가 모양을 못 맞혀 눌러도 판정은 시간으로만 한다. */}
+              <span
+                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24"
+                style={{ left: `${chanceLook.x}%` }}
+              >
+                <TimingShapeSvg shape={chanceLook.shape} className={`absolute inset-0 animate-timing-target ${counterUi ? 'text-rose-400' : 'text-amber-300'}`} fill={counterUi ? 'rgba(244,63,94,0.15)' : 'rgba(251,191,36,0.1)'} />
+                {!timing && (
+                  <span className="absolute inset-0 flex items-center justify-center text-2xl">{chanceMove.emoji}</span>
+                )}
+              </span>
 
-              {/* 줄어드는 고리 — CSS가 60fps로 그립니다 */}
+              {/* 줄어드는 모양 — CSS가 60fps로 그립니다 */}
               {!timing && (
                 <span
                   key={chanceId}
-                  className={`absolute left-1/2 top-1/2 w-24 h-24 rounded-full border-4 animate-timing-ring ${counterUi ? 'border-rose-300' : 'border-white'}`}
-                  style={{ animationDuration: `${counterUi ? CHANCE_MS / COUNTER_SPEED : CHANCE_MS}ms` }}
-                />
+                  className={`absolute top-1/2 w-24 h-24 animate-timing-ring ${counterUi ? 'text-rose-300' : 'text-white'}`}
+                  style={{ left: `${chanceLook.x}%`, animationDuration: `${counterUi ? CHANCE_MS / COUNTER_SPEED : CHANCE_MS}ms` }}
+                >
+                  <TimingShapeSvg shape={chanceLook.shape} className="absolute inset-0" />
+                </span>
               )}
 
               {/* 판정 결과 */}
@@ -1526,11 +1542,6 @@ export default function BattlePage() {
                 </div>
               )}
 
-              {!timing && (
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl">
-                  {chanceMove.emoji}
-                </span>
-              )}
             </div>
 
             <p className="text-xs font-bold text-slate-200">
@@ -1539,12 +1550,12 @@ export default function BattlePage() {
                   ? timing.key === 'perfect'
                     ? '🔄 되받아치기 성공!! 그대로 돌려줘!'
                     : '퍼펙트만 되받아칠 수 있어'
-                  : '⚡ 엄청 빨라! 빨간 고리가 겹칠 때 눌러!'
+                  : `⚡ 엄청 빨라! 빨간 ${TIMING_SHAPE_WORD[chanceLook.shape]}가 겹칠 때 눌러!`
                 : timing
                 ? timing.scoreMultiplier > 1
                   ? `위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%!`
                   : '타이밍은 놓쳤지만 필살기는 나가!'
-                : '고리가 딱 겹칠 때 눌러!'}
+                : `${TIMING_SHAPE_WORD[chanceLook.shape]}가 딱 겹칠 때 눌러!`}
             </p>
           </button>
           </div>,
@@ -2117,6 +2128,25 @@ export default function BattlePage() {
 }
 
 /** 1~3위는 메달로, 그 아래는 숫자로 보여줍니다. */
+// ⏱ 필살기 타이밍 표시 모양·자리 (10/4 Jin). 줄어드는 모양과 목표 모양이 **같은 상자(96px) 가운데를 기준으로** 커지고 줄어서
+//    2초(scale 1)에 딱 겹친다 — 원이든 세모든 네모든 퍼펙트 순간은 그대로.
+type TimingShape = 'circle' | 'triangle' | 'square';
+const TIMING_SHAPES: TimingShape[] = ['circle', 'triangle', 'square'];
+/** 가로 자리(%): 왼쪽·가운데·오른쪽. 버튼 폭 안에서 큰 모양(1.8배)이 화면 밖으로 너무 안 나가게 22·78 */
+const TIMING_SPOTS = [22, 50, 78];
+const TIMING_SHAPE_WORD: Record<TimingShape, string> = { circle: '동그라미', triangle: '세모', square: '네모' };
+
+function TimingShapeSvg({ shape, className = '', fill = 'none' }: { shape: TimingShape; className?: string; fill?: string }) {
+  const common = { fill, stroke: 'currentColor', strokeWidth: 4, strokeLinejoin: 'round' as const };
+  return (
+    <svg viewBox="0 0 96 96" className={className} aria-hidden overflow="visible">
+      {shape === 'circle' && <circle cx="48" cy="48" r="46" {...common} />}
+      {shape === 'square' && <rect x="6" y="6" width="84" height="84" rx="6" {...common} />}
+      {shape === 'triangle' && <polygon points="48,4 93,86 3,86" {...common} />}
+    </svg>
+  );
+}
+
 function rankMedal(rank: number): string {
   return rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `${rank}위`;
 }
