@@ -30,7 +30,8 @@ export default function SessionGuard() {
   // 배틀 화면이 아닌 곳에서, 이 아이가 **지금 할 수 있는 게 없으면**(게임 다 씀 · 30분 대기 중) 시계를 켠다.
   // 배틀 화면은 싸우는 도중에 꺼지면 안 되니 거기서는 배틀 화면이 직접 정한다.
   useEffect(() => {
-    if (skip || pathname.startsWith('/battle')) return;
+    // 다시 온 화면(/start · /next-game)은 다음 게임을 고르는 곳이라 여기서는 시계를 새로 켜지 않는다 (10/4 Jin 사진)
+    if (skip || pathname.startsWith('/battle') || pathname.startsWith('/start') || pathname.startsWith('/next-game')) return;
     let cancelled = false;
     getCurrentPlayer()
       .then(async (p) => {

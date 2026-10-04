@@ -4,7 +4,7 @@ import { displayTicket } from '@/lib/ticket';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { rememberPlayer } from '@/lib/session';
+import { clearGameOver, rememberPlayer } from '@/lib/session';
 import { Insect, Player } from '@/lib/types';
 import { statsForInsect } from '@/lib/insect-stats';
 import { XpGain, addXp, levelProgress, revisitXpRate, xpDisplay } from '@/lib/leveling';
@@ -87,6 +87,13 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
   const status = playStatus(player, now);
   const last = status.state.sessions[status.state.sessions.length - 1];
 
+  // 🛟 10/4 Jin 사진: 다시 온 화면에서 "게임 끝! 36초 뒤 로그아웃" 이 돌고 있었다 (앞 게임의 시계).
+  //    여기서 새 게임을 고를 수 있으면 그 시계는 멈춘다. (못 하면 그대로 — 대기 중·다 쓴 아이)
+  const canStart = status.canStartNew;
+  useEffect(() => {
+    if (canStart) clearGameOver();
+  }, [canStart]);
+
   function go(path: string) {
     rememberPlayer(player.id);
     playSound('next'); // 다음 장으로 (Jin 효과음)
@@ -142,29 +149,27 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
     // 이미 시작한 게임이 남아 있거나, 곤충만 만들고 첫 게임을 아직 안 한 경우
     main = <BigButton onClick={() => go('/battle')}>배틀하러 가기</BigButton>;
   } else if (status.canStartNew) {
+    // 🔁 10/4 Jin: "새로운 곤충을 만들래?" 질문을 없애고 **레벨업 접속** 을 크게, 새로 만들기는 아래 절반 크기로
     main = (
-      <div className="bg-slate-800 rounded-2xl p-4 flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
-        <p className="text-center font-bold text-lg">🎨 새로운 곤충을 만들래?</p>
-        <button
-          onClick={chooseNewInsect}
-          disabled={busy}
-          className="bg-sky-500 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
-        >
-          응, 새로 만들래!
-        </button>
+      <div className="flex flex-col items-center gap-3" style={{ wordBreak: 'keep-all' }}>
         <button
           onClick={() => {
             unlockAudio(['levelUp', 'next']); // 누른 순간에 소리를 깨워둡니다 (폰 정책)
             setLeveling(true);
           }}
           disabled={busy || !insect}
-          className="bg-emerald-500 disabled:opacity-50 text-slate-900 font-bold py-4 rounded-2xl text-lg"
+          className="btn-sparkle relative overflow-hidden w-full disabled:opacity-50 text-slate-900 font-black py-7 rounded-3xl text-[1.75rem] leading-tight"
         >
-          아니, {insect?.nickname ?? '내 곤충'} 키울래! ⬆️
+          ⬆️ {insect?.nickname ?? '내 곤충'} 레벨업 접속!!
+          <span className="block mt-1 text-base font-bold">경험치 받고 능력치를 내가 직접 골라!</span>
         </button>
-        <p className="text-xs text-slate-400 text-center">
-          키우면 경험치를 받아! 레벨이 오르면 강해질 능력치를 내가 직접 골라!
-        </p>
+        <button
+          onClick={chooseNewInsect}
+          disabled={busy}
+          className="w-1/2 bg-slate-700 disabled:opacity-50 text-slate-100 font-bold py-2.5 rounded-xl text-sm"
+        >
+          🎨 다시 만들어서 키울래
+        </button>
       </div>
     );
   } else {
