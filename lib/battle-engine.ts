@@ -203,6 +203,8 @@ export function resolveBattle(
     /** 수비형 곤충인지 (버튼을 못 눌러 기술 목록이 비어도 보정은 받게 화면이 직접 알려준다) */
     defTypeA?: boolean;
     defTypeB?: boolean;
+    /** 🎯 연습 게임에서 만난 상대면 내 점수에 곱한다 (PRACTICE_EDGE) */
+    edgeA?: number;
   } = {}
 ): BattleResult {
   // 🛡️ 수비 기술이 실패한 쪽은 수비형 기술을 뺀다 (공격형은 그대로)
@@ -260,7 +262,7 @@ export function resolveBattle(
   const defType = (keys: SpecialMoveKey[]) => keys.some((k) => SPECIAL_MOVES[k]?.kind === 'defense' && k !== 'commonDefense');
   const kA = extra.defTypeA ?? (defType(specialsA) || (!!extra.a && defType([extra.a]))) ? DEF_TYPE_POWER : 1;
   const kB = extra.defTypeB ?? (defType(specialsB) || (!!extra.b && defType([extra.b]))) ? DEF_TYPE_POWER : 1;
-  const scoreA = rollA.base * kA * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1);
+  const scoreA = rollA.base * kA * (1 - takenByA) * (specialsA.length || extra.a ? timingA : 1) * (extra.edgeA ?? 1);
   const scoreB = rollB.base * kB * (1 - takenByB);
 
   const a: BattleSideResult = {

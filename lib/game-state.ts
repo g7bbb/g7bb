@@ -95,6 +95,8 @@ export interface GameState {
   waivedAt?: string;
   /** ➕ 직원이 서비스로 더 준 게임 수 (`grantExtraGame`) */
   extraGames?: number;
+  /** 🎯 연습 게임에서 만난 상대 곤충 id (10/4 Jin: "연습한 상대에게 승리 확률 +10%", `PRACTICE_EDGE`) */
+  practiced?: string[];
 }
 
 /** 한국 날짜 (YYYY-MM-DD) — 5만원 "하루만" 을 세려고 */
@@ -112,6 +114,8 @@ export function readGameState(player: Pick<Player, 'survey'> | null | undefined)
     ...(Array.isArray(raw.friends) ? { friends: raw.friends.filter((t: unknown) => typeof t === 'string') } : {}),
     ...(typeof raw.waivedAt === 'string' ? { waivedAt: raw.waivedAt } : {}),
     ...(Number.isFinite(raw.extraGames) && raw.extraGames > 0 ? { extraGames: Math.floor(raw.extraGames) } : {}),
+    // ⚠️ 새 칸을 GameState 에 넣으면 여기에도 꼭 넣을 것 — 안 넣으면 다음 저장 때 지워진다 (10/4 practiced 에서 실제로 겪음)
+    ...(Array.isArray(raw.practiced) ? { practiced: raw.practiced.filter((t: unknown) => typeof t === 'string') } : {}),
   };
 }
 
@@ -347,6 +351,31 @@ export async function saveBadgeCount(playerId: string, count: number): Promise<v
     await saveGameState(player, { ...state, badgeCount: count });
   } catch {
     // 장식에 가까운 기록이라 실패해도 넘어갑니다.
+  }
+}
+
+// ── 🎯 연습한 상대 ─────────────────────────────────────
+/**
+ * 연습 게임에서 만난 상대와 다시 붙으면 내 점수 × 1.08 (10/4 Jin: "공격 패턴을 읽게 돼서 승리 확률 10% 더").
+ * 시뮬레이션(같은 레벨): 50% → 59.7% · 레벨 2 낮은 상대에게: 38% → 48% — 승률이 약 10%p 오른다.
+ */
+export const PRACTICE_EDGE = 1.08;
+
+export function practicedWith(player: Pick<Player, 'survey'> | null | undefined, insectId: string | null | undefined): boolean {
+  return !!insectId && (readGameState(player).practiced ?? []).includes(insectId);
+}
+
+/** 연습 게임을 시작할 때 상대를 적어둔다. 실패해도 게임은 그대로 (버프만 없음). */
+export async function savePracticed(playerId: string, insectId: string): Promise<Player | null> {
+  try {
+    const player = await freshPlayer(playerId);
+    if (!player) return null;
+    const state = readGameState(player);
+    const list = state.practiced ?? [];
+    if (list.includes(insectId)) return player;
+    return await saveGameState(player, { ...state, practiced: [...list, insectId].slice(-50) });
+  } catch {
+    return null;
   }
 }
 

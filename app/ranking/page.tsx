@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { loadVisitMap } from '@/lib/visit-count';
@@ -271,6 +273,10 @@ export default function RankingPage() {
 
       {/* TIP — 오늘의 랭킹·전체 랭킹 어느 쪽이든 아래에 보인다 */}
       {!loading && tip && <TipBox tip={tip} />}
+      {/* 💡 1~5위 능력치를 자세히 + 내 곤충은 무엇을 올리면 되는지 (10/4 Jin) */}
+      <Link href="/tips" className="text-center bg-sky-400 text-slate-900 font-black py-4 rounded-2xl text-lg" style={{ wordBreak: 'keep-all' }}>
+        💡 승리 팁 보기 <span className="block text-sm font-bold">1~5위 능력치 · 나는 뭘 올리면 이겨?</span>
+      </Link>
     </main>
   );
 }

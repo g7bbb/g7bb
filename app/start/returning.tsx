@@ -203,6 +203,9 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
       {main}
       {error && <p className="text-sm text-red-400 text-center">{error}</p>}
 
+      <a href="/tips" onClick={() => rememberPlayer(player.id)} className="text-center bg-sky-400 text-slate-900 font-black py-3 rounded-xl">
+        💡 승리 팁 — 1~5위 곤충은 어떤 능력치일까?
+      </a>
       <div className="grid grid-cols-3 gap-2 text-sm">
         <a href="/card" onClick={() => rememberPlayer(player.id)} className="text-center bg-slate-800 font-semibold py-3 rounded-xl">
           🃏 내 카드

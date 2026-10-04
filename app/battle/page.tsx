@@ -7,7 +7,7 @@ import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@
 import { supabase } from '@/lib/supabaseClient';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
-import { awardBadges, blockedMessage, canContinueNow, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
+import { awardBadges, blockedMessage, canContinueNow, practicedWith, PRACTICE_EDGE, savePracticed, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
 import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadges, milestonesCrossed, speciesBeatKey } from '@/lib/badges';
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
@@ -76,7 +76,7 @@ const PRACTICE_XP_RATE = 0.5;
 /** 🔄 되받아치기 실패 표시 (퍼펙트가 아니면 전부 실패) */
 const COUNTER_MISS: TimingTier = {
   key: 'ok',
-  label: '안돼!!',
+  label: '타이밍을 맞춰야해 ㅠ',
   emoji: '😣',
   withinMs: Number.POSITIVE_INFINITY,
   scoreMultiplier: 1,
@@ -266,6 +266,9 @@ export default function BattlePage() {
   const [chanceNote, setChanceNote] = useState<string | null>(null);
   /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
   const [underdogNote, setUnderdogNote] = useState('');
+  // 🎯 연습 게임에서 만난 상대 → 공격 패턴을 읽어서 내 점수 × PRACTICE_EDGE (10/4 Jin)
+  const [patternRead, setPatternRead] = useState(false);
+  const patternReadRef = useRef(false);
   // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
   const myMove = myInsect ? baseMoveFor(myInsect.species) : null;
 
@@ -660,6 +663,11 @@ export default function BattlePage() {
           : null
     );
 
+    // 🎯 연습한 상대면 공격 패턴을 읽어서 유리 (연습 게임 자체에는 안 붙는다)
+    const read = !practiceRef.current && practicedWith(playerRef.current ?? player, foe.id);
+    patternReadRef.current = read;
+    setPatternRead(read);
+
     // 상대보다 레벨이 낮으면 크리티컬이 더 잘 터진다 (역전 찬스, lib/leveling.ts)
     const myCrit = critChance(myInsect.level, foe.level);
     setUnderdogNote(
@@ -868,6 +876,7 @@ export default function BattlePage() {
         // 수비형 곤충 기본 힘 보정은 버튼을 못 눌러도 받는다 (lib/battle-engine.ts DEF_TYPE_POWER)
         defTypeA: myBase.kind === 'defense',
         defTypeB: foeBase.kind === 'defense',
+        edgeA: patternReadRef.current ? PRACTICE_EDGE : 1,
       }
     );
 
@@ -1116,6 +1125,9 @@ export default function BattlePage() {
     try {
       setPlayer(await claimSlot(player.id, 'practice'));
       clearGameOver();
+      // 🎯 이 상대를 기억해 두면 나중에 랭킹 도전에서 만날 때 유리 (봇은 매번 id 가 같아도 상관없음)
+      const saved = await savePracticed(player.id, target.id);
+      if (saved) setPlayer(saved);
     } catch (err: any) {
       setError(err.message || '지금은 연습 게임을 할 수 없어.');
       return;
@@ -1366,6 +1378,11 @@ export default function BattlePage() {
               ⚡ 상성! {edgeNote.text}
             </p>
           )}
+          {patternRead && phase !== 'done' && (
+            <p className="mt-1 text-sm font-black text-pink-300" style={{ wordBreak: 'keep-all' }}>
+              🎯 연습한 상대! 공격 패턴을 읽었어 → 승리 확률 +10%
+            </p>
+          )}
           {underdogNote && phase !== 'done' && (
             <p className="mt-1 text-xs font-bold text-amber-300" style={{ wordBreak: 'keep-all' }}>
               {underdogNote}
@@ -1430,7 +1447,12 @@ export default function BattlePage() {
                     art={TIMING_ART[timing.key]}
                     text={`${timing.emoji} ${timing.label}`}
                     height={130}
-                    textClassName={`text-4xl font-black whitespace-nowrap ${timing.textColor}`}
+                    textClassName={
+                      // "😣 타이밍을 맞춰야해 ㅠ" 는 길어서 폰에서 두 줄로 (10/4 Jin 문구)
+                      timing.key === 'ok'
+                        ? `block w-[80vw] max-w-sm text-center text-[2rem] leading-tight font-black break-keep ${timing.textColor}`
+                        : `text-4xl font-black whitespace-nowrap ${timing.textColor}`
+                    }
                   />
                 </div>
               )}
@@ -1447,7 +1469,7 @@ export default function BattlePage() {
                 ? timing
                   ? timing.key === 'perfect'
                     ? '🔄 되받아치기 성공!! 그대로 돌려줘!'
-                    : '안돼!! 퍼펙트만 되받아칠 수 있어'
+                    : '퍼펙트만 되받아칠 수 있어'
                   : '⚡ 엄청 빨라! 빨간 고리가 겹칠 때 눌러!'
                 : timing
                 ? timing.scoreMultiplier > 1
@@ -1580,6 +1602,7 @@ export default function BattlePage() {
                 style={{ wordBreak: 'keep-all' }}
               >
                 🎯 연습 1판 더! 내가 고른 곤충이랑 (본게임보다 경험치 50%)
+                <span className="block text-sm font-bold">👀 연습한 상대는 공격 패턴을 읽어서 승리 확률 +10%!</span>
               </button>
             )}
             <div className="flex gap-2">
@@ -1620,6 +1643,17 @@ export default function BattlePage() {
                 🏆 랭킹
               </button>
             </div>
+            {/* 🏁 게임(랭킹 도전 3판 · 연습)이 끝나면 내 카드 · 승리 팁도 (10/4 Jin) */}
+            {(ladder ? ladderFinished(ladder) && !bossDue : true) && (
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => router.push('/card')} className="bg-slate-700 font-bold py-3 rounded-xl">
+                  🃏 내 카드
+                </button>
+                <button onClick={() => router.push('/tips')} className="bg-sky-400 text-slate-900 font-black py-3 rounded-xl">
+                  💡 승리 팁
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1805,7 +1839,10 @@ export default function BattlePage() {
                 <li key={o.id} className="flex items-center gap-2 text-sm">
                   <span className="text-slate-500 w-4 text-xs">{i + 1}</span>
                   <span className="w-7 text-center">{oppMedal(o)}</span>
-                  <span className="flex-1 truncate font-semibold">{o.nickname}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate font-semibold">{o.nickname}</span>
+                    {practicedWith(player, o.id) && <span className="block text-pink-300 text-xs font-bold">🎯 연습함 · 승률 +10%</span>}
+                  </span>
                   <span className="text-xs text-slate-400 shrink-0">Lv.{o.level}</span>
                   <span className="text-xs text-emerald-400 shrink-0 w-14 text-right">
                     {o.bot ? '연습' : o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
@@ -1835,6 +1872,8 @@ export default function BattlePage() {
                 {blockedMessage(status)}
               </p>
             )}
+            {/* 🏁 게임을 다 했으면 카드·랭킹·승리 팁으로 바로 (10/4 Jin 사진: "버튼이 있었으면 좋겠어") */}
+            {status && !status.canLadder && !resume && <GameEndLinks onGo={(p) => router.push(p)} />}
           </>
         )}
       </div>
@@ -1848,11 +1887,15 @@ export default function BattlePage() {
           style={{ wordBreak: 'keep-all' }}
         >
           🎯 내가 고른 곤충이랑 연습 1판 <span className="block text-sm font-bold">(본게임보다 경험치 50%)</span>
+          <span className="block text-sm font-bold">👀 연습한 상대는 공격 패턴을 읽어서 다음에 만나면 승리 확률 +10%!</span>
         </button>
       ) : (
       <div id="practice-picker">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm text-slate-400">누구랑 연습할까? (랭킹 순 · 랭킹 점수 안 남음 · 경험치 50%)</p>
+          <p className="text-sm text-slate-400" style={{ wordBreak: 'keep-all' }}>
+            누구랑 연습할까? (랭킹 순 · 랭킹 점수 안 남음 · 경험치 50%)
+            <b className="block text-pink-300">👀 연습하면 그 상대의 공격 패턴을 읽게 돼서, 다음에 만나면 승리 확률 +10%!</b>
+          </p>
           <button
             onClick={() => {
               const pool = filtered.length > 0 ? filtered : opponents;
@@ -2266,6 +2309,33 @@ function BadgeRecap({
         ) : (
           <p className="text-xs text-slate-400">화면을 누르면 한 번에 다 보여줘</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** 🏁 게임을 다 했을 때 갈 곳 (10/4 Jin: "내 카드·랭킹을 볼 수 있는 버튼 + 승리 팁 버튼") */
+function GameEndLinks({ onGo }: { onGo: (path: string) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={() => onGo('/tips')}
+        className="bg-sky-400 text-slate-900 font-black py-4 rounded-2xl text-lg"
+        style={{ wordBreak: 'keep-all' }}
+      >
+        💡 승리 팁 보기
+        <span className="block text-sm font-bold">지금 1~5위는 어떤 곤충? 어떻게 이겨?</span>
+      </button>
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => onGo('/card')} className="bg-slate-700 font-bold py-3 rounded-xl">
+          🃏 내 카드
+        </button>
+        <button onClick={() => onGo('/ranking')} className="bg-amber-400 text-slate-900 font-bold py-3 rounded-xl">
+          🏆 랭킹
+        </button>
+        <button onClick={() => onGo('/badges')} className="bg-slate-700 font-bold py-3 rounded-xl">
+          🏅 뱃지
+        </button>
       </div>
     </div>
   );

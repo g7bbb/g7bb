@@ -273,7 +273,7 @@ export const TIMING_TIERS: TimingTier[] = [
   },
   {
     key: 'ok',
-    label: '안돼!!',
+    label: '타이밍을 맞춰야해 ㅠ',
     emoji: '😣',
     withinMs: Number.POSITIVE_INFINITY,
     scoreMultiplier: 1,
