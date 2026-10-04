@@ -32,7 +32,8 @@ import { attackSoundFor, playPerfect, playSound, playTap, specialSoundFor, unloc
 import { setAchievementMusic } from '@/lib/bgm';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
-import { tierForVisit } from '@/lib/card';
+import { frameUpgrade, tierForVisit, CardTierStyle } from '@/lib/card';
+import FrameUpPopup from '@/app/card/frame-up';
 import FxText, { FxImage } from './fx-text';
 import { TIMING_ART, MOVE_ART, IMPACT_ART } from '@/lib/fx-art';
 import { CoreStats, EnvironmentKey, Insect, Player } from '@/lib/types';
@@ -234,6 +235,9 @@ export default function BattlePage() {
   const [battle, setBattle] = useState<BattleResult | null>(null);
   const [xpGained, setXpGained] = useState(0);
   const [leveledUp, setLeveledUp] = useState(false);
+  // ✨ 레벨을 달성해 카드 테두리가 반짝이기 시작했을 때 (10/4 Jin) — 결과를 잠깐 본 뒤 크게 보여준다
+  const [frameUp, setFrameUp] = useState<{ tier: CardTierStyle; level: number } | null>(null);
+  const frameUpPending = useRef<{ tier: CardTierStyle; level: number } | null>(null);
   const [starting, setStarting] = useState(false);
 
   // ─── 연출 상태 ───
@@ -269,6 +273,8 @@ export default function BattlePage() {
   // 🎯 연습 게임에서 만난 상대 → 공격 패턴을 읽어서 내 점수 × PRACTICE_EDGE (10/4 Jin)
   const [patternRead, setPatternRead] = useState(false);
   const patternReadRef = useRef(false);
+  // 🎯 "어! 같이 연습했던 곤충이야!!" 알림 (10/4 Jin) — 배틀 시작 때 잠깐 크게
+  const [practiceToast, setPracticeToast] = useState(false);
   // 준비 화면에서 "내 기술"을 미리 보여줄 때 쓰는 기본기.
   const myMove = myInsect ? baseMoveFor(myInsect.species) : null;
 
@@ -399,9 +405,15 @@ export default function BattlePage() {
       playSound('lose');
       // 😢 "레벨업이 필요해..ㅠ" (10/4 Jin) — 결과를 잠깐 본 뒤에.
       //    게임 마지막 판이면 안 띄운다 (곧 "이번 게임 업적" 화면이 떠서 두 번 눌러야 함 — 10/4 Jin "마지막 판은 빼줘")
-      if (!over) window.setTimeout(() => setLosePopup(true), 900);
+      // 테두리가 반짝이게 됐으면 그게 더 기쁜 소식이라 "레벨업이 필요해" 는 안 띄운다
+      if (!over && !frameUpPending.current) window.setTimeout(() => setLosePopup(true), 900);
     }
     if (leveledUp) playSound('levelUp', (at += 1000));
+    if (frameUpPending.current) {
+      const up = frameUpPending.current;
+      frameUpPending.current = null;
+      window.setTimeout(() => setFrameUp(up), at + 700);
+    }
     if (over) {
       playSound('gameOver', at + 1300);
       // ⏩ 2만원 이상이고 게임이 남았으면 로그아웃하지 않는다 → "다음 게임 바로 시작!" (10/4 Jin)
@@ -667,6 +679,8 @@ export default function BattlePage() {
     const read = !practiceRef.current && practicedWith(playerRef.current ?? player, foe.id);
     patternReadRef.current = read;
     setPatternRead(read);
+    setPracticeToast(read);
+    if (read) window.setTimeout(() => setPracticeToast(false), 2800);
 
     // 상대보다 레벨이 낮으면 크리티컬이 더 잘 터진다 (역전 찬스, lib/leveling.ts)
     const myCrit = critChance(myInsect.level, foe.level);
@@ -933,6 +947,10 @@ export default function BattlePage() {
     setShaking(false);
 
     const saved = await savePromise;
+    {
+      const up = frameUpgrade(visits.get(myInsect.id) ?? 1, myInsect.level, saved.level);
+      frameUpPending.current = up ? { tier: up, level: saved.level } : null;
+    }
     setXpGained(saved.xpGained);
     setLeveledUp(saved.leveledUp);
     noteNewBadges(earned, iWon, saved.level);
@@ -1166,6 +1184,8 @@ export default function BattlePage() {
         const gain = addXp(myInsect.level, myInsect.xp, 1);
         const { error } = await supabase.from('insects').update({ xp: gain.xp, level: gain.level }).eq('id', myInsect.id);
         if (error) throw error;
+        const up = frameUpgrade(visits.get(myInsect.id) ?? 1, myInsect.level, gain.level);
+        if (up) setFrameUp({ tier: up, level: gain.level });
         setMyInsect({ ...myInsect, xp: gain.xp, level: gain.level });
       } else {
         // stats 안의 다른 기록(포인트·수비 경험치)을 덮지 않게 최신 값을 받아서 bonus 만 고친다
@@ -1316,7 +1336,7 @@ export default function BattlePage() {
         )}
 
         {/* 게임이 끝나면 이번 게임에서 모은 업적을 하나씩 */}
-        {recap && <BadgeRecap recap={recap} onClose={() => { setRecap(null); setNewBadges([]); /* 다 봤으니 배너·업적 음악도 끝 */ }} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
+        {recap && !frameUp && <BadgeRecap recap={recap} onClose={() => { setRecap(null); setNewBadges([]); /* 다 봤으니 배너·업적 음악도 끝 */ }} onSkip={() => setRecap((r) => (r ? { ...r, shown: 999 } : r))} onGuide={() => router.push('/badges/guide?from=/battle')} />}
 
         {/* 랭킹 도전 중이면 지금 몇 번째 도전인지, 누구와 붙는지 위에 띄웁니다. */}
         {ladder && opponent && opponent.id === BOSS_ID && (
@@ -1659,6 +1679,33 @@ export default function BattlePage() {
 
         {/* 🎁 보너스 스테이지 (lib/bonus-stage.ts) */}
         {bonusOpen && <BonusStage onClaim={claimBonus} onClose={() => setBonusOpen(false)} />}
+
+        {/* 🎯 연습했던 상대를 만났을 때 (10/4 Jin) — 누르는 것을 막지 않게 pointer-events 없음 */}
+        {practiceToast && phase !== 'done' && typeof document !== 'undefined' &&
+          createPortal(
+            <div className="pointer-events-none fixed inset-x-0 top-[18%] z-[85] flex justify-center px-5">
+              <div
+                className="boss-alert w-full max-w-sm rounded-3xl border-4 border-pink-300 bg-slate-950/95 px-5 py-4 text-center shadow-[0_0_40px_rgba(244,114,182,0.6)]"
+                style={{ wordBreak: 'keep-all' }}
+              >
+                <p className="text-2xl font-black text-pink-300">어! 같이 연습했던 곤충이야!!</p>
+                <p className="mt-1 text-xl font-black text-white">잘 싸울 수 있어! 💪</p>
+                <p className="mt-1 text-sm font-bold text-pink-200">🎯 공격 패턴을 읽었어 → 승리 확률 +10%</p>
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {/* ✨ 이제 더 강해졌어! — 레벨 테두리 달성 (보너스 상자 화면이 닫힌 뒤에) */}
+        {frameUp && !bonusOpen && myInsect && (
+          <FrameUpPopup
+            tier={frameUp.tier}
+            level={frameUp.level}
+            name={myInsect.nickname || '내 곤충'}
+            image={insectImageSrc(myInsect)}
+            onClose={() => setFrameUp(null)}
+          />
+        )}
 
         {/* 😢 졌을 때 "레벨업이 필요해..ㅠ" (10/4 Jin) */}
         {losePopup && phase === 'done' && <LoseLevelPopup upsell={levelUpUpsell(player)} onClose={() => setLosePopup(false)} />}

@@ -127,3 +127,23 @@ export function levelTier(level: number | null | undefined): CardTierStyle {
 export function frameShines(tier: CardTierStyle): boolean {
   return tier.key !== 'basic';
 }
+
+/**
+ * ✨ 레벨이 올라 **보이는 테두리가 한 단계 좋아졌는지** (10/4 Jin: "반짝이는 게 달성되면 알려줘").
+ * 회차·참가권으로 이미 더 좋은 테두리면(예: 10만원 다이아) 안 알린다 — 겉모습이 안 바뀌니까.
+ * 좋아졌으면 새 테두리, 아니면 null.
+ */
+export function frameUpgrade(visit: number, oldLevel: number | null | undefined, newLevel: number | null | undefined): CardTierStyle | null {
+  const before = tierForVisit(visit, oldLevel);
+  const after = tierForVisit(visit, newLevel);
+  return TIER_RANK[after.key] > TIER_RANK[before.key] ? after : null;
+}
+
+/** 테두리 이름 — "은색으로 반짝" 문구용 */
+export const FRAME_WORD: Record<CardTier, string> = {
+  basic: '기본',
+  silver: '🥈 은색',
+  gold: '🥇 금색',
+  holo: '🌈 무지개',
+  diamond: '💎 다이아몬드',
+};

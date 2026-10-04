@@ -13,6 +13,9 @@ import { awardBadges, blockedMessage, checkIn, friendXpMultiplier, playStatus, r
 import PlayStatusCard from '@/app/play-status';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import { playSound, unlockAudio } from '@/lib/sfx';
+import { effectiveVisit, frameUpgrade } from '@/lib/card';
+import { tierForPlayer } from '@/lib/tiers';
+import FrameUpPopup from '@/app/card/frame-up';
 
 // ─────────────────────────────────────────────────────────────
 // 다시 온 아이 (카드·종이의 QR 을 찍고 들어온 경우) — 2026-10-01 Jin 설계
@@ -118,6 +121,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
     return (
       <LevelUp
         insect={insect}
+        visit={effectiveVisit(insectCount ?? 1, tierForPlayer(player).card)}
         xpBonus={friendXpMultiplier(player)}
         onCancel={() => setLeveling(false)}
         onDone={async (alloc, gain) => {
@@ -241,11 +245,14 @@ function BigButton({ onClick, children }: { onClick: () => void; children: React
 /** "환영해!! 더 강해진 뒤, 수액을 차지하자!!" — 레벨업 + 포인트 나누기 */
 function LevelUp({
   insect,
+  visit,
   xpBonus = 1,
   onCancel,
   onDone,
 }: {
   insect: LatestInsect;
+  /** 몇 번째 곤충인지(참가권 등급 포함) — 레벨 테두리가 바뀌는지 볼 때 */
+  visit: number;
   /** 친구·가족 버프 (경험치 × 1.1) */
   xpBonus?: number;
   onCancel: () => void;
@@ -258,6 +265,8 @@ function LevelUp({
   const gain = addXp(insect.level, insect.xp, revisitXpRate(insect.level) * xpBonus);
   const points = gain.levelsUp * POINTS_PER_LEVELUP;
   const left = points - allocTotal(alloc);
+  // ✨ 이번 레벨업으로 카드 테두리가 반짝이게 되면 먼저 크게 보여준다 (10/4 Jin "이제 더 강해졌어!")
+  const [frameUp, setFrameUp] = useState(() => frameUpgrade(visit, insect.level, gain.level));
 
   // 레벨이 오르는 화면이면 레벨업 소리 (한 번만)
   useEffect(() => {
@@ -290,6 +299,9 @@ function LevelUp({
 
   return (
     <main className="max-w-md mx-auto min-h-screen px-5 py-8 flex flex-col gap-4">
+      {frameUp && (
+        <FrameUpPopup tier={frameUp} level={gain.level} name={insect.nickname} image={insect.image} onClose={() => setFrameUp(null)} />
+      )}
       {/* 대화창 — Jin 문구 그대로 */}
       <div className="flex items-end gap-2">
         <BrandMark size={52} className="shrink-0" />

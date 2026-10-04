@@ -569,3 +569,20 @@ html {
   paint-order: stroke fill;
   text-shadow: 0 0 10px rgba(37, 99, 235, 0.85), 0 3px 8px rgba(0, 0, 0, 0.9);
 }
+
+/* ✨ 레벨 테두리 달성 (app/card/frame-up.tsx, 2026-10-04) — 작게 나타나 쾅 커지고, 테두리 빛이 숨쉼 */
+.frameup-card {
+  animation: frameup-zoom 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) both, frameup-glow 1.6s 0.9s ease-in-out infinite;
+}
+@keyframes frameup-zoom {
+  0% { transform: scale(0.35) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.12) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes frameup-glow {
+  0%, 100% { box-shadow: 0 0 18px 2px var(--frameup-glow, rgba(255, 255, 255, 0.8)); }
+  50% { box-shadow: 0 0 46px 12px var(--frameup-glow, rgba(255, 255, 255, 0.8)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frameup-card { animation: none; }
+}
