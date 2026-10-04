@@ -162,7 +162,9 @@ export async function POST(req: NextRequest) {
           ? '지금 곤충을 만드는 친구가 너무 많아! 10초만 기다렸다가 다시 눌러줘 🐝'
           : response.status === 404
             ? '선생님께: AI 모델 이름이 맞지 않아요 (Vercel 의 GEMINI_IMAGE_MODEL 확인). (오류 404)'
-            : response.status === 401 || response.status === 403
+            : response.status === 402
+              ? '선생님께: AI 결제 한도·잔액이 다 찼어요 (Google AI Studio → 결제에서 한도 올리기·충전). 다시 눌러도 안 돼요. (오류 402)'
+              : response.status === 401 || response.status === 403
               ? '선생님께: AI 키 또는 결제 한도 문제예요 (Google AI Studio 확인). (오류 ' + response.status + ')'
               : response.status === 400
                 ? '이 사진으로는 곤충을 못 만들었어. 그림 칸만 꽉 차게 다시 찍어줄래? 📷'
