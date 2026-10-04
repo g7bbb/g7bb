@@ -32,7 +32,7 @@ const STAT_ROWS: { key: 'atk' | 'def' | 'hp' | 'int' | 'eva'; label: string; col
 
 export default function SelphyCard({ data }: { data: InsectCardData }) {
   const [qr, setQr] = useState('');
-  const tier = tierForVisit(data.visit);
+  const tier = tierForVisit(data.visit, data.level);
   const move = baseMoveFor(data.species);
   const move2 = secondMoveFor(data.species, data.level);
   const locked = move2 ? null : secondMoveFor(data.species, SECOND_MOVE_LEVEL);

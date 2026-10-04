@@ -25,6 +25,7 @@ interface GalleryInsect {
   /** 누가 만든 곤충인지. **자기 곤충에 하트를 못 누르게 하는 판단에 씁니다.** */
   player_id: string;
   species: string | null;
+  level?: number | null;
   image_base64: string;
   mime_type: string;
 }
@@ -44,7 +45,7 @@ export default function GalleryPage() {
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
     const query = filterWorldQuery(
-      supabase.from('insects').select('id, player_id, nickname, species, image_base64, mime_type'),
+      supabase.from('insects').select('id, player_id, nickname, species, level, image_base64, mime_type'),
       world.current.testIds,
       world.current.viewerIsTest
     );
@@ -120,7 +121,7 @@ export default function GalleryPage() {
           const isOwn = !!player && player.id === insect.player_id;
           // 카드와 같은 등급 테두리. 은·금·홀로그램 곤충이 격자에서 바로 눈에 띕니다.
           return (
-            <TierFrame key={insect.id} visit={visits.get(insect.id) ?? 1} width={2}>
+            <TierFrame key={insect.id} visit={visits.get(insect.id) ?? 1} level={insect.level} width={2}>
               <div className="bg-slate-800">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

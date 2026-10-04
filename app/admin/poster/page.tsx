@@ -515,7 +515,7 @@ const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'int' | 'eva'; label: string; col
 
 function Poster({ picked, src }: { picked: Picked; src: string | null }) {
   const { insect, owner, visit } = picked;
-  const tier = tierForVisit(visit);
+  const tier = tierForVisit(visit, insect.level);
   const stats = statsForInsect(insect);
   const level = insect.level ?? 1;
   const moves = [baseMoveFor(insect.species), secondMoveFor(insect.species, level)].filter(Boolean);

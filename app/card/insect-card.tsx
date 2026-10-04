@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 import { CoreStats } from '@/lib/types';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { baseMoveFor, secondMoveFor, SECOND_MOVE_LEVEL } from '@/lib/special-moves';
-import { tierForVisit } from '@/lib/card';
+import { frameShines, tierForVisit } from '@/lib/card';
 
 // 아이에게 보여주고 출력해 줄 곤충 카드 한 장입니다.
 //
@@ -55,7 +55,7 @@ export interface InsectCardData {
 
 export default function InsectCard({ data }: { data: InsectCardData }) {
   const [qr, setQr] = useState('');
-  const tier = tierForVisit(data.visit);
+  const tier = tierForVisit(data.visit, data.level);
   // 필살기는 **곤충 종류**로 정해집니다 (2026-09-29 Jin 재설계).
   // 전에는 가장 높은 능력치로 정했는데, 이제 사슴벌레는 큰턱공격처럼 그 곤충다운 기술이 나옵니다.
   const move = baseMoveFor(data.species);
@@ -79,7 +79,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
     <div className="w-full max-w-[21.25rem] mx-auto">
       {/* 테두리 = 등급. 안쪽에 실제 카드를 얹습니다. */}
       <div
-        className={`rounded-2xl p-[5px] shadow-2xl ${tier.holographic ? 'holo-frame' : ''}`}
+        className={`rounded-2xl p-[5px] shadow-2xl ${frameShines(tier) ? 'holo-frame' : ''}`}
         style={{ background: tier.frame }}
       >
         <div className="rounded-xl overflow-hidden bg-slate-950 relative">

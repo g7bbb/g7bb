@@ -562,3 +562,10 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .attract-rays, .attract-gold, .attract-tap, .attract-hs { animation: none; }
 }
+
+/* 💨 피했다·MISS 글씨 (10/4 Jin "연파랑 말고 조금 더 진하고 센 색, 카드랑 어울리게") — 진한 파랑 + 흰 테두리 + 그림자 */
+.fx-ink-strong {
+  -webkit-text-stroke: 1.5px #ffffff;
+  paint-order: stroke fill;
+  text-shadow: 0 0 10px rgba(37, 99, 235, 0.85), 0 3px 8px rgba(0, 0, 0, 0.9);
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { tierForVisit } from '@/lib/card';
+import { frameShines, tierForVisit } from '@/lib/card';
 
 // 카드 등급(기본·은·금·홀로그램) **테두리만** 다른 화면에 물려주는 껍데기입니다.
 //
@@ -14,6 +14,7 @@ import { tierForVisit } from '@/lib/card';
 
 export default function TierFrame({
   visit,
+  level,
   children,
   /** 랭킹처럼 동그란 그림을 감쌀 때 */
   round = false,
@@ -22,17 +23,19 @@ export default function TierFrame({
   className = '',
 }: {
   visit: number;
+  /** 곤충 레벨 — LV3 은색 · LV5 금색 · LV7 다이아 테두리 (10/4 Jin) */
+  level?: number | null;
   children: ReactNode;
   round?: boolean;
   width?: number;
   className?: string;
 }) {
-  const tier = tierForVisit(visit);
+  const tier = tierForVisit(visit, level);
   const radius = round ? '9999px' : '0.85rem';
 
   return (
     <div
-      className={`${tier.holographic ? 'holo-frame' : ''} ${className}`}
+      className={`${frameShines(tier) ? 'holo-frame' : ''} ${className}`}
       style={{
         background: tier.frame,
         padding: width,

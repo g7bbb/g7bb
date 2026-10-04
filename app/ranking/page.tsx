@@ -75,6 +75,7 @@ export default function RankingPage() {
   const [podium, setPodium] = useState<Map<string, string>>(new Map());
   // 곤충 id → 그 아이의 몇 번째 곤충인지. 카드 등급 테두리를 입히는 데 씁니다.
   const [visits, setVisits] = useState<Map<string, number>>(new Map());
+  const [levels, setLevels] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [tip, setTip] = useState<RankTip | null>(null);
   // 내 참가권·남은 게임·30분 대기 시계 (Jin 요청: "랭킹 옆에 본인 참여 가능 시간").
@@ -165,6 +166,8 @@ export default function RankingPage() {
     // 그림은 빼고 필요한 칸만 (가볍게)
     const { data } = await supabase.from('insects').select('id, species, origin, level').in('id', ids);
     setTip(buildTip((data || []) as any));
+    // 🆙 레벨 테두리용 (LV3 은 · LV5 금 · LV7 다이아)
+    setLevels(new Map((data || []).map((r: any) => [r.id, r.level ?? 1])));
   }
 
   async function loadPodiumImages(top: RankRow[]) {
@@ -244,7 +247,7 @@ export default function RankingPage() {
                 {/* 그림은 나중에 도착하므로, 그 전에는 같은 크기의 빈 자리를 둡니다.
                     자리를 안 잡아두면 그림이 뜰 때 줄이 통째로 밀려서 보기 안 좋습니다. */}
                 {/* 카드와 같은 등급 테두리를 둘러, 금색 아이는 랭킹에서도 금색으로 보입니다. */}
-                <TierFrame visit={visits.get(row.insect_id) ?? 1} round width={2} className="shrink-0">
+                <TierFrame visit={visits.get(row.insect_id) ?? 1} level={levels.get(row.insect_id)} round width={2} className="shrink-0">
                   <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-700 flex items-center justify-center">
                     {image ? (
                       // eslint-disable-next-line @next/next/no-img-element

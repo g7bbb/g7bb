@@ -96,10 +96,34 @@ export function effectiveVisit(visit: number, cardStyle: 'normal' | 'gold' | 'di
  * Jin 이 정한 규칙 그대로입니다: 2회차 은색, 3회차 금색, **3회차를 넘으면** 홀로그램.
  * 즉 4회차부터가 홀로그램입니다.
  */
-export function tierForVisit(visit: number): CardTierStyle {
+export function tierForVisit(visit: number, level?: number | null): CardTierStyle {
+  const byVisit = visitTier(visit);
+  // 🆙 레벨 테두리 (10/4 Jin): LV3 은색 · LV5 금색 · LV7 다이아 — 회차·참가권 등급과 비교해 **더 높은 쪽**
+  const byLevel = levelTier(level);
+  return TIER_RANK[byLevel.key] > TIER_RANK[byVisit.key] ? byLevel : byVisit;
+}
+
+function visitTier(visit: number): CardTierStyle {
   if (!Number.isFinite(visit) || visit <= 1) return CARD_TIERS.basic;
   if (visit === 2) return CARD_TIERS.silver;
   if (visit === 3) return CARD_TIERS.gold;
   if (visit >= DIAMOND_VISIT) return CARD_TIERS.diamond;
   return CARD_TIERS.holo;
+}
+
+const TIER_RANK: Record<CardTier, number> = { basic: 0, silver: 1, gold: 2, holo: 3, diamond: 4 };
+
+/** 레벨로 정해지는 테두리 — LV3 이상 은색, LV5 이상 금색, LV7 이상 다이아 (10/4 Jin) */
+export const LEVEL_FRAME = { silver: 3, gold: 5, diamond: 7 };
+export function levelTier(level: number | null | undefined): CardTierStyle {
+  const lv = Number(level) || 1;
+  if (lv >= LEVEL_FRAME.diamond) return CARD_TIERS.diamond;
+  if (lv >= LEVEL_FRAME.gold) return CARD_TIERS.gold;
+  if (lv >= LEVEL_FRAME.silver) return CARD_TIERS.silver;
+  return CARD_TIERS.basic;
+}
+
+/** ✨ 테두리에 빛이 흐르는지 — 은색 이상은 전부 반짝 (10/4 Jin "은색 반짝이게") */
+export function frameShines(tier: CardTierStyle): boolean {
+  return tier.key !== 'basic';
 }

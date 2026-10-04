@@ -1276,7 +1276,7 @@ export default function BattlePage() {
               )}
               {/* 회피 — 맞는 쪽의 회피력으로 필살기를 통째로 피했을 때 */}
               {specialFx.dodged && (
-                <p className="mt-4 px-4 text-center text-3xl font-black text-sky-300 break-keep animate-special-name drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <p className="mt-4 px-4 text-center text-3xl font-black text-blue-600 break-keep animate-special-name fx-ink-strong">
                   💨 {specialFx.side === 'A' ? '상대가' : '내 곤충이'} 피했다!
                 </p>
               )}
@@ -2042,7 +2042,7 @@ function Fighter({
             hit ? 'animate-hit-flash' : attacking ? lunge : powered ? `animate-power-up ${powerColor}` : ''
           }`}
         >
-        <TierFrame visit={visit} width={3} className="h-[32vh] aspect-[4/5] mx-auto">
+        <TierFrame visit={visit} level={insect.level} width={3} className="h-[32vh] aspect-[4/5] mx-auto">
           {/* 🃏 카드 모양으로 통일 (10/2 Jin: "모든 곤충을 배틀 때 카드 형식으로").
               전에는 그림을 넓은 칸에 맞춰 줄여서(contain) 양옆에 검은 띠가 생기고 곤충마다 크기가 달랐다.
               이제 카드와 같은 4:5 칸을 꽉 채우고(cover), 카드처럼 LV·출신지·이름을 얹는다. */}
@@ -2053,7 +2053,7 @@ function Fighter({
         {/* 💨 피했다 — 달려든 쪽은 움직이고, 맞는 쪽엔 MISS 만 뜬다 */}
         {impact?.miss && (
           <div key={impact.id} className="absolute inset-0 pointer-events-none">
-            <span className="absolute left-1/2 top-[30%] -translate-x-1/2 whitespace-nowrap text-4xl font-black text-sky-300 animate-damage-float drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+            <span className="absolute left-1/2 top-[30%] -translate-x-1/2 whitespace-nowrap text-4xl font-black text-blue-600 animate-damage-float fx-ink-strong">
               💨 MISS!
             </span>
           </div>
@@ -2108,7 +2108,7 @@ function Fighter({
 }
 
 function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: number; label: string }) {
-  const tier = tierForVisit(visit);
+  const tier = tierForVisit(visit, insect.level);
   const env = ENVIRONMENTS.find((e) => e.key === insect.origin || e.label === insect.origin);
   return (
     <div className="relative w-full h-full bg-slate-900" style={{ height: 'calc(32vh - 6px)' }}>
