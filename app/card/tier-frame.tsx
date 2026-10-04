@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { frameShines, tierForVisit } from '@/lib/card';
+import { auraClass, frameShines, tierForVisit } from '@/lib/card';
 
 // 카드 등급(기본·은·금·홀로그램) **테두리만** 다른 화면에 물려주는 껍데기입니다.
 //
@@ -35,8 +35,10 @@ export default function TierFrame({
 
   return (
     <div
-      className={`${frameShines(tier) ? 'holo-frame' : ''} ${className}`}
+      className={`${frameShines(tier) ? 'holo-frame' : ''} ${auraClass(tier)} ${className}`}
       style={{
+        // 랭킹 동그라미·갤러리 칸처럼 작은 테두리는 빛을 반만
+        ['--aura-scale' as any]: width <= 2 ? 0.5 : 1,
         background: tier.frame,
         padding: width,
         borderRadius: radius,

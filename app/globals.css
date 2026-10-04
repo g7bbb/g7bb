@@ -586,3 +586,85 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .frameup-card { animation: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   🌟 카드 밖으로 퍼지는 빛 (2026-10-04 Jin: "금색·다이아는 카드 밖으로 광원이 나오는 것처럼, 다이아는 더 크게")
+   ① 후광: 여러 겹 box-shadow 가 숨쉬듯 커졌다 작아짐 (레이아웃에 영향 없음)
+   ② 빛줄기: ::after 가 카드보다 크게 뒤에 깔려 천천히 돈다 (바깥으로 갈수록 흐려짐)
+   - isolation 으로 카드 안에서만 겹치게 → 빛줄기는 카드 그림 **뒤**, 테두리·바깥에만 보인다.
+   - 작은 테두리(랭킹 동그라미·갤러리)는 --aura-scale 0.5 (app/card/tier-frame.tsx).
+   - 빛이 화면 밖으로 나가 가로 스크롤이 생기지 않게 html·body 둘 다 overflow-x: clip.
+     (body 에만 주면 화면 전체로 넘어가 버려서 body 자체는 안 잘림 — 실측 18px 넘침)
+     clip 은 스크롤 상자를 안 만들어서 sticky(밸런스 도형·연습 시작 버튼)는 그대로 된다.
+   ───────────────────────────────────────────────────────────── */
+html, body { overflow-x: clip; }
+@property --aura-turn {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.aura {
+  position: relative;
+  isolation: isolate;
+}
+.aura::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: calc(var(--aura-r) * var(--aura-scale, 1) * -1);
+  border-radius: 9999px;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+  animation: aura-turn 9s linear infinite;
+}
+@keyframes aura-turn {
+  to { --aura-turn: 360deg; }
+}
+
+/* 🥇 금색 (LV5 · 3번째 곤충 · 5만원) */
+.aura-gold { --aura-r: 28px; animation: aura-gold 2.2s ease-in-out infinite; }
+.aura-gold::after {
+  background: repeating-conic-gradient(from var(--aura-turn), rgba(254, 240, 138, 0.95) 0deg 4deg, rgba(251, 191, 36, 0.5) 4deg 7deg, transparent 7deg 20deg);
+}
+@keyframes aura-gold {
+  0%, 100% { box-shadow: 0 0 12px 3px rgba(253, 224, 71, 0.9), 0 0 32px 10px rgba(245, 158, 11, 0.55); }
+  50% { box-shadow: 0 0 20px 6px rgba(254, 240, 138, 1), 0 0 56px 20px rgba(245, 158, 11, 0.65); }
+}
+
+/* 🌈 무지개 (4번째 곤충부터) — 금색만큼, 색만 무지개 */
+.aura-holo { --aura-r: 22px; animation: aura-holo 3s linear infinite; }
+.aura-holo::after {
+  background: repeating-conic-gradient(from var(--aura-turn), rgba(255, 139, 209, 0.6) 0deg 5deg, transparent 5deg 15deg, rgba(139, 233, 255, 0.6) 15deg 20deg, transparent 20deg 30deg);
+}
+@keyframes aura-holo {
+  0%, 100% { box-shadow: 0 0 12px 3px rgba(255, 139, 209, 0.7), 0 0 34px 10px rgba(139, 233, 255, 0.45); }
+  50% { box-shadow: 0 0 12px 3px rgba(182, 255, 139, 0.7), 0 0 34px 10px rgba(255, 246, 139, 0.45); }
+}
+
+/* 💎 다이아 (LV7 · 10만원) — 제일 크게: 후광 3겹 + 색이 돌고 + 빛줄기 두 겹(반대로 돎 느낌) */
+.aura-diamond { --aura-r: 40px; animation: aura-diamond 2.4s ease-in-out infinite; }
+.aura-diamond::after {
+  background:
+    repeating-conic-gradient(from var(--aura-turn), rgba(255, 255, 255, 0.9) 0deg 3deg, transparent 3deg 18deg),
+    repeating-conic-gradient(from calc(var(--aura-turn) * -1.5), rgba(165, 243, 252, 0.7) 0deg 6deg, transparent 6deg 24deg, rgba(240, 171, 252, 0.7) 24deg 30deg, transparent 30deg 45deg);
+  animation-duration: 6s;
+}
+@keyframes aura-diamond {
+  0%, 100% {
+    box-shadow: 0 0 14px 4px rgba(255, 255, 255, 0.95), 0 0 40px 14px rgba(103, 232, 249, 0.65), 0 0 80px 30px rgba(196, 181, 253, 0.45);
+  }
+  33% {
+    box-shadow: 0 0 22px 6px rgba(255, 255, 255, 1), 0 0 60px 22px rgba(196, 181, 253, 0.7), 0 0 110px 40px rgba(240, 171, 252, 0.5);
+  }
+  66% {
+    box-shadow: 0 0 18px 5px rgba(255, 255, 255, 0.95), 0 0 50px 18px rgba(240, 171, 252, 0.65), 0 0 95px 34px rgba(103, 232, 249, 0.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aura, .aura::after { animation: none; }
+}
+/* 팝업 카드(.frameup-card)는 확대 애니메이션 뒤에 빛이 숨쉬게 — 한 요소에 animation 이 둘이라 합쳐 적는다 */
+.frameup-card.aura-gold { animation: frameup-zoom 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) both, aura-gold 2.2s 0.9s ease-in-out infinite; }
+.frameup-card.aura-holo { animation: frameup-zoom 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) both, aura-holo 3s 0.9s linear infinite; }
+.frameup-card.aura-diamond { animation: frameup-zoom 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) both, aura-diamond 2.4s 0.9s ease-in-out infinite; }

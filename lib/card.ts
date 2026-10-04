@@ -147,3 +147,14 @@ export const FRAME_WORD: Record<CardTier, string> = {
   holo: '🌈 무지개',
   diamond: '💎 다이아몬드',
 };
+
+/**
+ * 🌟 카드 **밖으로** 빛이 퍼지는 효과 (10/4 Jin: "금색·다이아는 테두리만 살짝이 아니라 카드 밖으로 광원이 나오게, 다이아는 더 크게").
+ * 금색·무지개 = 금빛 후광 + 도는 빛줄기 / 다이아 = 무지갯빛 후광 + 더 길고 굵은 빛줄기. CSS 는 app/globals.css `.aura-*`.
+ */
+export function auraClass(tier: CardTierStyle): string {
+  if (tier.key === 'diamond') return 'aura aura-diamond';
+  if (tier.key === 'holo') return 'aura aura-holo';
+  if (tier.key === 'gold') return 'aura aura-gold';
+  return '';
+}

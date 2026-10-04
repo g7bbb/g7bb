@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 import { CoreStats } from '@/lib/types';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { baseMoveFor, secondMoveFor, SECOND_MOVE_LEVEL } from '@/lib/special-moves';
-import { frameShines, tierForVisit } from '@/lib/card';
+import { auraClass, frameShines, tierForVisit } from '@/lib/card';
 
 // 아이에게 보여주고 출력해 줄 곤충 카드 한 장입니다.
 //
@@ -79,7 +79,7 @@ export default function InsectCard({ data }: { data: InsectCardData }) {
     <div className="w-full max-w-[21.25rem] mx-auto">
       {/* 테두리 = 등급. 안쪽에 실제 카드를 얹습니다. */}
       <div
-        className={`rounded-2xl p-[5px] shadow-2xl ${frameShines(tier) ? 'holo-frame' : ''}`}
+        className={`rounded-2xl p-[5px] shadow-2xl ${frameShines(tier) ? 'holo-frame' : ''} ${auraClass(tier)}`}
         style={{ background: tier.frame }}
       >
         <div className="rounded-xl overflow-hidden bg-slate-950 relative">

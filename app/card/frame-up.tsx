@@ -1,7 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { CardTierStyle, FRAME_WORD, LEVEL_FRAME } from '@/lib/card';
+import { auraClass, CardTierStyle, FRAME_WORD, LEVEL_FRAME } from '@/lib/card';
 
 // ✨ 레벨을 달성해 카드 테두리가 반짝이기 시작할 때 (10/4 Jin:
 //    "레벨을 달성한 뒤 카드 뒤에 반짝이는 게 달성되면 알려줘. '이제 더 강해졌어!' 하면서 카드를 크게 확대해서")
@@ -51,7 +51,7 @@ export default function FrameUpPopup({
 
       {/* 카드 — 작게 나타났다가 크게 확대 */}
       <div
-        className="frameup-card holo-frame relative w-[68vw] max-w-[19rem]"
+        className={`frameup-card holo-frame ${auraClass(tier)} relative w-[68vw] max-w-[19rem]`}
         style={{
           background: tier.frame,
           padding: 7,
