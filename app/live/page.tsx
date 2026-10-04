@@ -24,6 +24,8 @@ const REFRESH_MS = 20_000;
  */
 const RELOAD_MS = 10 * 60_000;
 const SHOW = 50;
+// 글씨는 10/4 Jin "5폰트쯤 작게 — 화면을 키워 띄웠더니 긴 이름이 잘려" 로 한 단계씩 줄였다 (줄 22→17.6px, 1~3위 이름 26→22px).
+// 그래도 칸보다 긴 이름은 잘리지 않고 다음 줄로 넘어간다 (overflow-wrap: anywhere — 띄어쓰기 없는 긴 이름도).
 /** 🃏 1~3위 카드를 크게 보여주는 시간 (10/4 Jin: "3위까지는 약 0.8초 동안 카드를") */
 const SPOT_MS = 800;
 /**
@@ -231,7 +233,7 @@ export default function LivePage() {
                 i === 0 ? 'border-amber-300 bg-amber-400/15' : i === 1 ? 'border-slate-300 bg-slate-300/10' : 'border-orange-400 bg-orange-400/10'
               } ${flash.has(r.player_id) ? 'animate-pulse' : ''}`}
             >
-              <span className="text-5xl w-14 text-center shrink-0">{medal(i)}</span>
+              <span className="text-4xl w-11 text-center shrink-0">{medal(i)}</span>
               {images.get(r.insect_id) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={images.get(r.insect_id)} alt="" className="w-28 h-28 rounded-xl object-cover shrink-0" />
@@ -239,11 +241,11 @@ export default function LivePage() {
                 <div className="w-28 h-28 rounded-xl bg-slate-800 shrink-0" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-2xl font-black truncate">🐞 {r.nickname}</p>
-                <p className="text-sm text-slate-300 truncate">
+                <p className="text-xl font-black leading-tight [overflow-wrap:anywhere]">🐞 {r.nickname}</p>
+                <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">
                   {r.kid ? `👦 ${r.kid} · ` : ''}LV.{r.level} · {r.species || '곤충'}
                 </p>
-                <p className="text-2xl font-black text-emerald-300">{r.score}점</p>
+                <p className="text-xl font-black text-emerald-300">{r.score}점</p>
               </div>
             </div>
           ))}
@@ -254,13 +256,13 @@ export default function LivePage() {
               data-rank={j + 4}
               className={`flex items-center gap-3 rounded-xl px-4 py-2.5 bg-slate-800 ${flash.has(r.player_id) ? 'ring-2 ring-emerald-400' : ''}`}
             >
-              <span className="w-10 text-center text-xl font-black text-amber-300 shrink-0">{j + 4}</span>
-              <span className="flex-1 min-w-0 truncate text-xl font-bold">
+              <span className="w-8 text-center text-base font-black text-amber-300 shrink-0">{j + 4}</span>
+              <span className="flex-1 min-w-0 text-base font-bold leading-tight [overflow-wrap:anywhere]">
                 🐞 {r.nickname}
-                {r.kid && <span className="ml-2 text-sm font-normal text-slate-400">👦 {r.kid}</span>}
+                {r.kid && <span className="ml-1.5 text-xs font-normal text-slate-400">👦 {r.kid}</span>}
               </span>
-              <span className="text-sm text-slate-400 shrink-0">LV.{r.level}</span>
-              <span className="w-24 text-right text-xl font-black text-emerald-300 shrink-0">{r.score}점</span>
+              <span className="text-xs text-slate-400 shrink-0">LV.{r.level}</span>
+              <span className="w-20 text-right text-base font-black text-emerald-300 shrink-0">{r.score}점</span>
             </div>
           ))}
         </div>
