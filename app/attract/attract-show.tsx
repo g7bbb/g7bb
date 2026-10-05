@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { loadTestPlayerIds } from '@/lib/test-world';
 import { useWakeLock } from '@/lib/wake-lock';
+import { EVENT_LIVE } from '@/lib/event-mode';
 import { BOT_INSECTS } from '@/lib/bots';
 import { baseMoveFor } from '@/lib/special-moves';
 import { IMPACT_ART, MOVE_ART, TIMING_ART } from '@/lib/fx-art';
@@ -143,7 +144,7 @@ function ShowCardFace({ card, className = '', style }: { card: ShowCard; classNa
 
 export default function AttractShow({ onClose }: { onClose: () => void }) {
   // 📺 영상이 나오는 동안 화면이 꺼지지 않게 (10/4 Jin, lib/wake-lock.ts)
-  useWakeLock(true);
+  useWakeLock(EVENT_LIVE);
   const [cards, setCards] = useState<ShowCard[]>(() => botCards());
   const [top3, setTop3] = useState<TopCard[]>([]);
   const top3Ref = useRef<TopCard[]>([]);
@@ -161,7 +162,8 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
       });
     };
     pull();
-    const id = window.setInterval(pull, REFRESH_MS);
+    // 행사가 아니면 열 때 한 번만 받는다 (10/5)
+    const id = EVENT_LIVE ? window.setInterval(pull, REFRESH_MS) : 0;
     return () => {
       alive = false;
       window.clearInterval(id);

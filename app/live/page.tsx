@@ -6,6 +6,7 @@ import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { loadKidNames } from '@/lib/kid-names';
 import { loadInsectImages } from '@/lib/image-cache';
 import { useWakeLock } from '@/lib/wake-lock';
+import { EVENT_LIVE } from '@/lib/event-mode';
 import { BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 
@@ -66,7 +67,7 @@ export default function LivePage() {
   rowsRef.current = rows;
   imagesRef.current = images;
   // 부스 모니터라 화면이 꺼지지 않게 (lib/wake-lock.ts)
-  useWakeLock(true);
+  useWakeLock(EVENT_LIVE);
 
   const load = useCallback(async () => {
     try {
@@ -128,6 +129,8 @@ export default function LivePage() {
 
   useEffect(() => {
     load();
+    // 행사가 아니면 열 때 한 번만 받는다 (10/5 Jin: 데이터 계속 나가는 것 끄기)
+    if (!EVENT_LIVE) return;
     const id = window.setInterval(load, REFRESH_MS);
     const reload = window.setTimeout(() => window.location.reload(), RELOAD_MS);
     return () => {

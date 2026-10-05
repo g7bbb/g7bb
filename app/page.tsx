@@ -2,6 +2,7 @@
 
 import AttractShow from './attract/attract-show';
 import { useWakeLock } from '@/lib/wake-lock';
+import { EVENT_LIVE } from '@/lib/event-mode';
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -57,9 +58,10 @@ function HomeInner() {
   // 📺 대기 화면 홍보 영상 (10/3 밤 Jin) — 아무도 로그인 안 했고 1분 동안 아무도 안 만지면 저절로 튼다. 누르면 멈춤.
   const [attract, setAttract] = useState(false);
   // 📺 아무도 로그인 안 한 대기 화면에서는 화면이 꺼지지 않게 — 1분 뒤 홍보 영상이 나올 수 있도록 (10/4 Jin)
-  useWakeLock(!player);
+  // 행사가 아닐 때(EVENT_LIVE 꺼짐)는 화면 안 꺼짐·홍보 영상 자동 재생 둘 다 안 함 (10/5 Jin)
+  useWakeLock(!player && EVENT_LIVE);
   useEffect(() => {
-    if (player || scanning || attract) return;
+    if (!EVENT_LIVE || player || scanning || attract) return;
     let last = Date.now();
     const poke = () => {
       last = Date.now();
