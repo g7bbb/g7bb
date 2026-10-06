@@ -47,6 +47,15 @@ export function isStaffTicket(code: string | null | undefined): boolean {
   return !!m && Number(m[1]) >= STAFF_TICKET_RANGE[0] && Number(m[1]) <= STAFF_TICKET_RANGE[1];
 }
 
+/**
+ * 🔓 비밀번호 없이 번호만 치면 바로 들어가는 번호 (2026-10-06 Jin: "951번은 입력하면 바로 접속하게").
+ * 개발·시운전용. 번호를 더 넣으려면 이 목록에만 추가하면 된다. ⚠️ 진짜 아이 번호(900 미만)는 넣지 말 것.
+ */
+export const NO_PIN_TICKETS = ['A-951'];
+export function skipsPin(code: string | null | undefined): boolean {
+  return !!code && NO_PIN_TICKETS.includes(code);
+}
+
 export function isTestTicket(code: string | null | undefined): boolean {
   const m = /^[A-Z]-(\d{3})$/.exec(code ?? '');
   return !!m && Number(m[1]) >= TEST_TICKET_FROM;

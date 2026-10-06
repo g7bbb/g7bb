@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { findPlayerByTicket, rememberInsectName, rememberPlayer } from '@/lib/session';
 import { playSound, unlockAudio } from '@/lib/sfx';
 import { Player } from '@/lib/types';
-import { displayTicket, normalizeTicket } from '@/lib/ticket';
+import { displayTicket, normalizeTicket, skipsPin } from '@/lib/ticket';
 import { rememberTicketPin, verifyTicketPin } from '@/lib/ticket-pin-client';
 import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
@@ -98,6 +98,17 @@ function StartInner() {
       .finally(() => setChecking(false));
   }
 
+  // 🔓 비밀번호 없이 들어가는 번호(951 등, lib/ticket.ts NO_PIN_TICKETS) — 번호만 맞으면 바로 들어간다
+  useEffect(() => {
+    if (pinOk) return;
+    const code = normalizeTicket(ticket);
+    if (!code || !skipsPin(code)) return;
+    setPinError('');
+    setPinOk(true);
+    void lookup(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket, pinOk]);
+
   // 손으로 칠 때: 번호와 비밀번호 4자리가 다 들어오면 바로 확인한다
   useEffect(() => {
     if (pinOk || pin.length !== 4) return;
@@ -136,6 +147,8 @@ function StartInner() {
     setFromQr(true);
 
     // 종이 QR 에는 비밀번호가 들어 있다(&k=). 없거나(옛 QR) 틀리면 비밀번호 칸을 띄운다.
+    // 🔓 비밀번호 없는 번호(951 등)는 위 effect 가 바로 들여보낸다.
+    if (skipsPin(normalized)) return;
     const k = (params.get('k') ?? '').replace(/\D/g, '');
     if (!k) return;
     setPin(k);
