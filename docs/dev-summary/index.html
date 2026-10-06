@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>꾸러기 G7BB 배틀 베타 v1 — 개발자 공유용 요약</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  :root {
+    --ink: #1c2230; --muted: #5b6475; --line: #d9dee7; --soft: #f3f5f9;
+    --accent: #1f7a4d; --accent-soft: #e6f3ec; --warn: #a3471b; --warn-soft: #fbeee6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "WenQuanYi Zen Hei", "Noto Sans CJK KR", sans-serif;
+    color: var(--ink); font-size: 9.6pt; line-height: 1.55; background: #fff;
+    word-break: keep-all; overflow-wrap: anywhere;
+  }
+  h1 { font-size: 23pt; line-height: 1.2; margin: 0 0 4mm; letter-spacing: -0.3px; }
+  h2 {
+    font-size: 14pt; margin: 0 0 3mm; padding-bottom: 1.6mm;
+    border-bottom: 2px solid var(--accent); break-after: avoid;
+  }
+  h2 .no { color: var(--accent); margin-right: 2mm; }
+  h3 { font-size: 10.8pt; margin: 4.5mm 0 1.6mm; break-after: avoid; }
+  p { margin: 0 0 2.2mm; }
+  ul { margin: 0 0 2.4mm; padding-left: 5mm; }
+  li { margin: 0 0 0.8mm; }
+  code { font-family: "WenQuanYi Zen Hei Mono", monospace; font-size: 8.6pt; background: var(--soft); padding: 0 1mm; border-radius: 1mm; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 3mm; font-size: 8.8pt; break-inside: auto; }
+  th, td { border: 1px solid var(--line); padding: 1.3mm 2mm; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: bold; }
+  tr { break-inside: avoid; }
+  .page { break-before: page; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.4pt; }
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 2.4mm 3mm; margin: 2mm 0 3mm; break-inside: avoid; }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .card { border: 1px solid var(--line); border-radius: 2mm; padding: 2.6mm 3mm; break-inside: avoid; }
+  .card h4 { margin: 0 0 1.2mm; font-size: 9.8pt; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 6mm 0; }
+  .stat { border: 1px solid var(--line); border-radius: 2mm; padding: 3mm; }
+  .stat b { display: block; font-size: 16pt; color: var(--accent); line-height: 1.2; }
+  .stat span { font-size: 8.4pt; color: var(--muted); }
+  /* 흐름 그림 */
+  .flow { display: flex; flex-wrap: wrap; gap: 1.6mm; align-items: center; margin: 2mm 0 4mm; }
+  .flow .step { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 1.6mm; padding: 1.6mm 2.4mm; font-size: 8.8pt; }
+  .flow .arrow { color: var(--muted); }
+  /* 구조 그림 */
+  .arch { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 3mm; align-items: stretch; margin: 2mm 0 4mm; }
+  .arch .box { border: 1.5px solid var(--ink); border-radius: 2mm; padding: 2.4mm; font-size: 8.6pt; }
+  .arch .box h4 { margin: 0 0 1mm; font-size: 9.6pt; }
+  .arch .box.ext { border-style: dashed; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .tag { display: inline-block; background: var(--accent); color: #fff; padding: 1mm 3mm; border-radius: 1mm; font-size: 9pt; margin-bottom: 6mm; }
+  .cover .sub { font-size: 12pt; color: var(--muted); margin-bottom: 8mm; }
+  .footer-note { margin-top: auto; font-size: 8.4pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 3mm; }
+</style>
+</head>
+<body>
+
+<!-- 1. 표지 -->
+<section class="cover">
+  <div><span class="tag">개발자 공유용 요약 · 2026년 10월</span></div>
+  <h1>꾸러기 G7BB 배틀 (베타 v1)</h1>
+  <div class="sub">아이가 종이에 그린 곤충을 AI 가 멋진 캐릭터로 바꾸고,<br>그 곤충으로 배틀·랭킹을 하는 현장 체험형 웹앱</div>
+
+  <div class="stats">
+    <div class="stat"><b>2일</b><span>2026-10-03~04<br>대전 곤충박람회 부스 운영</span></div>
+    <div class="stat"><b>약 3주</b><span>9/15 첫 커밋 →<br>10/4 행사 마지막 배포</span></div>
+    <div class="stat"><b>16k 줄</b><span>TypeScript (화면 29개,<br>API 6개)</span></div>
+    <div class="stat"><b>160+</b><span>커밋 (행사 중 현장<br>피드백 실시간 반영)</span></div>
+  </div>
+
+  <p>이 문서는 정식 출시를 같이 고민할 개발자에게 <b>지금 무엇이 있고, 어떻게 만들었고, 무엇이 부족한지</b>를 빠르게 공유하려고 만들었다.
+  베타는 "3주 안에 부스에서 실제로 돌아가는 것"이 목표였기 때문에, 의도적으로 감수한 기술 부채가 있다 (7장).</p>
+
+  <div class="footer-note">
+    운영: 곤충본부(God of Bugs) · 기획·콘텐츠 Jin · 개발 Claude Code(AI 페어 프로그래밍)<br>
+    배포 주소 <code>g7bb.vercel.app</code> · 저장소 <code>g7bbb/g7bb</code> (비공개) · 기준 태그 <code>g7bb-beta-v1</code>
+  </div>
+</section>
+
+<!-- 2. 한눈에 -->
+<section class="page">
+  <h2><span class="no">1</span>무엇을 하는 앱인가</h2>
+  <p>부스에서 결제한 아이는 <b>번호·QR·비밀번호가 인쇄된 A4 그림 용지</b>를 받는다. 이 종이가 곧 입장권이자 신분증이다.</p>
+
+  <div class="flow">
+    <span class="step">① 종이에 곤충 그리기</span><span class="arrow">→</span>
+    <span class="step">② 종이 QR 찍기<br><span class="small">이름·설문</span></span><span class="arrow">→</span>
+    <span class="step">③ 능력 고르기<br><span class="small">종류·출신지·부위 점수</span></span><span class="arrow">→</span>
+    <span class="step">④ 그림 촬영<br><span class="small">AI 변환 (최대 3번)</span></span><span class="arrow">→</span>
+    <span class="step">⑤ 곤충 카드</span><span class="arrow">→</span>
+    <span class="step">⑥ 랭킹 도전 3판<br><span class="small">+ 연습 1판</span></span><span class="arrow">→</span>
+    <span class="step">⑦ 랭킹·뱃지·레벨업</span>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>아이가 느끼는 핵심</h4>
+      <ul>
+        <li><b>"내가 그린 곤충"</b>이 AI 로 멋지게 변함 — 아이가 그린 개수(큰턱 4개 등)는 고치지 않고 살림</li>
+        <li>곤충 종류마다 다른 <b>필살기</b>, 리듬게임식 <b>타이밍 버튼</b>(퍼펙트/굿)</li>
+        <li>랭킹 3위→2위→1위로 올라가는 <b>사다리 도전</b>, 이기면 그 순위를 차지</li>
+        <li>다시 오면 <b>레벨업 + 능력 포인트</b>, 카드 테두리가 은→금→다이아</li>
+        <li>뱃지 38개, 중간보스·보너스 스테이지, 되받아치기</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>운영자가 필요했던 것</h4>
+      <ul>
+        <li>개인정보 0 — 이름(닉네임)만 받고 원본 사진은 저장 안 함</li>
+        <li>참가권 금액별 게임 횟수 (직원 화면에서 올려줌)</li>
+        <li>태블릿 공용 사용 — 게임이 끝나면 자동 로그아웃</li>
+        <li>부스 모니터용 실시간 순위판, 대기 화면 홍보 영상</li>
+        <li>시상용 원본 그림·A3 포스터·포토프린터 카드 뽑기</li>
+        <li>당첨자 연락은 카카오톡 채널 1:1 (번호로 특정)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>참가권 (행사 최종안)</h3>
+  <table>
+    <tr><th>금액</th><th>게임</th><th>특징</th></tr>
+    <tr><td>1.5만원</td><td>1게임(3판)</td><td>30분 대기, 이벤트 확률 15%, 기록 보존 안 함</td></tr>
+    <tr><td>2만원</td><td>3게임(9판)</td><td>대기 없이 연달아, 매 게임 보스/보너스, 첫 보너스는 레벨업 확정, 캐릭터 보존</td></tr>
+    <tr><td>5만원 / 10만원</td><td>하루 6게임 / 2일 무제한</td><td>금·다이아 카드, 피규어·포스터 배송 등 현장 혜택</td></tr>
+  </table>
+  <p class="small muted">1게임 = 랭킹 도전 3판 + 연습 1판(경험치 50%, 점수 안 남음). 종이는 한 종류만 인쇄하고 금액은 직원이 올려준다.</p>
+</section>
+
+<!-- 3. 기술 구조 -->
+<section class="page">
+  <h2><span class="no">2</span>기술 구조</h2>
+
+  <div class="arch">
+    <div class="box">
+      <h4>브라우저 (폰·태블릿)</h4>
+      Next.js 화면 (React 18)<br>
+      · 게임 규칙·배틀 계산 <b>전부 여기서</b><br>
+      · 사진 줄이기(2000px JPEG)<br>
+      · 결과 그림 JPEG 재인코딩<br>
+      · 임시 저장·세션: localStorage<br>
+      · 그림 캐시: IndexedDB<br>
+      · 효과음·음악: Web Audio
+    </div>
+    <div class="box">
+      <h4>Vercel (Next.js 14 App Router)</h4>
+      <b>API Route 6개</b> — 비밀이 필요한 것만 서버로<br>
+      · <code>convert-insect</code> 그림 → Gemini 이미지 생성<br>
+      · <code>ticket-check</code>, <code>ticket-pins</code> 종이 비밀번호(HMAC)<br>
+      · <code>admin-auth</code> 직원 암호<br>
+      · <code>read-sheet</code> 종이 마킹 읽기(현재 미사용)<br>
+      · <code>log-sheet</code> 구글시트 기록(미연결)<br><br>
+      main 브랜치 push → 자동 배포
+    </div>
+    <div class="box ext">
+      <h4>외부 서비스</h4>
+      <b>Supabase</b> (Postgres)<br>
+      브라우저가 anon 키로 <b>직접</b> 읽고 씀<br><br>
+      <b>Google Gemini</b><br>
+      <code>gemini-3.1-flash-image-preview</code><br>
+      서버에서만 호출 (키 보호)<br><br>
+      <b>카카오톡 채널</b> — 안내·당첨 연락
+    </div>
+  </div>
+
+  <h3>스택과 고른 이유</h3>
+  <table>
+    <tr><th style="width:26%">기술</th><th>이유</th></tr>
+    <tr><td>Next.js 14 + TypeScript</td><td>화면과 서버(API)를 한 저장소에서. 별도 백엔드 없이 3주 안에 끝내기 위해</td></tr>
+    <tr><td>Vercel (Hobby)</td><td>GitHub push 만으로 배포. 행사 중 현장 피드백을 몇 분 안에 반영</td></tr>
+    <tr><td>Supabase</td><td>테이블 4개뿐인 단순 구조, 브라우저에서 바로 호출. Pro 는 행사 기간만 사용</td></tr>
+    <tr><td>Gemini 이미지 API</td><td>아이 그림을 참고 이미지로 넣고 프롬프트로 스타일·규칙 지정. 장당 약 $0.067</td></tr>
+    <tr><td>Tailwind CSS + 순수 CSS 애니메이션</td><td>배틀 연출(공격·피격·필살기·타이밍 고리)을 이미지 에셋 없이 CSS 로. 60fps 유지</td></tr>
+    <tr><td>의존성 최소</td><td>런타임 의존성은 supabase-js, jsQR(앱 안 QR 스캔), html-to-image(카드 PNG 저장) 정도</td></tr>
+  </table>
+
+  <h3>폴더 구조 (요지)</h3>
+  <table class="small">
+    <tr><th style="width:26%">위치</th><th>내용</th></tr>
+    <tr><td><code>app/</code></td><td>화면(라우트별 폴더). 가장 큰 파일은 <code>app/battle/page.tsx</code> 2,500줄</td></tr>
+    <tr><td><code>lib/</code> (44개)</td><td>규칙을 한 파일씩: <code>insect-stats</code> 능력치 · <code>battle-engine</code> 배틀 계산 · <code>special-moves</code> 필살기·타이밍 · <code>leveling</code> 경험치 · <code>game-state</code> 게임 횟수·대기 · <code>tiers</code> 참가권 · <code>badges</code> 뱃지 · <code>species</code>/<code>appearance</code> AI 프롬프트 재료 · <code>ticket</code>/<code>ticket-pin</code> 종이 번호</td></tr>
+    <tr><td><code>tools/sim/</code></td><td>밸런스 몬테카를로 시뮬레이션(<code>balance.ts</code>, <code>levels.ts</code>) — 숫자를 바꿀 때마다 돌림</td></tr>
+    <tr><td><code>CLAUDE.md</code>, <code>docs/</code></td><td>결정 기록(왜 이렇게 했는지)과 행사 설정 기록. 사실상 설계 문서</td></tr>
+  </table>
+</section>
+
+<!-- 4. 데이터 -->
+<section class="page">
+  <h2><span class="no">3</span>데이터 모델</h2>
+  <p>테이블은 4개. 행사 직전 마이그레이션 위험을 피하려고, 새 규칙 대부분을 <b>기존 jsonb 칸 안에</b> 넣었다 (컬럼 추가 없이 배포 가능).</p>
+
+  <table>
+    <tr><th style="width:15%">테이블</th><th style="width:38%">주요 컬럼</th><th>jsonb 안에 든 것</th></tr>
+    <tr><td><b>players</b><br><span class="small muted">아이 1명</span></td>
+      <td><code>ticket_code</code>(A-014) · <code>display_name</code> · <code>prize_choice</code> · <code>created_at</code></td>
+      <td><code>survey</code>: 설문 답 + <code>survey.game</code> = 참가권 등급, 시작한 게임 목록(<code>sessions[]</code>, 판 수 <code>ladderRun</code>), 서비스 게임, 대기 풀기, 친구, 연습한 상대, 순간 뱃지, 뱃지 개수</td></tr>
+    <tr><td><b>insects</b><br><span class="small muted">곤충 1마리</span></td>
+      <td><code>player_id</code> · <code>nickname</code> · <code>species</code>(한글 이름) · <code>origin</code> · <code>age_stage</code> · <code>level</code> · <code>xp</code> · <code>battle_count</code> · <code>judge_rank</code> · <code>image_base64</code> · <code>mime_type</code></td>
+      <td><code>body_parts</code>(부위 점수 1~5) · <code>mutations</code>(특별 진화) · <code>stats</code>: 계산값 + <code>alloc</code>(레벨업 포인트) · <code>bonus</code>(보너스 상품) · <code>defense</code>(수비 경험치 하루 한도)</td></tr>
+    <tr><td><b>battles</b></td>
+      <td><code>player_id</code> · <code>insect_id</code> · <code>opponent_insect_id</code>(봇이면 null) · <code>score</code> · <code>result</code></td>
+      <td>— 랭킹 = 아이별 최고 점수. 연습·보스·봇 배틀은 기록 안 함</td></tr>
+    <tr><td><b>hearts</b></td>
+      <td>(<code>insect_id</code>, <code>player_id</code>) 기본키</td>
+      <td>— 갤러리 하트. 자기 곤충 금지, 중복 금지</td></tr>
+  </table>
+
+  <div class="callout">
+    <b>중요한 설계 원칙: 저장된 능력치를 믿지 않는다.</b> 배틀·카드는 매번 입력값(종류·부위·출신지·진화·레벨·포인트)에서
+    <code>statsForInsect()</code> 로 다시 계산한다. 규칙이 행사 중에도 여러 번 바뀌었는데, 이 덕분에 옛 곤충도 새 규칙으로 자연스럽게 따라왔다.
+  </div>
+
+  <h3>그림 저장과 용량</h3>
+  <ul>
+    <li>Gemini 결과(1024px PNG, 약 2.8MB base64)를 <b>받자마자 JPEG q92 로 재인코딩</b> → 약 0.47MB. 해상도는 포스터·피규어 때문에 유지.</li>
+    <li>그림은 <code>insects.image_base64</code> 컬럼에 텍스트로 저장 (Storage 미사용). 목록 조회에서는 이 칸을 빼고, 필요한 그림만 따로 받는다.</li>
+    <li>순위판·홍보 영상은 그림을 기기 IndexedDB 에 캐시해 다시 받지 않는다.</li>
+    <li>행사 2일 뒤 DB 전체 43MB. 원본 사진은 저장하지 않음 (아동 개인정보 최소화).</li>
+  </ul>
+
+  <h3>신원 확인 방식</h3>
+  <ul>
+    <li>로그인 계정 없음. <b>종이 번호 + 4자리 비밀번호</b>. 비밀번호는 저장하지 않고 번호에서 HMAC 으로 계산(서버 전용 비밀값).</li>
+    <li>QR 에 번호와 비밀번호가 들어 있어 찍으면 바로 입장. 손으로 칠 때만 비밀번호 확인.</li>
+    <li>기기에는 localStorage 로 "지금 이 기기의 아이"를 기억. 공용 태블릿이라 자동 로그아웃 규칙이 따로 있다(5장).</li>
+    <li>번호 구간 약속: 900~999 테스트(테스트끼리만 만남), 450~500 직원 캐릭터.</li>
+  </ul>
+</section>
+
+<!-- 5. 게임 시스템 -->
+<section class="page">
+  <h2><span class="no">4</span>게임 시스템</h2>
+
+  <h3>능력치</h3>
+  <p>HP · 공격력 · 수비력 · 지능 · 회피력 (+ 성실함). 계산 순서: <b>부위 점수(1~5) → 성장단계 → 출신지 → 특별 진화 → 레벨 → 포인트·보너스</b>.</p>
+  <ul>
+    <li><b>곤충 종류 6개</b>(장수풍뎅이·사슴벌레·사마귀·벌·나비·기타) — 종류가 필살기를 정한다. 공격형 4종, 수비형 2종.</li>
+    <li><b>출신지 5개</b> — 4개가 가위바위보 상성(이긴 쪽 +7%), 1개(운석충돌)는 상성 없음.</li>
+    <li><b>특별 진화</b> — 아이가 실제보다 많이 그린 부위(큰턱 4개, 다리 8개 등)는 얻는 만큼 잃게. 종마다 정상 개수가 다름(나비 날개 4장).</li>
+  </ul>
+
+  <h3>배틀</h3>
+  <p>턴제가 아니라 <b>점수 대결</b>이다. 화면의 HP 바·공격 연출은 이미 계산된 결과를 보여주는 순서일 뿐이다.</p>
+  <table class="small">
+    <tr><td style="width:26%">기본 점수</td><td><code>100 × HP^0.4 × 공격^0.3 × 수비^0.3</code> × 운 × 크리티컬 × 상성. 운·크리는 배틀 시작 때 한 번만 굴림</td></tr>
+    <tr><td>필살기</td><td>공격형: 상대 점수 20~30% 깎기(크리 50~60%). 수비형: 막기 + 되받아치기(성공 50%). LV3 부터 반대 형 기술 하나 더</td></tr>
+    <tr><td>타이밍 버튼</td><td>고리가 4초 동안 일정하게 줄어 2초에 겹침. 퍼펙트 ±250ms ×1.35 · 굿 ±900ms ×1.1. 고리는 CSS 가 그리고 JS 는 누른 시각만 잼(폰 버벅임 방지). 모양·위치 무작위</td></tr>
+    <tr><td>되받아치기</td><td>배틀의 30% 에서 2.5배 빠른 고리, 퍼펙트면 상대 공격을 그대로 반사</td></tr>
+    <tr><td>회피·성실함</td><td>회피력 % 로 상대 필살기를 통째로 피함(최대 60%). 성실함은 필살기 피해 감소</td></tr>
+    <tr><td>역전 장치</td><td>레벨이 낮으면 크리티컬 +2%/레벨, 낮은 레벨일수록 "필살기 한 번 더" 확률 높음</td></tr>
+    <tr><td>랭킹 규칙</td><td>랭커를 이기면 그 아이 최고 점수 +1 로 기록 → 그 순위 차지. 3위 안은 상대 점수 ×1.14(더 어렵게)</td></tr>
+  </table>
+
+  <h3>성장</h3>
+  <ul>
+    <li>레벨당 경험치 100. 배틀 경험치는 LV1 100% → 레벨마다 ×0.7. 다시 오면 LV5 까지 바로 레벨업.</li>
+    <li>레벨업 때 포인트 3개를 아이가 직접 분배. 어디에 몰아도 승률 차이가 같게(약 55%) 맞춤.</li>
+    <li>수비하는 곤충도 경험치(도전자의 20%, 하루 1레벨까지) — 상위 곤충 눈덩이 방지.</li>
+    <li>뱃지 38개 + 10·15·20개 보상 버프. 게임 수에 따라 열리는 뱃지 수 상한.</li>
+  </ul>
+
+  <h3>밸런스를 어떻게 맞췄나</h3>
+  <div class="callout">
+    배틀 엔진(<code>lib/battle-engine.ts</code>)이 순수 함수라 Node 로 수천 판씩 돌려 승률을 잰다.
+    목표치: 전부 5점 vs 전부 1점 <b>55~60%</b>(조금만 유리), 곤충 종류·출신지끼리 <b>48~52%</b>, 2~5회차 vs 1회차 <b>약 65~70%</b>.
+    이 과정에서 실제로 잡은 구멍 — 수비형 곤충 승률 <b>0.7%</b>(반격 추가로 해결), "필살기 한 번 더" 때문에 부위 점수가 낮을수록 이기는 역전 현상(45%) 등.
+  </div>
+</section>
+
+<!-- 6. 운영 기능 -->
+<section class="page">
+  <h2><span class="no">5</span>현장 운영을 위해 만든 것</h2>
+  <table>
+    <tr><th style="width:24%">기능</th><th>내용</th></tr>
+    <tr><td>직원 화면 <code>/admin</code></td><td>참가권 금액 올리기·1게임 더·30분 대기 풀기·비밀번호 확인 / 원본 그림·A3 포스터·포토프린터(54×86mm) 카드 / 예쁜 곤충 심사 / 종이 인쇄. 공통 직원 암호</td></tr>
+    <tr><td>공용 태블릿 안전장치</td><td>게임 끝 90초 뒤 자동 로그아웃, 무입력 3분(글 쓰는 화면 8분) 로그아웃 + 30초 경고, 직원 "이 기기 로그아웃" 버튼</td></tr>
+    <tr><td>임시 저장</td><td>태블릿이 카메라를 열 때 메모리 부족으로 탭을 죽이는 일이 잦아, 입력값·만든 그림을 번호별로 localStorage 에 저장(6시간)</td></tr>
+    <tr><td>앱 안 QR 스캐너</td><td>구형 태블릿 카메라가 QR 을 못 읽어서 jsQR 로 화면 안에서 읽음</td></tr>
+    <tr><td>테스트 세계 분리</td><td>900번대 번호는 서로만 보이고 랭킹·갤러리·심사에서 빠짐. 상대가 3명 미만이면 DB 에 없는 연습용 봇으로 채움</td></tr>
+    <tr><td>부스 화면</td><td><code>/live</code> 모니터용 실시간 순위판(자동 스크롤·1~3위 카드), <code>/attract</code> 코드로 그리는 홍보 영상(39초 반복), 화면 안 꺼짐(Wake Lock). 행사가 아닐 땐 환경변수 하나로 끔</td></tr>
+    <tr><td>실패에 강하게</td><td>Gemini 429/5xx 자동 재시도 1번, 상태코드별 직원용 안내 문구. 사진은 업로드 전 2000px 로 줄임(Vercel 4.5MB 본문 한도). 효과음·캐시·등급 표시 등 장식은 실패해도 게임 진행에 영향 없게 전부 try/catch</td></tr>
+    <tr><td>종이 인쇄</td><td><code>/print</code> 가 A4 용지를 브라우저 PDF 로 생성. QR 은 실행 주소가 아닌 고정 주소로(개발 서버에서 찍어도 안전)</td></tr>
+    <tr><td>태블릿 화면 맞춤</td><td>터치 + 폭 600px 이상이면 rem 기준을 화면 폭에 맞춰 키움. 화면 크기는 전부 rem 으로 작성</td></tr>
+  </table>
+
+  <h3>행사에서 실제로 터진 문제 (요약)</h3>
+  <table class="small">
+    <tr><th style="width:30%">증상</th><th>원인과 교훈</th></tr>
+    <tr><td>폰 사진 업로드가 대부분 실패할 뻔</td><td>원본 base64 가 Vercel 4.5MB 한도 초과. 작은 테스트 이미지만 써서 3주간 못 봄 → <b>실제 크기 데이터로 테스트</b></td></tr>
+    <tr><td>그림 변환 402</td><td>Gemini 선불 크레딧 소진. 월 한도와 잔액은 별개 → 자동 충전·잔액 모니터링 필요</td></tr>
+    <tr><td>퍼펙트 판정 글자가 아무에게도 안 보임</td><td>화면 전환이 연출보다 먼저 일어남. 점수엔 반영돼 있었음 → 연출 순서도 테스트 대상</td></tr>
+    <tr><td>로그아웃이 안 되는 태블릿</td><td>"게임 끝" 판단이 화면마다 달랐음 → 한 함수(<code>gameIsOver</code>)로 통일</td></tr>
+    <tr><td>새 jsonb 칸이 저장 때 지워짐</td><td>읽는 함수가 아는 칸만 골라 읽음 → 스키마를 코드 한 곳에 명시하는 구조 필요</td></tr>
+  </table>
+</section>
+
+<!-- 7. 기술 부채 -->
+<section class="page">
+  <h2><span class="no">6</span>알려진 한계와 기술 부채</h2>
+  <p>"3주 안에, 부스에서 확실히 돌아가게"를 우선해 의도적으로 감수한 것들이다. 정식 출시 전에 손봐야 한다.</p>
+
+  <div class="callout warn">
+    <b>보안·공정성 — 가장 먼저.</b> Supabase RLS 가 꺼져 있고 브라우저가 anon 키로 직접 쓴다. 게임 횟수·레벨·점수·참가권 등급을
+    모두 브라우저가 계산해 저장하므로, 마음먹은 어른은 기록을 고칠 수 있다. 상품이 걸린 랭킹이라 정식 서비스에서는
+    <b>배틀 판정과 기록 쓰기를 서버로</b> 옮겨야 한다. 직원 암호도 아이 오작동 방지 수준이다.
+  </div>
+
+  <table>
+    <tr><th style="width:25%">영역</th><th>현재</th><th style="width:34%">정식 출시 때</th></tr>
+    <tr><td>게임 로직 위치</td><td>전부 클라이언트 (배틀 계산·경험치·횟수)</td><td>서버 함수(API / Edge Function)에서 판정, 클라이언트는 연출만</td></tr>
+    <tr><td>권한</td><td>RLS 꺼짐, 계정 없음</td><td>보호자 계정 + 아이 프로필, RLS 정책</td></tr>
+    <tr><td>그림 저장</td><td>DB 텍스트 칸(base64)</td><td>Storage + CDN, 썸네일 분리 (전송량·비용)</td></tr>
+    <tr><td>게임 상태</td><td><code>players.survey.game</code> jsonb 하나에 누적</td><td>sessions·badges 등 정규화된 테이블, 타입 검증</td></tr>
+    <tr><td>테스트</td><td>자동 테스트 없음. 밸런스 시뮬레이션 2개 + 매번 쓰고 버린 Playwright 점검 스크립트</td><td>엔진 단위 테스트, E2E 시나리오(로그인→만들기→배틀) CI</td></tr>
+    <tr><td>코드 구조</td><td>배틀 화면 한 파일 2,500줄, 상태가 많음</td><td>연출 타임라인·상태기계 분리</td></tr>
+    <tr><td>환경</td><td>운영 환경 하나 (스테이징 없음), main 직접 배포</td><td>스테이징·프리뷰 배포, 운영 DB 분리</td></tr>
+    <tr><td>AI 의존</td><td>프리뷰 모델(<code>gemini-3.1-flash-image-preview</code>), 프롬프트로만 일관성 제어</td><td>모델 교체 대비 추상화, 결과 검수·재시도 정책, 비용 상한</td></tr>
+    <tr><td>문서</td><td>결정 기록이 <code>CLAUDE.md</code> 한 파일에 시간순으로 쌓임 (매우 김)</td><td>설계 문서 / 운영 기록 / 변경 이력 분리</td></tr>
+    <tr><td>개인정보·법</td><td>닉네임·설문만, 원본 사진 저장 안 함</td><td>아동 개인정보 보호 기준, 보호자 동의, 결제·환불 약관 검토</td></tr>
+    <tr><td>미사용 코드</td><td>종이 마킹 자동 인식(OMR), 구글시트 기록, 이메일 로그인이 남아 있음</td><td>정리 또는 재활용 결정</td></tr>
+  </table>
+</section>
+
+<!-- 8. 논의 거리 -->
+<section class="page">
+  <h2><span class="no">7</span>같이 이야기하고 싶은 것</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>① 플랫폼</h4>
+      <ul>
+        <li>계속 웹(PWA)으로 갈지, 앱(React Native / Flutter / 게임 엔진)으로 갈지</li>
+        <li>현재 연출은 CSS 애니메이션 — 앱에서 더 화려하게 하려면 무엇이 맞는지</li>
+        <li>"27년 초 앱 출시" 안내를 이미 했고, 2만원 이상 아이들에게 <b>캐릭터 보존</b>을 약속함 → 지금 DB 를 새 앱으로 옮기는 방법</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>② 서버와 공정성</h4>
+      <ul>
+        <li>배틀 판정을 서버로 옮기되, 타이밍 버튼 같은 손맛은 유지하는 방법</li>
+        <li>계정 체계(보호자 로그인 + 종이 QR 연결)</li>
+        <li>결제(참가권·인앱) 연동</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>③ AI 그림</h4>
+      <ul>
+        <li>"아이 그림을 존중하면서 멋지게" — 프롬프트만으로의 한계(종류가 섞여 나오는 문제 등)</li>
+        <li>장당 약 90원. 사용자가 늘 때 비용 구조, 캐시·생성 횟수 정책</li>
+        <li>피규어·포스터용 고해상도(현재 1024px → 업스케일로 보완)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>④ 콘텐츠 확장</h4>
+      <ul>
+        <li>미니게임(참나무 수액 연타 등), 도감, 키우기</li>
+        <li>식물·어류·공룡 시리즈로 같은 엔진 재사용</li>
+        <li>오프라인 체험(채집·사육)과 앱 캐릭터 연결</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>베타에서 검증된 것</h3>
+  <ul>
+    <li>종이 그림 → QR → AI 캐릭터 → 배틀까지 <b>한 아이당 수 분 안에</b> 끝나는 흐름이 부스에서 실제로 돌아감</li>
+    <li>"내 그림이 멋지게 변한다"와 "랭킹 1위를 뺏는다"가 재방문(레벨업) 동기로 작동</li>
+    <li>2일 동안 서버 비용: Supabase Pro 한 달 $25 + Gemini 약 ₩7,000 + Vercel 무료</li>
+  </ul>
+
+  <h3>부록 — 환경변수 이름</h3>
+  <p class="small"><code>GEMINI_API_KEY</code> · <code>GEMINI_IMAGE_MODEL</code> · <code>GEMINI_TEXT_MODEL</code> · <code>NEXT_PUBLIC_SUPABASE_URL</code> · <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> ·
+  <code>NEXT_PUBLIC_KAKAO_CHANNEL_URL</code> · <code>ADMIN_CODE</code> · <code>SHEETS_WEBHOOK_URL</code> · <code>SHEETS_WEBHOOK_TOKEN</code> · <code>NEXT_PUBLIC_EVENT_LIVE</code>
+  <span class="muted">(값은 문서에 싣지 않음)</span></p>
+  <p class="small muted">자세한 결정 기록은 저장소의 <code>CLAUDE.md</code>, 행사 설정은 <code>docs/g7bb-beta-v1.md</code>. 저장소 접근이 필요하면 Jin 에게 요청.</p>
+</section>
+
+</body>
+</html>
