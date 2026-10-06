@@ -20,7 +20,7 @@
   }
   .sheet {
     width: 210mm; height: 297mm; padding: 9mm 11mm 8mm; overflow: hidden;
-    display: flex; flex-direction: column; gap: 2.8mm;
+    display: flex; flex-direction: column; gap: 4.4mm;
     background:
       radial-gradient(circle at 100% 0, #e3f2e8 0, transparent 58mm),
       radial-gradient(circle at 0 100%, #eef6e9 0, transparent 60mm), #fff;
@@ -88,7 +88,23 @@
   .sc .tag { font-size: 7.4pt; color: #fff; background: var(--amber); border-radius: 10mm; padding: 0.3mm 1.6mm; margin-left: 1mm; vertical-align: 1px; }
   .sc p { margin: 0.8mm 0 0; font-size: 7.9pt; color: var(--muted); line-height: 1.35; }
 
-  footer { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; border-top: 1px solid var(--line); padding-top: 1.8mm; font-size: 7.9pt; color: var(--muted); line-height: 1.45; }
+  .tag { display: none; }
+  .shotgrid { display: grid; grid-template-columns: 38mm 38mm 1fr; gap: 3.2mm; align-items: stretch; }
+  .phone { margin: 0; }
+  .phone .screen { border: 1.1mm solid #1c2230; border-radius: 4.6mm; overflow: hidden; background: #020617; height: 77mm; box-shadow: 0 1mm 3mm rgba(20,40,30,.25); }
+  .phone .screen img { width: 100%; display: block; }
+  .phone figcaption { font-size: 7.6pt; color: var(--muted); line-height: 1.35; margin-top: 1.4mm; text-align: center; }
+  .phone figcaption b { display: block; font-size: 9pt; color: var(--ink); margin-bottom: 0.3mm; }
+  .ai { border: 1.4px solid var(--green); border-radius: 3.4mm; background: linear-gradient(180deg, var(--green-soft), #fff 55%); padding: 2.6mm 2.8mm 2.4mm; display: flex; flex-direction: column; }
+  .aitop b { display: block; font-size: 9.6pt; }
+  .aitop span { font-size: 7.8pt; color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm; margin-top: 1.8mm; }
+  .cards img { width: 100%; display: block; border-radius: 1.8mm; border: 0.5mm solid #1c2230; }
+  .ai .note2 { margin-top: auto; padding-top: 2mm; font-size: 8.2pt; color: var(--muted); line-height: 1.45; }
+  .ai .note2 b { color: var(--green); }
+  .names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm; margin-top: 1mm; text-align: center; font-size: 7.4pt; color: var(--muted); }
+  footer { margin-top: auto; text-align: center; font-size: 10.5pt; font-weight: bold; letter-spacing: 3px; color: var(--green); border-top: 1px solid var(--line); padding-top: 2mm; }
+  footer.old { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; border-top: 1px solid var(--line); padding-top: 1.8mm; font-size: 7.9pt; color: var(--muted); line-height: 1.45; }
   footer b { color: var(--ink); }
 </style>
 </head>
@@ -133,40 +149,26 @@
     </div>
   </section>
 
-  <section class="core">
-    <h2><span class="n">2</span>핵심: 몸의 구조 × 사는 환경 = 살아가는 방식</h2>
-    <p class="big">선택 하나하나가 능력을 바꿉니다 — <em>좋기만 한 몸은 없고, 환경마다 유리한 몸이 다르다</em>는 것을 직접 비교하며 깨닫습니다.</p>
-
-    <div class="cols">
-      <div class="box">
-        <h4><span class="emo">⚖️</span> 몸의 특징 — 얻는 만큼 잃어요</h4>
-        <p class="sub">실제보다 많이 그린 부위도 AI 가 그대로 그려주고, 대신 장단점이 생겨요.</p>
-        <table>
-          <tr><td class="k">큰턱 4개 이상</td><td><span class="up">공격력 ↑</span> · <span class="dn">체력·지능 ↓</span></td></tr>
-          <tr><td class="k">다리 8개 이상</td><td><span class="up">체력 ↑</span> · <span class="dn">공격력 ↓</span></td></tr>
-          <tr><td class="k">날개 더 많이</td><td><span class="up">방어력 ↑</span> · <span class="dn">체력 ↓</span></td></tr>
-          <tr><td class="k">더듬이 4개 이상</td><td><span class="up">지능 ↑</span> · <span class="dn">방어력 ↓</span></td></tr>
-          <tr><td class="k">발톱 2개</td><td><span class="up">공격력 ↑</span> · <span class="dn">재빠름 ↓</span></td></tr>
-          <tr><td class="k">갑옷·날개를 크게</td><td><span class="up">튼튼함 ↑</span> · <span class="dn">몸이 무거워 재빠름 ↓</span></td></tr>
-        </table>
-        <p class="note"><span class="emo">🦋</span> 나비·벌·사마귀는 원래 날개가 4장! 곤충마다 "보통" 구조가 다르다는 것도 함께 배워요.</p>
-      </div>
-
-      <div class="box">
-        <h4><span class="emo">🗺️</span> 태어난 환경 — 환경이 몸을 만들어요</h4>
-        <table>
-          <tr><td class="k"><span class="emo">🌡️</span> 기온 상승</td><td>뜨거운 땅에서 버텨 <span class="up">체력 ↑</span>, 껍질은 <span class="dn">약해짐</span></td></tr>
-          <tr><td class="k"><span class="emo">🏞️</span> 저지대</td><td>부딪히며 자라 <span class="up">껍질이 단단</span></td></tr>
-          <tr><td class="k"><span class="emo">💧</span> 물 근처</td><td>미끌미끌한 몸으로 <span class="up">재빠르게 피함</span></td></tr>
-          <tr><td class="k"><span class="emo">🗻</span> 고지대</td><td>체력도 껍질도 <span class="up">골고루</span></td></tr>
-          <tr><td class="k"><span class="emo">🌠</span> 운석 충돌지</td><td>큰 재난을 견뎌 <span class="up">몸이 튼튼</span></td></tr>
-        </table>
-        <p class="note">환경끼리 강하고 약한 관계가 맞물려 <b>"무조건 좋은 환경"은 없어요.</b></p>
-        <div class="age">
-          <div><b>신생충</b>재빠르지만 힘 약함</div>
-          <div><b>1년충</b>모든 능력 기본</div>
-          <div><b>n년충</b>강하지만 체력 ↓</div>
+  <section class="shots">
+    <h2><span class="n">2</span>이렇게 설계하고, AI 가 이렇게 그려줘요</h2>
+    <div class="shotgrid">
+      <figure class="phone">
+        <div class="screen"><img src="shots/parts.jpg" alt="몸 구조 고르기 화면"></div>
+        <figcaption><b>① 몸 구조 고르기</b>부위마다 1~5단계, 능력 모양이 바로 바뀌어요</figcaption>
+      </figure>
+      <figure class="phone">
+        <div class="screen"><img src="shots/origin.jpg" alt="태어난 환경 고르기 화면"></div>
+        <figcaption><b>② 태어난 환경 고르기</b>환경마다 강한 점과 약한 점이 달라요</figcaption>
+      </figure>
+      <div class="ai">
+        <div class="aitop"><b>③ AI 가 그려준 곤충</b><span>아이가 그린 그림을 실감 나는 곤충 카드로 만들어요</span></div>
+        <div class="cards">
+          <img src="shots/card-stag.jpg" alt="사슴벌레">
+          <img src="shots/card-butterfly.jpg" alt="나비">
+          <img src="shots/card-mantis.jpg" alt="사마귀">
         </div>
+        <div class="names"><span>사슴벌레 · 고지대</span><span>나비 · 물가</span><span>사마귀 · 저지대</span></div>
+        <p class="note2"><b>✔</b> 아이가 그린 모양과 개수를 그대로 살려 그려줘요<br><b>✔</b> 고른 환경 표시와 능력 막대가 카드에 함께 나와요</p>
       </div>
     </div>
   </section>
@@ -175,7 +177,7 @@
     <h2><span class="n">3</span>아이들이 배우는 것</h2>
     <div class="learn">
       <div><span class="ic emo">🌱</span><b>적응</b><span class="t">환경에 따라 살아남기 좋은 몸이 달라요</span></div>
-      <div><span class="ic emo">⚖️</span><b>장단점</b><span class="t">하나를 키우면 다른 것을 내줘야 해요</span></div>
+      <div><span class="ic emo">⚖️</span><b>장단점</b><span class="t">하나를 키우면 다른 부분이 약해져요</span></div>
       <div><span class="ic emo">🔍</span><b>관찰·비교</b><span class="t">실제 곤충의 몸 구조와 견주어 봐요</span></div>
       <div><span class="ic emo">🌈</span><b>다양성</b><span class="t">같은 곤충도 선택에 따라 전부 달라져요</span></div>
       <div><span class="ic emo">🤖</span><b>AI 이해</b><span class="t">내 생각을 설명해 AI 가 그리게 해요</span></div>
@@ -183,7 +185,7 @@
   </section>
 
   <section>
-    <h2><span class="n">4</span>같은 방식으로 주제를 넓혀 개발하고 있어요</h2>
+    <h2><span class="n">4</span>기관의 요청에 따라 주제 교체</h2>
     <div class="series">
       <div class="intro">
         <b>G7BB 진화 탐구 시리즈</b>
@@ -191,29 +193,20 @@
       </div>
       <div class="sc">
         <img src="../../public/series/dino.jpg" alt="공룡">
-        <div><b><span class="emo">🦖</span> 공룡</b><span class="tag">개발 중</span><p>몸집·이빨·사는 시대를 골라 보며 생존과 멸종을 생각해요</p></div>
+        <div><b><span class="emo">🦖</span> 공룡</b><p>몸집·이빨·사는 시대를 골라 보며 생존과 멸종을 생각해요</p></div>
       </div>
       <div class="sc">
         <img src="../../public/series/fish.jpg" alt="어류">
-        <div><b><span class="emo">🐟</span> 어류</b><span class="tag">개발 중</span><p>지느러미·몸 모양과 물의 깊이·온도로 물속 적응을 배워요</p></div>
+        <div><b><span class="emo">🐟</span> 어류</b><p>지느러미·몸 모양과 물의 깊이·온도로 물속 적응을 배워요</p></div>
       </div>
       <div class="sc">
         <img src="../../public/series/plant.jpg" alt="식물">
-        <div><b><span class="emo">🌿</span> 식물</b><span class="tag">개발 중</span><p>잎·뿌리와 햇빛·물·흙 조건으로 식물의 생존 전략을 배워요</p></div>
+        <div><b><span class="emo">🌿</span> 식물</b><p>잎·뿌리와 햇빛·물·흙 조건으로 식물의 생존 전략을 배워요</p></div>
       </div>
     </div>
   </section>
 
-  <footer>
-    <div>
-      <b>곤충본부 (God of Bugs)</b> · 2026 대전 곤충박람회에서 첫 운영<br>
-      태블릿·스마트폰 웹으로 진행 (별도 설치 없음) · 그림 원본 사진은 저장하지 않고 닉네임만 사용해요
-    </div>
-    <div style="text-align:right">
-      수업 문의 · 카카오톡 채널 <b>곤충본부</b><br>
-      pf.kakao.com/_fMPCG
-    </div>
-  </footer>
+  <footer>곤충본부</footer>
 
 </div>
 </body>
