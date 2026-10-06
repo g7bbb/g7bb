@@ -42,11 +42,13 @@
   .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.4mm; }
   .step { position: relative; border: 1.4px solid var(--line); background: #fff; border-radius: 3mm; padding: 2.2mm 2.4mm 2mm; }
   .step:not(:last-child)::after { content: "▶"; position: absolute; right: -3.2mm; top: 45%; color: var(--green-2); font-size: 9pt; }
-  .step .ic { font-size: 13pt; line-height: 1; }
-  .step h3 { margin: 1mm 0 0.6mm; font-size: 10.4pt; }
+  .step .hd { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; }
+  .step .ic { font-size: 17pt; line-height: 1; }
+  .step .aiicon { width: 8.6mm; height: 8.6mm; flex: none; }
+  .step h3 { margin: 0; font-size: 11.4pt; font-weight: 900; }
   .step p { margin: 0; font-size: 8.4pt; color: var(--muted); line-height: 1.4; }
-  .thumbs { display: flex; gap: 1.2mm; height: 6.4mm; }
-  .thumbs img { width: 6.4mm; height: 6.4mm; border-radius: 2mm; object-fit: cover; }
+  
+  
 
   /* 핵심 학습 */
   .core { border: 2px solid var(--green); border-radius: 4mm; padding: 3mm 3.6mm 3.2mm; background: linear-gradient(180deg, var(--green-soft), #fff 40%); }
@@ -95,10 +97,16 @@
   .phone .screen img { width: 100%; display: block; }
   .phone figcaption { font-size: 7.6pt; color: var(--muted); line-height: 1.35; margin-top: 1.4mm; text-align: center; }
   .phone figcaption b { display: block; font-size: 9pt; color: var(--ink); margin-bottom: 0.3mm; }
-  .ai { border: 1.4px solid var(--green); border-radius: 3.4mm; background: linear-gradient(180deg, var(--green-soft), #fff 55%); padding: 2.8mm 3mm 2.6mm; display: flex; flex-direction: column; justify-content: center; }
+  .ai { border: 1.4px solid var(--green); border-radius: 3.4mm; background: linear-gradient(180deg, var(--green-soft), #fff 55%); padding: 2.8mm 3mm 2.6mm; display: flex; flex-direction: column; justify-content: flex-start; }
   .aitop b { display: block; font-size: 10.4pt; }
   .aitop span { display: block; margin-top: 0.8mm; font-size: 9pt; color: var(--green); font-weight: bold; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; margin-top: 3mm; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; width: 78%; }
+  .kids { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.3mm; }
+  .kids img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border: 0.3mm solid #c9d6cd; border-radius: 1.2mm; background: #fff; }
+  .lab { margin: 2.4mm 0 1.1mm; font-size: 8.2pt; font-weight: bold; color: var(--ink); }
+  .pts { margin: 2.6mm 0 0; padding-left: 4.4mm; font-size: 8.3pt; line-height: 1.42; color: var(--ink); }
+  .pts li { margin-bottom: 0.7mm; }
+  .pts li::marker { color: var(--green); font-weight: bold; }
   .cards img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 1.8mm; border: 0.5mm solid #1c2230; }
   .ai .note2 { margin: 4.5mm 0 0; font-size: 9pt; color: var(--muted); line-height: 1.45; }
   .ai .note2 b { color: var(--green); }
@@ -125,25 +133,19 @@
     <h2><span class="n">1</span>수업은 이렇게 진행돼요</h2>
     <div class="flow">
       <div class="step">
-        <span class="ic emo">✏️</span>
-        <h3>곤충 그리기</h3>
+        <div class="hd"><span class="ic emo">✏️</span><h3>곤충 그리기</h3></div>
         <p>A4 활동지에 상상한 곤충을 자유롭게 그려요.</p>
       </div>
       <div class="step">
-        <span class="ic emo">🧬</span>
-        <h3>몸 구조 설계</h3>
+        <div class="hd"><span class="ic emo">🧬</span><h3>몸 구조 설계</h3></div>
         <p>곤충 종류를 고르고 머리·다리·갑옷·날개·눈 등을 1~5단계로 정해요.</p>
       </div>
       <div class="step">
-        <span class="ic emo">🌍</span>
-        <h3>환경·성장 선택</h3>
+        <div class="hd"><span class="ic emo">🌍</span><h3>환경·성장 선택</h3></div>
         <p>어디서 태어났는지, 얼마나 자랐는지 고르면 능력이 달라져요.</p>
       </div>
       <div class="step">
-        <div class="thumbs">
-          <img src="shots/ai-1.jpg" alt=""><img src="shots/ai-2.jpg" alt=""><img src="shots/ai-3.jpg" alt="">
-        </div>
-        <h3>AI 가 그려주기</h3>
+        <div class="hd"><svg class="aiicon" viewBox="0 0 48 48" aria-label="AI"><defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f9b63"/><stop offset="1" stop-color="#1f7a4d"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="12" fill="url(#ag)"/><text x="24" y="31" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="20" fill="#fff">AI</text><path d="M38 6 L40 11 L45 13 L40 15 L38 20 L36 15 L31 13 L36 11 Z" fill="#fff7c2"/></svg><h3>AI 가 그려주기</h3></div>
         <p>AI 가 실감 나는 곤충으로 그리고, 능력 변화를 도형으로 보여줘요.</p>
       </div>
     </div>
@@ -162,12 +164,23 @@
       </figure>
       <div class="ai">
         <div class="aitop"><b>③ 아이가 좋아하는 곤충을 직접 그려봐요!</b><span>AI가 곤충을 더 멋지게 바꿔줍니다</span></div>
+        <div class="lab">✏️ 아이들이 직접 그린 곤충</div>
+        <div class="kids">
+          <img src="shots/kid-1.jpg" alt=""><img src="shots/kid-2.jpg" alt=""><img src="shots/kid-3.jpg" alt="">
+          <img src="shots/kid-4.jpg" alt=""><img src="shots/kid-5.jpg" alt=""><img src="shots/kid-6.jpg" alt="">
+        </div>
+        <div class="lab">✨ AI 가 더 멋지게 바꿔준 곤충</div>
         <div class="cards">
           <img src="shots/ai-1.jpg" alt="AI 곤충 1">
           <img src="shots/ai-2.jpg" alt="AI 곤충 2">
           <img src="shots/ai-3.jpg" alt="AI 곤충 3">
         </div>
-        <p class="note2"><b>✔</b> 아이가 그린 모양과 개수를 그대로 살려 그려줘요<br><b>✔</b> 같은 곤충도 아이마다 전혀 다르게 그려져요</p>
+        <ol class="pts">
+          <li>아이가 그린 모양을 최대한 반영해서 그려줘요</li>
+          <li>같은 곤충도 아이가 넣은 정보와 그림으로 전혀 다른 곤충이 완성돼요</li>
+          <li>그림을 잘 그릴 필요 없어요, 곤충을 잘 몰라도 돼요!</li>
+          <li>상상력, 관찰력, 논리를 통해 건강하게 생존할 수 있는 곤충을 만들어요</li>
+        </ol>
       </div>
     </div>
   </section>
@@ -184,7 +197,7 @@
   </section>
 
   <section>
-    <h2><span class="n">4</span>기관의 요청에 따라 주제 교체</h2>
+    <h2><span class="n">4</span>기관의 요청에 따라 주제 변경</h2>
     <div class="series">
       <div class="intro">
         <b>G7BB 진화 탐구 시리즈</b>
