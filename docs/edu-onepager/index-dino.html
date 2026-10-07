@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>공룡진화 AI — 교육기관 소개</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #17241c; --muted: #56655b; --line: #d6e2d9;
+    --green: #1f7a4d; --green-2: #2f9b63; --green-soft: #e8f4ec;
+    --amber: #b8681a; --amber-soft: #fdf1e2;
+    --blue: #2563a8; --blue-soft: #e7f0fa;
+    --rose: #b4415a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "WenQuanYi Zen Hei", "Noto Color Emoji", sans-serif;
+    color: var(--ink); word-break: keep-all; overflow-wrap: anywhere;
+  }
+  .sheet {
+    width: 210mm; height: 297mm; padding: 9mm 11mm 8mm; overflow: hidden;
+    display: flex; flex-direction: column; gap: 4.4mm;
+    background:
+      radial-gradient(circle at 100% 0, #e3f2e8 0, transparent 58mm),
+      radial-gradient(circle at 0 100%, #eef6e9 0, transparent 60mm), #fff;
+  }
+  .emo { font-family: "Noto Color Emoji"; }
+
+  /* 머리 */
+  header { display: flex; align-items: center; gap: 5mm; }
+  header img { height: 21mm; }
+  .kicker { display: inline-block; font-size: 9pt; font-weight: bold; color: #fff; background: var(--green); padding: 0.8mm 2.6mm; border-radius: 10mm; }
+  h1 { margin: 1.4mm 0 1mm; font-size: 21pt; line-height: 1.15; letter-spacing: -0.5px; }
+  h1 b { color: var(--green); }
+  .lead { margin: 0; font-size: 10.2pt; color: var(--muted); line-height: 1.45; }
+
+  h2 { margin: 0 0 1.8mm; font-size: 12.4pt; display: flex; align-items: center; gap: 2mm; }
+  h2 .n { display: inline-grid; place-items: center; width: 7mm; height: 7mm; border-radius: 50%; background: var(--green); color: #fff; font-size: 10pt; }
+
+  /* 흐름 */
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.4mm; }
+  .step { position: relative; border: 1.4px solid var(--line); background: #fff; border-radius: 3mm; padding: 2.2mm 2.4mm 2mm; }
+  .step:not(:last-child)::after { content: "▶"; position: absolute; right: -3.2mm; top: 45%; color: var(--green-2); font-size: 9pt; }
+  .step .hd { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; }
+  .step .ic { font-size: 17pt; line-height: 1; }
+  .step .aiicon { width: 8.6mm; height: 8.6mm; flex: none; }
+  .step h3 { margin: 0; font-size: 11.4pt; font-weight: 900; }
+  .step p { margin: 0; font-size: 8.4pt; color: var(--muted); line-height: 1.4; }
+  
+  
+
+  /* 핵심 학습 */
+  .core { border: 2px solid var(--green); border-radius: 4mm; padding: 3mm 3.6mm 3.2mm; background: linear-gradient(180deg, var(--green-soft), #fff 40%); }
+  .core .big { font-size: 11pt; font-weight: bold; margin: 0 0 2.4mm; line-height: 1.45; }
+  .core .big em { font-style: normal; color: var(--green); }
+  .cols { display: grid; grid-template-columns: 1.05fr 1fr; gap: 3.6mm; }
+  .box { background: #fff; border: 1px solid var(--line); border-radius: 3mm; padding: 2.2mm 2.8mm; }
+  .box h4 { margin: 0 0 1.6mm; font-size: 10.2pt; }
+  .box .sub { font-size: 8.2pt; color: var(--muted); margin: -0.6mm 0 1.8mm; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  td { padding: 0.75mm 1mm; border-bottom: 1px dashed var(--line); vertical-align: top; line-height: 1.35; }
+  tr:last-child td { border-bottom: 0; }
+  td.k { white-space: nowrap; font-weight: bold; width: 1%; padding-right: 2mm; }
+  .up { color: var(--green); font-weight: bold; }
+  .dn { color: var(--rose); font-weight: bold; }
+  .chips { display: flex; flex-wrap: wrap; gap: 1.2mm; }
+  .chip { font-size: 8.2pt; border: 1px solid var(--line); background: #f7faf8; border-radius: 10mm; padding: 0.6mm 2.2mm; }
+  .note { font-size: 8.1pt; color: var(--muted); margin: 1.3mm 0 0; line-height: 1.4; }
+  .age { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm; margin-top: 1.3mm; }
+  .age div { border-radius: 2mm; background: var(--amber-soft); padding: 1.4mm 1.8mm; font-size: 8.1pt; line-height: 1.35; }
+  .age b { display: block; font-size: 8.8pt; color: var(--amber); }
+
+  /* 배우는 것 */
+  .learn { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2mm; }
+  .learn div { border-radius: 3mm; background: var(--blue-soft); padding: 1.6mm 1.6mm; text-align: center; }
+  .learn .ic { font-size: 13pt; display: block; line-height: 1.1; }
+  .learn b { display: block; font-size: 9.6pt; margin: 0.6mm 0 0.4mm; color: var(--blue); }
+  .learn span.t { font-size: 7.9pt; color: var(--muted); line-height: 1.35; display: block; }
+
+  /* 시리즈 */
+  .series { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 2.6mm; align-items: stretch; }
+  .series .intro { border-radius: 3mm; background: var(--green); color: #fff; padding: 2.4mm 3mm; display: flex; flex-direction: column; justify-content: center; }
+  .series .intro b { font-size: 12pt; line-height: 1.3; }
+  .series .intro span { font-size: 8.4pt; opacity: 0.92; margin-top: 1.4mm; line-height: 1.4; }
+  .sc { border: 1.4px solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+  .sc img { width: 100%; height: 17mm; object-fit: cover; display: block; }
+  .sc div { padding: 1.8mm 2.2mm 2mm; }
+  .sc b { font-size: 10.2pt; }
+  .sc .tag { font-size: 7.4pt; color: #fff; background: var(--amber); border-radius: 10mm; padding: 0.3mm 1.6mm; margin-left: 1mm; vertical-align: 1px; }
+  .sc p { margin: 0.8mm 0 0; font-size: 7.9pt; color: var(--muted); line-height: 1.35; }
+
+  .tag { display: none; }
+  .shotgrid { display: grid; grid-template-columns: 38mm 38mm 1fr; gap: 3.2mm; align-items: stretch; }
+  .phone { margin: 0; }
+  .phone .screen { border: 1.1mm solid #1c2230; border-radius: 4.6mm; overflow: hidden; background: #020617; height: 77mm; box-shadow: 0 1mm 3mm rgba(20,40,30,.25); }
+  .phone .screen img { width: 100%; display: block; }
+  .phone figcaption { font-size: 7.6pt; color: var(--muted); line-height: 1.35; margin-top: 1.4mm; text-align: center; }
+  .phone figcaption b { display: block; font-size: 9pt; color: var(--ink); margin-bottom: 0.3mm; }
+  .ai { border: 1.4px solid var(--green); border-radius: 3.4mm; background: linear-gradient(180deg, var(--green-soft), #fff 55%); padding: 2.8mm 3mm 2.6mm; display: flex; flex-direction: column; justify-content: flex-start; }
+  .aitop b { display: block; font-size: 10.4pt; }
+  .aitop span { display: block; margin-top: 0.8mm; font-size: 9pt; color: var(--green); font-weight: bold; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; width: 78%; }
+  .kids { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5mm; }
+  .kids img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border: 0.3mm solid #c9d6cd; border-radius: 1.2mm; background: #fff; }
+  .lab { margin: 2.4mm 0 1.1mm; font-size: 8.2pt; font-weight: bold; color: var(--ink); }
+  .pts { margin: 2.6mm 0 0; padding-left: 4.4mm; font-size: 8.3pt; line-height: 1.42; color: var(--ink); }
+  .pts li { margin-bottom: 0.7mm; }
+  .pts li::marker { color: var(--green); font-weight: bold; }
+  .cards img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 1.8mm; border: 0.5mm solid #1c2230; }
+  .ai .note2 { margin: 4.5mm 0 0; font-size: 9pt; color: var(--muted); line-height: 1.45; }
+  .ai .note2 b { color: var(--green); }
+  .names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm; margin-top: 1mm; text-align: center; font-size: 7.4pt; color: var(--muted); }
+  footer { margin-top: auto; text-align: center; font-size: 11.5pt; font-weight: bold; letter-spacing: 0.3px; color: var(--green); border-top: 1px solid var(--line); padding-top: 2mm; }
+  footer.old { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; border-top: 1px solid var(--line); padding-top: 1.8mm; font-size: 7.9pt; color: var(--muted); line-height: 1.45; }
+  footer b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <img src="../../public/brand/logo-black.png" alt="곤충본부 로고">
+    <div>
+      <span class="kicker">AI 진화 탐구 수업</span>
+      <h1>내가 설계한 공룡은<br><b>어떤 환경에서 어떻게 살아갈까?</b></h1>
+      <p class="lead">아이가 직접 그린 공룡의 <b>몸 구조</b>와 <b>살던 환경</b>을 바꿔 보며,
+      생물이 환경에 맞춰 살아가는 원리(적응과 진화)를 AI 와 함께 배우는 체험 수업입니다.</p>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="n">1</span>수업은 이렇게 진행돼요</h2>
+    <div class="flow">
+      <div class="step">
+        <div class="hd"><span class="ic emo">✏️</span><h3>공룡 그리기</h3></div>
+        <p>A4 활동지에 상상한 공룡을 자유롭게 그려요.</p>
+      </div>
+      <div class="step">
+        <div class="hd"><span class="ic emo">🧬</span><h3>몸 구조 설계</h3></div>
+        <p>공룡 종류를 고르고 머리·이빨·다리·꼬리·갑옷 등을 1~5단계로 정해요.</p>
+      </div>
+      <div class="step">
+        <div class="hd"><span class="ic emo">🌍</span><h3>환경·성장 선택</h3></div>
+        <p>어디서 살았는지, 얼마나 자랐는지 고르면 능력이 달라져요.</p>
+      </div>
+      <div class="step">
+        <div class="hd"><svg class="aiicon" viewBox="0 0 48 48" aria-label="AI"><defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f9b63"/><stop offset="1" stop-color="#1f7a4d"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="12" fill="url(#ag)"/><text x="24" y="31" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="20" fill="#fff">AI</text><path d="M38 6 L40 11 L45 13 L40 15 L38 20 L36 15 L31 13 L36 11 Z" fill="#fff7c2"/></svg><h3>AI 가 그려주기</h3></div>
+        <p>AI 가 실감 나는 공룡으로 그리고, 능력 변화를 도형으로 보여줘요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="shots">
+    <h2><span class="n">2</span>이렇게 설계하고, AI 가 이렇게 그려줘요</h2>
+    <div class="shotgrid">
+      <figure class="phone">
+        <div class="screen"><img src="shots/parts.jpg" alt="몸 구조 고르기 화면"></div>
+        <figcaption><b>① 몸 구조 고르기</b>부위마다 1~5단계, 능력 모양이 바로 바뀌어요</figcaption>
+      </figure>
+      <figure class="phone">
+        <div class="screen"><img src="shots/origin.jpg" alt="살던 환경 고르기 화면"></div>
+        <figcaption><b>② 살던 환경 고르기</b>환경마다 강한 점과 약한 점이 달라요</figcaption>
+      </figure>
+      <div class="ai">
+        <div class="aitop"><b>③ 아이가 좋아하는 공룡을 직접 그려봐요!</b><span>AI가 공룡을 더 멋지게 바꿔줍니다</span></div>
+        <div class="lab">✏️ 아이들이 직접 그린 공룡</div>
+        <div class="kids">
+          <img src="shots/kid-1.jpg" alt=""><img src="shots/kid-3.jpg" alt=""><img src="shots/kid-4.jpg" alt="">
+          <img src="shots/kid-5.jpg" alt=""><img src="shots/kid-6.jpg" alt="">
+        </div>
+        <div class="lab">✨ AI 가 더 멋지게 바꿔준 공룡</div>
+        <div class="cards">
+          <img src="shots/dino-ai-1.jpg" alt="AI 공룡 1">
+          <img src="shots/dino-ai-2.jpg" alt="AI 공룡 2">
+          <img src="shots/dino-ai-3.jpg" alt="AI 공룡 3">
+        </div>
+        <ol class="pts">
+          <li>아이가 그린 모양을 최대한 반영해서 그려줘요</li>
+          <li>같은 공룡도 아이가 넣은 정보와 그림으로 전혀 다른 공룡이 완성돼요</li>
+          <li>그림을 잘 그릴 필요 없어요, 공룡을 잘 몰라도 돼요</li>
+          <li>상상력, 관찰력, 논리를 통해 건강하게 생존할 수 있는 공룡을 만들어요</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>아이들이 배우는 것</h2>
+    <div class="learn">
+      <div><span class="ic emo">🌱</span><b>적응</b><span class="t">환경에 따라 살아남기 좋은 몸이 달라요</span></div>
+      <div><span class="ic emo">⚖️</span><b>장단점</b><span class="t">하나를 키우면 다른 부분이 약해져요</span></div>
+      <div><span class="ic emo">🔍</span><b>관찰·비교</b><span class="t">실제 공룡 화석·몸 구조와 견주어 봐요</span></div>
+      <div><span class="ic emo">🌈</span><b>다양성</b><span class="t">같은 공룡도 선택에 따라 전부 달라져요</span></div>
+      <div><span class="ic emo">🤖</span><b>AI 이해</b><span class="t">내 생각을 설명해 AI 가 그리게 해요</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>기관의 요청에 따라 주제 변경</h2>
+    <div class="series">
+      <div class="intro">
+        <b>G7BB 진화 탐구 시리즈</b>
+        <span>"몸의 특징을 고르고, 환경을 바꾸고, 결과를 비교한다" — 같은 수업 틀로 다른 생물을 배워요.</span>
+      </div>
+      <div class="sc">
+        <img src="shots/ai-1.jpg" alt="곤충">
+        <div><b><span class="emo">🐞</span> 곤충</b><p>머리·다리·날개와 사는 환경을 골라 보며 곤충의 적응을 배워요</p></div>
+      </div>
+      <div class="sc">
+        <img src="../../public/series/fish.jpg" alt="어류">
+        <div><b><span class="emo">🐟</span> 어류</b><p>지느러미·몸 모양과 물의 깊이·온도로 물속 적응을 배워요</p></div>
+      </div>
+      <div class="sc">
+        <img src="../../public/series/plant.jpg" alt="식물">
+        <div><b><span class="emo">🌿</span> 식물</b><p>잎·뿌리와 햇빛·물·흙 조건으로 식물의 생존 전략을 배워요</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>아이들의 초록꿈을 현실의 오감과 가상의 상상력으로 키웁니다</footer>
+
+</div>
+</body>
+</html>
