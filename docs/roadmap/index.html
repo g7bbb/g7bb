@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>G7BB 진화 탐구 시리즈 — 개발 계획도</title>
+<style>
+  @page { size: 297mm 210mm; margin: 0; }
+  :root {
+    --ink: #17241c; --muted: #56655b; --line: #d6e2d9;
+    --green: #1f7a4d; --green-2: #2f9b63; --green-soft: #e8f4ec;
+    --amber: #b8681a; --amber-soft: #fdf1e2;
+    --blue: #2563a8; --blue-soft: #e7f0fa;
+    --rose: #b4415a; --rose-soft: #fbe9ee;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: "WenQuanYi Zen Hei", "Noto Color Emoji", sans-serif; color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
+  .emo { font-family: "Noto Color Emoji"; }
+  .sheet {
+    width: 297mm; height: 210mm; padding: 8mm 11mm 6mm; overflow: hidden;
+    display: flex; flex-direction: column; gap: 3.2mm;
+    background:
+      radial-gradient(circle at 100% 0, #e3f2e8 0, transparent 70mm),
+      radial-gradient(circle at 0 100%, #eef6e9 0, transparent 70mm), #fff;
+  }
+
+  /* 머리 */
+  header { display: flex; align-items: center; gap: 5mm; }
+  header img { height: 17mm; }
+  header h1 { margin: 0; font-size: 20pt; letter-spacing: -0.4px; }
+  header h1 b { color: var(--green); }
+  header p { margin: 0.8mm 0 0; font-size: 10pt; color: var(--muted); }
+  .kicker { display: inline-block; font-size: 8.5pt; font-weight: bold; color: #fff; background: var(--green); padding: 0.6mm 2.4mm; border-radius: 10mm; margin-bottom: 1mm; }
+
+  .lab { display: flex; align-items: center; gap: 2mm; font-size: 11pt; font-weight: bold; margin: 0 0 1.6mm; }
+  .lab .n { display: inline-grid; place-items: center; min-width: 6.4mm; height: 6.4mm; padding: 0 1.4mm; border-radius: 10mm; background: var(--green); color: #fff; font-size: 9pt; }
+
+  /* 기본툴 */
+  .base { display: grid; grid-template-columns: 1fr; }
+  .basecard { display: grid; grid-template-columns: 58mm 1fr 96mm; gap: 4mm; align-items: center; border: 2px solid var(--green); border-radius: 4mm; background: linear-gradient(90deg, var(--green-soft), #fff 60%); padding: 2.4mm 3.6mm; }
+  .basecard .imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4mm; }
+  .basecard .imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 1.8mm; border: 0.4mm solid #1c2230; object-position: 50% 14%; }
+  .basecard h3 { margin: 0 0 1mm; font-size: 13pt; }
+  .basecard h3 span { font-size: 8.4pt; color: #fff; background: var(--green); border-radius: 10mm; padding: 0.4mm 2.2mm; margin-left: 1.6mm; vertical-align: 2px; }
+  .basecard p { margin: 0; font-size: 8.8pt; color: var(--muted); line-height: 1.45; }
+  .steps { display: flex; flex-wrap: nowrap; align-items: center; gap: 1mm; justify-content: flex-end; }
+  .chip { font-size: 7.6pt; border: 1px solid var(--line); background: #fff; border-radius: 10mm; padding: 0.7mm 1.8mm; white-space: nowrap; }
+  .arr { color: var(--green-2); font-size: 8pt; }
+
+  /* 연결 화살표 */
+  .down { text-align: center; color: var(--green-2); font-size: 9pt; font-weight: bold; line-height: 1; margin: -0.6mm 0; }
+  .down small { font-size: 8.2pt; color: var(--muted); font-weight: normal; margin-left: 1mm; }
+
+  /* 5가지 버전 */
+  .vers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3.6mm; position: relative; }
+  .ver { position: relative; border: 1.4px solid var(--line); border-radius: 3mm; background: #fff; display: flex; flex-direction: column; }
+  .ver:not(:last-child)::after { content: "▶"; position: absolute; right: -3.1mm; top: 44%; color: var(--green-2); font-size: 9pt; z-index: 2; background: #fff; line-height: 1; }
+  .ver .pic { height: 30mm; background: #0b1220; position: relative; overflow: hidden; border-radius: 2.6mm 2.6mm 0 0; }
+  .ver .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ver .pic .emo-pic { width: 100%; height: 100%; display: grid; place-items: center; font-size: 30pt; letter-spacing: 3mm; }
+  .ver .pic .soon { position: absolute; right: 1.2mm; bottom: 1mm; font-size: 6.6pt; color: #fff; background: rgba(0,0,0,.5); border-radius: 10mm; padding: 0.2mm 1.6mm; }
+  .ver .no { position: absolute; left: 1.6mm; top: 1.6mm; font-size: 8.4pt; font-weight: bold; color: #fff; background: var(--green); border-radius: 10mm; padding: 0.3mm 2.2mm; z-index: 2; }
+  .ver .txt { padding: 1.8mm 2.4mm 2mm; }
+  .ver b { font-size: 11.6pt; }
+  .ver p { margin: 0.6mm 0 0; font-size: 8pt; color: var(--muted); line-height: 1.4; }
+  .alien { background: radial-gradient(circle at 70% 30%, #3b2a7a 0, #0b1220 70%); }
+  .animal { background: linear-gradient(135deg, #7a4a1e, #c98a3d 55%, #e8c27a); }
+
+  /* 형식 스위치 */
+  .switch { display: flex; align-items: center; justify-content: center; gap: 3mm; font-size: 9.6pt; font-weight: bold; }
+  .toggle { display: inline-flex; border: 1.6px solid var(--green); border-radius: 10mm; overflow: hidden; font-size: 9pt; }
+  .toggle span { padding: 0.8mm 3.6mm; }
+  .toggle .a { background: var(--amber); color: #fff; }
+  .toggle .b { background: var(--blue); color: #fff; }
+
+  .fmts { display: grid; grid-template-columns: 1fr 1.3fr; gap: 4mm; }
+  .fmt { border-radius: 3.6mm; padding: 2.6mm 3.6mm 2.8mm; }
+  .fmt.fun { border: 2px solid var(--amber); background: linear-gradient(180deg, var(--amber-soft), #fff 55%); }
+  .fmt.edu { border: 2px solid var(--blue); background: linear-gradient(180deg, var(--blue-soft), #fff 55%); }
+  .fmt h3 { margin: 0; font-size: 12.4pt; display: flex; align-items: center; gap: 2mm; }
+  .fmt h3 .no { font-size: 9pt; color: #fff; border-radius: 10mm; padding: 0.4mm 2.2mm; }
+  .fun h3 .no { background: var(--amber); } .edu h3 .no { background: var(--blue); }
+  .fmt .sub { margin: 0.8mm 0 1.6mm; font-size: 8.8pt; color: var(--muted); }
+  .fmt ul { margin: 1.4mm 0 0; padding-left: 4.2mm; font-size: 8.6pt; line-height: 1.5; }
+  .fun li::marker { color: var(--amber); } .edu li::marker { color: var(--blue); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 1mm; }
+  .fun .chip { border-color: #ecc89c; } .edu .chip { border-color: #b8d0ea; }
+  .edu .chip.hl { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: bold; }
+  .fun .chip.hl { background: var(--amber); color: #fff; border-color: var(--amber); font-weight: bold; }
+  .fun .arr { color: var(--amber); } .edu .arr { color: var(--blue); }
+  .point { margin-top: 1.8mm; display: inline-block; font-size: 8.6pt; font-weight: bold; color: #fff; background: var(--blue); border-radius: 10mm; padding: 0.7mm 3mm; }
+  .point.f { background: var(--amber); }
+  .auto { color: var(--blue); font-weight: bold; }
+
+  footer { margin-top: auto; text-align: center; font-size: 10.4pt; font-weight: bold; letter-spacing: 0.3px; color: var(--green); border-top: 1px solid var(--line); padding-top: 1.4mm; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <img src="../../public/brand/logo-black.png" alt="곤충본부 로고">
+    <div>
+      <span class="kicker">개발 계획도</span>
+      <h1>G7BB 진화 탐구 시리즈 — <b>기본툴 1개 → 5가지 버전 × 2가지 형식</b></h1>
+      <p>곤충배틀 기본툴을 바탕으로 주제를 바꿔 5가지 버전을 만들고, 각 버전에서 재미 형식과 교육 형식 중 선택해서 시작합니다.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="lab"><span class="n">1</span>기본툴</div>
+    <div class="basecard">
+      <div class="imgs">
+        <img src="../edu-onepager/shots/ai-1.jpg" alt="">
+        <img src="../edu-onepager/shots/ai-2.jpg" alt="" style="object-position:50% 40%">
+        <img src="../edu-onepager/shots/ai-3.jpg" alt="" style="object-position:50% 40%">
+      </div>
+      <div>
+        <h3><span class="emo">🐞</span> 곤충배틀 <span>완성 · 대전 곤충박람회 운영</span></h3>
+        <p>아이가 그린 그림 + 몸 부위·출신지·성장단계 선택 → AI가 멋진 곤충 그림으로 변환 → 환경별 생존 배틀과 랭킹.
+        이 틀을 그대로 두고 <b>주제(생물·부위·환경)만 바꿔서</b> 확장합니다.</p>
+      </div>
+      <div class="steps">
+        <span class="chip">✏️ 그리기</span><span class="arr">▶</span>
+        <span class="chip">🧬 부위·환경 고르기</span><span class="arr">▶</span>
+        <span class="chip">🤖 AI 그림</span><span class="arr">▶</span>
+        <span class="chip">⚔️ 배틀</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="down">▼ <small>같은 틀로 주제만 바꿔 개발 (순서대로)</small></div>
+
+  <section>
+    <div class="lab"><span class="n">1-1 ~ 1-5</span>5가지 추가 버전</div>
+    <div class="vers">
+      <div class="ver"><span class="no">1-1</span>
+        <div class="pic"><img src="../edu-onepager/shots/dino-ai-1.jpg" alt="공룡"></div>
+        <div class="txt"><b><span class="emo">🦖</span> 공룡</b><p>몸집·이빨·꼬리 고르기<br>살던 시대·환경 고르기</p></div></div>
+      <div class="ver"><span class="no">1-2</span>
+        <div class="pic animal"><div class="emo-pic emo">🦁🐘</div><span class="soon">예시 그림 준비 중</span></div>
+        <div class="txt"><b><span class="emo">🐾</span> 동물</b><p>몸 부위 고르기<br>사는 곳(서식지) 고르기</p></div></div>
+      <div class="ver"><span class="no">1-3</span>
+        <div class="pic"><img src="../../public/series/fish.jpg" alt="어류"></div>
+        <div class="txt"><b><span class="emo">🐟</span> 어류</b><p>지느러미·몸 모양 고르기<br>물의 깊이·온도 고르기</p></div></div>
+      <div class="ver"><span class="no">1-4</span>
+        <div class="pic"><img src="../../public/series/plant.jpg" alt="식물"></div>
+        <div class="txt"><b><span class="emo">🌿</span> 식물</b><p>잎·뿌리 고르기<br>햇빛·물·흙 조건 고르기</p></div></div>
+      <div class="ver"><span class="no">1-5</span>
+        <div class="pic alien"><div class="emo-pic emo">👽🛸</div><span class="soon">예시 그림 준비 중</span></div>
+        <div class="txt"><b><span class="emo">👽</span> 외계인</b><p>외계인 + 우주선 + 우주무기<br>별·행성 환경 고르기</p></div></div>
+    </div>
+  </section>
+
+  <div class="down">▼ <small>모든 버전에서 형식을 선택</small></div>
+
+  <section>
+    <div class="lab"><span class="n">2</span>형식 선택
+      <span class="switch"><span class="toggle"><span class="a"><span class="emo">🎮</span> 재미</span><span class="b"><span class="emo">📚</span> 교육</span></span></span>
+    </div>
+    <div class="fmts">
+      <div class="fmt fun">
+        <h3><span class="no">2-1</span><span class="emo">🎮</span> 재미 형식 · 기존 곤충배틀</h3>
+        <p class="sub">재미를 극대화하고, 배틀을 통해 순위를 정해요</p>
+        <div class="flow">
+          <span class="chip">✏️ 그리기</span><span class="arr">▶</span>
+          <span class="chip">🧬 능력</span><span class="arr">▶</span>
+          <span class="chip">🤖 AI 그림</span><span class="arr">▶</span>
+          <span class="chip hl">⚔️ 배틀</span><span class="arr">▶</span>
+          <span class="chip hl">🏆 순위</span>
+        </div>
+        <ul>
+          <li>필살기 · 타이밍 게임 · 레벨업 · 뱃지로 <b>재미를 극대화</b>해요</li>
+          <li>친구·랭커와 붙은 <b>배틀 결과로 순위</b>가 정해져요</li>
+        </ul>
+        <span class="point f">배틀로 순위를 정해요</span>
+      </div>
+      <div class="fmt edu">
+        <h3><span class="no">2-2</span><span class="emo">📚</span> 교육 형식 · 환경과 진화를 배워요</h3>
+        <p class="sub">배틀은 학습의 한 부분일 뿐이에요</p>
+        <div class="flow">
+          <span class="chip">✏️ 그리기</span><span class="arr">▶</span>
+          <span class="chip hl">🌍 환경 선택</span><span class="arr">▶</span>
+          <span class="chip hl">🧬 세대 진화·퇴화</span><span class="arr">▶</span>
+          <span class="chip hl">⚔️ 생존 싸움</span><span class="arr">▶</span>
+          <span class="chip hl">🌟 오래 살아남은 개체</span>
+        </div>
+        <ul>
+          <li>선택한 환경에 따라 <b>더 진화하거나 퇴화</b>하는 부분을 직접 정해요 <span class="auto">(안 정해도 환경에 맞춰 자동으로 진행돼요)</span></li>
+          <li>그 환경에서 <b>오래 살아남은 · 잘 적응한</b> 생물을 보여줘요</li>
+        </ul>
+        <span class="point">순위를 내세우지 않아요 — “내 친구가 오래 살았으면 좋겠다”는 바람으로</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>아이들의 초록꿈을 현실의 오감과 가상의 상상력으로 키웁니다</footer>
+
+</div>
+</body>
+</html>
