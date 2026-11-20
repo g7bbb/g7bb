@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
-import { TIERS, SELL_ORDER } from '@/lib/tiers';
 import { DRAWING_CONTEST_REWARDS, RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 
 // 📖 보호자용 게임 설명 (2026-10-02 Jin) — 종이 아래 "① 게임 설명" QR 이 여는 화면.
 // 엄마·아빠가 읽는 화면이라 **존댓말**로 쓴다 (아이 화면은 반말).
 // 종이를 뽑은 뒤에도 이 파일만 고치면 내용이 바뀐다 (QR 은 주소만 담고 있다).
+// 🏙️ 11/20 Jin: 이 화면은 **대전 행사 내용 그대로** 둔다. 인천용은 `/guide/incheon` (app/guide/incheon/page.tsx).
+//    참가권은 lib/tiers.ts 가 인천 가격으로 바뀌었으므로, 여기엔 대전 마지막 날(10/4) 참가권을 그대로 적어둔다.
+const DAEJEON_TIERS: { emoji: string; price: string; name: string; perks: string[] }[] = [
+  { emoji: '🎟️', price: '1.5만원', name: '참가권', perks: ['1게임 참여', '보너스 게임 (가끔 나와요)', '랭킹 상품 도전', '내 곤충 카드 발급', '게임 데이터 보존 안 됨'] },
+  { emoji: '⬆️', price: '2만원', name: '레벨업권', perks: ['9판 참여', '레벨업 보너스 게임 (1회 무조건!)', '중간보스·보너스 게임 무조건 등장', '기다림 없이 9판 연달아', '랭킹 상품 도전', '내 곤충 카드 발급', '다시 참여하면 레벨업', 'G7BB 앱에서 내 캐릭터 보존 (앱이 나오면 QR로 이어서 참여)'] },
+  { emoji: '🥇', price: '5만원', name: '골드', perks: ['하루 6게임(18판) 참여', '랭킹 상품 도전 (랭킹 선물은 별도)', '내 곤충 카드 발급', '내 곤충 피규어·포스터 선물 배송', '게임 데이터 계속 보관 (시즌1 이후에도 QR만 있으면 참여 가능)', '게임 속 금장식 카드 업적'] },
+  { emoji: '💎', price: '10만원', name: '다이아', perks: ['2일간 무제한 참여', '랭킹 상품 도전 (랭킹 선물은 별도)', '내 곤충 카드 발급', '내 곤충 피규어·포스터 선물 배송', '홀로그램 카드 선물 배송', '게임 데이터 계속 보관 (시즌1 이후에도 QR만 있으면 참여 가능)', '4분기(10~12월) 전국 곤충체험 실내·실외 2회 참여권', '게임 속 홀로그램 다이아 카드 업적'] },
+];
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
@@ -107,10 +114,9 @@ export default function GuidePage() {
       <section className="bg-slate-800/80 rounded-2xl p-4">
         <p className="font-black">🎟️ 참가권</p>
         <div className="mt-2 flex flex-col gap-2">
-          {SELL_ORDER.map((key) => {
-            const tier = TIERS[key];
+          {DAEJEON_TIERS.map((tier) => {
             return (
-              <div key={key} className="text-sm">
+              <div key={tier.price} className="text-sm">
                 <p className="font-bold">
                   {tier.emoji} {tier.price} · {tier.name}
                 </p>
