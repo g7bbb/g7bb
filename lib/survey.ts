@@ -57,8 +57,9 @@ export const OTHER_INSECT_KEY = '기타';
 
 // 3번 질문이 "채집 체험 해보고 싶어?" → "같이 갈래?"로 바뀌면서 (2026-09-30 Jin)
 // 답도 거기에 맞췄습니다. '이미 해봤어'는 "같이 갈래?"의 대답이 안 되기 때문입니다.
-export const COLLECTING_QUESTION =
-  '여름엔 야간 곤충채집, 봄가을겨울엔 애벌레 채집 떠날건데 같이갈래?';
+// 🔁 11/20 Jin: 짧게 + 아래에 카톡 채널 안내 한 줄 (COLLECTING_NOTE). 4번(게임 나오면 해볼래?)은 뺐다.
+export const COLLECTING_QUESTION = '곤충채집 같이 갈래? 🌙';
+export const COLLECTING_NOTE = '체험 공지를 위해 꼭 카카오톡 채널을 추가해줘 !!';
 export const COLLECTING_OPTIONS: string[] = ['응, 같이 갈래!', '생각해볼게', '아니'];
 
 export const GAME_OPTIONS: string[] = ['응, 재밌겠다!', '잘 모르겠어', '아니'];
@@ -66,7 +67,8 @@ export const GAME_OPTIONS: string[] = ['응, 재밌겠다!', '잘 모르겠어',
 export interface SurveyAnswers {
   favoriteInsect: string;
   wantsCollecting: string;
-  wantsGame: string;
+  /** 11/20 인천부터 안 물어봄 (옛 기록용) */
+  wantsGame?: string;
 }
 
 export function prizeLabel(key: string | null | undefined): string {

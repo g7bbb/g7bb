@@ -20,8 +20,8 @@ import { tierForPlayer } from '@/lib/tiers';
 import {
   COLLECTING_OPTIONS,
   COLLECTING_QUESTION,
+  COLLECTING_NOTE,
   FAVORITE_INSECTS,
-  GAME_OPTIONS,
   OTHER_INSECT_KEY,
   PRIZES,
   prizeLabel,
@@ -41,7 +41,6 @@ function StartInner() {
   const [favoriteOther, setFavoriteOther] = useState('');
   const [prize, setPrize] = useState('');
   const [collecting, setCollecting] = useState('');
-  const [game, setGame] = useState('');
 
   const [fromQr, setFromQr] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -75,15 +74,14 @@ function StartInner() {
       if (d.favoriteOther) setFavoriteOther(d.favoriteOther);
       if (d.prize) setPrize(d.prize);
       if (d.collecting) setCollecting(d.collecting);
-      if (d.game) setGame(d.game);
       if (Object.values(d).some(Boolean)) setDraftRestored(true);
     }
     setDraftLoaded(draftKey);
   }, [draftKey, draftLoaded]);
   useEffect(() => {
     if (!draftKey || draftLoaded !== draftKey) return;
-    saveDraft(draftKey, { nickname, insectName, favorite, favoriteOther, prize, collecting, game });
-  }, [draftKey, draftLoaded, nickname, insectName, favorite, favoriteOther, prize, collecting, game]);
+    saveDraft(draftKey, { nickname, insectName, favorite, favoriteOther, prize, collecting });
+  }, [draftKey, draftLoaded, nickname, insectName, favorite, favoriteOther, prize, collecting]);
 
   /** 번호+비밀번호가 맞은 뒤에만: 이미 온 아이인지 · 직원이 금액을 올려둔 자리인지 본다 */
   function lookup(code: string) {
@@ -222,8 +220,8 @@ function friendlyError(message?: string): string {
     }
 
     const favoriteAnswer = favorite === OTHER_INSECT_KEY ? favoriteOther.trim() : favorite;
-    if (!favoriteAnswer || !prize || !collecting || !game) {
-      setError('질문 4개에 모두 답해줘!');
+    if (!favoriteAnswer || !prize || !collecting) {
+      setError('질문 3개에 모두 답해줘!');
       return;
     }
 
@@ -246,7 +244,6 @@ function friendlyError(message?: string): string {
     const survey = {
       favoriteInsect: favoriteAnswer,
       wantsCollecting: collecting,
-      wantsGame: game,
     };
 
     // 직원이 금액을 먼저 올려둔 번호면 새로 만들지 않고 **그 자리를 채웁니다** (금액 기록을 지키려고).
@@ -300,7 +297,6 @@ function friendlyError(message?: string): string {
       좋아하는곤충: favoriteAnswer,
       같이채집: collecting,
       곤충이름: insectName.trim(),
-      게임의향: game,
       참여시각: new Date().toLocaleString('ko-KR'),
     });
 
@@ -330,7 +326,7 @@ function friendlyError(message?: string): string {
       <header className="text-center">
         <BrandLogo size={120} />
         <h1 className="mt-3 text-2xl font-bold">{GAME_TITLE}</h1>
-        <p className="mt-2 text-sm text-slate-400">{pinOk ? '질문 4개만 답하면 바로 시작해!' : '그림을 다 그렸으면 시작!'}</p>
+        <p className="mt-2 text-sm text-slate-400">{pinOk ? '질문 3개만 답하면 바로 시작해!' : '그림을 다 그렸으면 시작!'}</p>
       </header>
 
       {/* 🎫 들어오는 길 (2026-10-02 Jin): **그림 먼저 → 종이 QR 찍기 → 능력 고르기 → 그림 촬영.**
@@ -465,10 +461,8 @@ function friendlyError(message?: string): string {
 
       <Question title={`3. ${COLLECTING_QUESTION}`}>
         <ChoiceGrid options={COLLECTING_OPTIONS} selected={collecting} onSelect={setCollecting} />
-      </Question>
-
-      <Question title="4. AI 곤충배틀 게임이 나오면 해볼래?">
-        <ChoiceGrid options={GAME_OPTIONS} selected={game} onSelect={setGame} />
+        {/* 링크는 일부러 안 걸었다 — 부스 태블릿에서 누르면 태블릿 카톡에 추가돼서 소용없다. 보호자 폰으로 추가하게 글만. */}
+        <p className="mt-3 bg-yellow-300/15 border border-yellow-300/50 text-yellow-200 font-bold text-sm text-center rounded-xl px-3 py-2.5 break-keep">💬 {COLLECTING_NOTE}</p>
       </Question>
 
       {/* 시즌1 안내 (Jin 문구 그대로, 10/1 끝말 수정) */}
