@@ -43,7 +43,7 @@ import { BOSS_ID, BOSS_PERKS, BOT_INSECTS, findBot, insectImageSrc, isBotId, mak
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { BonusKey, bonusInfo, planLadderEvent, readBonus, rollBonus } from '@/lib/bonus-stage';
 import { tierForPlayer } from '@/lib/tiers';
-import { LEVELUP_HEADLINE, LevelUpIntroPopup, LoseLevelPopup, levelTipSeen, levelUpUpsell, markLevelTipSeen } from '@/lib/levelup-tips';
+import { LevelUpIntroPopup, LoseLevelPopup, levelTipSeen, levelUpUpsell, markLevelTipSeen } from '@/lib/levelup-tips';
 import BonusStage from './bonus-stage';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -1832,11 +1832,13 @@ export default function BattlePage() {
           className="-mt-3 bg-slate-800 rounded-2xl px-4 py-3 text-center"
           style={{ wordBreak: 'keep-all' }}
         >
+          {/* 11/20 인천: 한 줄로 (10개 전엔 "10개부터 세져", 그 뒤엔 버프 칩) */}
           <p className="text-sm">
             🏅 내 뱃지 <b className="text-amber-300 text-lg">{badgeCount}</b>개
-            <span className="ml-2 text-xs text-sky-300 underline">📖 뱃지를 모아봐! (강력 설명서)</span>
+            {badgeCount < 10 && <span className="text-slate-300"> · 10개부터 배틀이 세져!</span>}
+            <span className="ml-1 text-sky-300">📖</span>
           </p>
-          <PerkChips count={badgeCount} />
+          {badgeCount >= 10 && <PerkChips count={badgeCount} />}
         </button>
       )}
       {player && hasFriendBuff(player) && (
@@ -1862,8 +1864,7 @@ export default function BattlePage() {
         className="-mt-2 rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-3 text-center"
         style={{ wordBreak: 'keep-all' }}
       >
-        <p className="text-base font-black text-amber-200">🆙 {LEVELUP_HEADLINE}</p>
-        <p className="mt-0.5 text-xs text-amber-100/80 underline">어떻게 레벨업 해? 👉 눌러봐</p>
+        <p className="text-base font-black text-amber-200">🆙 레벨업해야 랭킹에 올라갈 수 있어!! 👉</p>
       </button>
       {levelIntro && player && (
         <LevelUpIntroPopup
@@ -1914,10 +1915,10 @@ export default function BattlePage() {
           <p className="text-base text-slate-200 mt-2">
             {myMove.description} <span className="text-slate-400">({myMove.kind === 'attack' ? '공격형' : '수비형'})</span>
           </p>
+          {/* 11/20: 모양이 동그라미·세모·네모 무작위라 "동그라미" 설명이 틀려서 고침 + 한 줄로 */}
           <p className="text-sm text-amber-200/90 mt-3 leading-relaxed">
-            배틀 중에 고리가 줄어드는 버튼이 떠.
-            <b className="text-amber-300"> 고리가 가운데 동그라미랑 겹칠 때</b> 누르면 ✨퍼펙트! 위력이 확 세져.
-            {myMove.kind === 'defense' && ' 수비형은 상대가 공격할 때 버튼이 떠!'}
+            ⚡ 버튼이 뜨면 <b className="text-amber-300">모양이 딱 겹칠 때</b> 눌러! ✨퍼펙트!
+            {myMove.kind === 'defense' && ' (수비형은 상대가 공격할 때 떠!)'}
           </p>
         </div>
       )}
@@ -1933,11 +1934,8 @@ export default function BattlePage() {
           <p className="mt-1 text-xl font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
             {resume ? `🔁 이어서 하자! 남은 판: ${resumeLeft}판` : `⚔️ 이번 게임은 ${LADDER_BATTLES}판 할 수 있어!`}
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            3위 → 2위 → 1위 차례로 올라가기! 이기면 위로, 지면 한 번 더.
-          </p>
-          <p className="text-xs text-amber-200 mt-1" style={{ wordBreak: 'keep-all' }}>
-            🏆 랭커를 이기면 그 순위를 차지해! 3위 안 곤충은 더 강하니까 조심!
+          <p className="text-sm text-amber-200 mt-1" style={{ wordBreak: 'keep-all' }}>
+            3위 → 2위 → 1위! 이기면 그 순위를 차지해!
           </p>
           {myBestRank === 1 && opponents.some((o) => !o.bot) && (
             <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
@@ -2006,8 +2004,7 @@ export default function BattlePage() {
           className="bg-pink-400 text-slate-900 font-black py-3.5 rounded-xl"
           style={{ wordBreak: 'keep-all' }}
         >
-          🎯 내가 고른 곤충이랑 연습 1판 <span className="block text-sm font-bold">(본게임보다 경험치 50%)</span>
-          <span className="block text-sm font-bold">👀 연습한 상대는 공격 패턴을 읽어서 다음에 만나면 승리 확률 +10%!</span>
+          🎯 연습 1판 <span className="block text-sm font-bold">경험치 50% · 다음에 만나면 승률 +10%</span>
         </button>
       ) : (
       <div id="practice-picker">

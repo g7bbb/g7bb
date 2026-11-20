@@ -64,8 +64,8 @@ export function LevelUpIntroPopup({ onClose, upsell }: { onClose: () => void; up
   return (
     <Shell onClose={onClose} tone="gold">
       <p className="text-5xl">🆙</p>
-      <p className="text-2xl font-black text-amber-300 leading-snug">{LEVELUP_HEADLINE}</p>
-      <p className="text-base text-slate-200">레벨이 높을수록 능력치가 세지고, LV3 부터는 필살기가 하나 더 생겨!</p>
+      {/* 11/20 인천: 제목 짧게 + 설명 줄 뺌 */}
+      <p className="text-2xl font-black text-amber-300 leading-snug">레벨업해야 랭킹에 올라가!</p>
       <ul className="text-left text-base flex flex-col gap-1.5 bg-slate-800 rounded-2xl px-4 py-3">
         {LEVELUP_WAYS.map((w) => (
           <li key={w}>{w}</li>
