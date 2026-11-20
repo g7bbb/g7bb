@@ -29,13 +29,14 @@ export const PAST_EVENT: EventInfo = {
 /**
  * 이번 행사.
  * ⚠️ 이름은 Jin 이 정식 이름을 주면 바꿀 것. Vercel 환경변수 `NEXT_PUBLIC_EVENT_NAME` 으로도 덮을 수 있다.
- * 시작 시각은 리허설(11/20)부터 — 그 전 기록(대전·개발 테스트)은 이번 랭킹에 안 들어간다.
+ * 시작 시각은 행사 첫날(11/21) 0시 — 그 전 기록(대전·리허설·개발 테스트)은 이번 랭킹에 안 들어간다.
  * 테스트 번호(900번대)는 원래 따로 노니까 리허설 기록이 진짜 랭킹에 섞이지는 않는다.
  */
 export const CURRENT_EVENT: EventInfo = {
   name: process.env.NEXT_PUBLIC_EVENT_NAME || '2026 인천 G7BB 배틀',
   short: '인천',
-  from: process.env.NEXT_PUBLIC_SEASON_FROM || '2026-11-19T15:00:00Z', // 11/20 0시 (한국)
+  // 🔁 11/20 밤: 행사 첫날 0시로 옮김 — 오늘(리허설) 진짜 번호로 시험한 기록이 인천 랭킹·N번째 손님에 안 섞이게
+  from: process.env.NEXT_PUBLIC_SEASON_FROM || '2026-11-20T15:00:00Z', // 11/21 0시 (한국)
 };
 
 /** 이번 행사 기록만 쓰는 기준 시각 (supabase `.gte('created_at', SEASON_FROM)`) */
