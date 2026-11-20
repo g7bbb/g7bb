@@ -366,11 +366,11 @@ export default function UploadPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 만들기</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-[min(1.5rem,5.8vw)] font-bold whitespace-nowrap"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 만들기</h1>
         <button
           onClick={() => setShowHowTo(true)}
-          className="text-sm border border-slate-600 text-slate-300 rounded-full px-3 py-1"
+          className="shrink-0 whitespace-nowrap text-sm border border-slate-600 text-slate-300 rounded-full px-3 py-1"
         >
           ❓ 설명 보기
         </button>
@@ -394,8 +394,8 @@ export default function UploadPage() {
               종이에는 넣지 않았습니다: 손글씨는 종이 읽기(OMR)가 못 읽고,
               종이에 쓰고 앱에 또 치면 아이가 헷갈립니다. */}
           <div>
-            <p className="text-sm text-slate-400 mb-2">
-              곤충 이름 <span className="text-slate-500">— 안 지어도 돼!</span>
+            <p className="text-sm text-slate-400 mb-2 break-keep">
+              곤충 이름 <span className="text-slate-500">(게임이나 순위에 나타나는 곤충 이름이야)</span>
             </p>
             <input
               id="insect-name"
@@ -410,8 +410,8 @@ export default function UploadPage() {
 
           {/* 친구·가족 버프 (2026-10-01 Jin) — 친구 번호를 알면 적는다. 같이 시작 안 했어도 된다. */}
           <div className="bg-pink-500/10 border-2 border-pink-400/40 rounded-2xl p-3" style={{ wordBreak: 'keep-all' }}>
-            <p className="text-sm font-bold text-pink-200">👨‍👩‍👧 친구·가족 번호 <span className="font-normal text-slate-400">— 안 적어도 돼!</span></p>
-            <p className="text-xs text-slate-300 mt-0.5">친구나 가족 번호를 적으면 둘 다 <b className="text-pink-300">경험치 +10%</b>!</p>
+            {/* 11/20 Jin: 한 줄로 */}
+            <p className="text-sm font-bold text-pink-200">👨‍👩‍👧 친구·가족 번호 적으면 둘 다 <b className="text-pink-300">경험치 +10%</b>! <span className="font-normal text-slate-400">(안 적어도 돼)</span></p>
             {player && (readGameState(player).friends ?? []).length > 0 ? (
               <p className="mt-2 text-sm font-bold text-emerald-300">
                 ✅ 친구 버프 받는 중! ({(readGameState(player).friends ?? []).map((t) => displayTicket(t)).join(', ')}번)
@@ -531,25 +531,6 @@ export default function UploadPage() {
           </div>
 
           <div>
-            <p className="text-sm text-slate-400 mb-2">출신지</p>
-            <div className="grid grid-cols-3 gap-2">
-              {ENVIRONMENTS.map((e) => (
-                <button
-                  key={e.key}
-                  onClick={() => setOrigin(e.key)}
-                  className={`rounded-xl py-2 text-sm font-semibold ${
-                    origin === e.key ? 'bg-sky-500 text-slate-900' : 'bg-slate-800'
-                  }`}
-                >
-                  {e.emoji} {e.label}
-                </button>
-              ))}
-            </div>
-            {/* 누르면 바로 아래에 설명이 뜹니다. 부스에서 아이·부모님이 폰/태블릿으로 같이 봅니다. */}
-            <OriginExplain origin={origin} />
-          </div>
-
-          <div>
             {/* 아이가 금색으로 그렸는데 AI가 검정으로 그려버리면 "내 거랑 다른데?"가 됩니다.
                 연필로만 그린 그림은 AI가 색을 알 수 없어서, 표시해주면 그대로 칠해집니다. */}
             <p className="text-sm text-slate-400 mb-1">✏️ 그림 꾸미기</p>
@@ -590,6 +571,25 @@ export default function UploadPage() {
                 🎨 {describeAppearance(color, mood)} — 그렇게 그려줄게!
               </p>
             )}
+          </div>
+
+          <div>
+            <p className="text-sm text-slate-400 mb-2 break-keep">출신지 <span className="text-sky-300 font-bold">(상성에 따라 강한 곤충에게도 이길 수 있어)</span></p>
+            <div className="grid grid-cols-3 gap-2">
+              {ENVIRONMENTS.map((e) => (
+                <button
+                  key={e.key}
+                  onClick={() => setOrigin(e.key)}
+                  className={`rounded-xl py-2 text-sm font-semibold ${
+                    origin === e.key ? 'bg-sky-500 text-slate-900' : 'bg-slate-800'
+                  }`}
+                >
+                  {e.emoji} {e.label}
+                </button>
+              ))}
+            </div>
+            {/* 누르면 바로 아래에 설명이 뜹니다. 부스에서 아이·부모님이 폰/태블릿으로 같이 봅니다. */}
+            <OriginExplain origin={origin} />
           </div>
 
           <div>
