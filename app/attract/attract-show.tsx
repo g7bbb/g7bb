@@ -442,7 +442,7 @@ function CtaScene() {
       <p className="text-[5vmin] font-black text-white">🖍️ 종이에 곤충을 그리고</p>
       <p className="text-[5vmin] font-black text-white">📷 종이 QR을 찍으면</p>
       <p className="attract-gold text-[9vmin] font-black leading-tight">너도 배틀 시작!</p>
-      <p className="text-[3vmin] font-bold text-slate-300">🥇 랭킹 1위는 왕사슴벌레 산란 사육세트! 100위까지 선물 🎁</p>
+      <p className="text-[3vmin] font-bold text-slate-300">🏆 랭킹 1~5위에게 선물이 기다려! 🎁</p>
     </div>
   );
 }
