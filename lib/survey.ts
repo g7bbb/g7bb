@@ -10,14 +10,38 @@ export interface PrizeOption {
 
 // "받고 싶은 상품" 선택지 (2026-10-02 밤 Jin 이 새로 정한 랭킹 시상에 맞춤 — 카톡 채널 안내 글과 같음).
 // 위에서부터 높은 순위의 상품. 순위별 상품표는 RANKING_REWARDS.
+// 🔁 11/20 인천 상품으로 바꿈 (Jin 상품 안내 그림 그대로). 대전 때 선택지는 아래 PAST_PRIZES (옛 기록 이름 찾기용).
 export const PRIZES: PrizeOption[] = [
+  { key: 'stag_breeding_set', label: '왕사슴벌레 산란세트', emoji: '🪲' },
+  { key: 'stag_pair_set', label: '사슴벌레 암수세트', emoji: '🦌' },
+  { key: 'stag_one', label: '사슴벌레', emoji: '🐞' },
+  { key: 'collect_ticket', label: '야외채집 체험권', emoji: '🌲' },
+  { key: 'jelly', label: '곤충젤리', emoji: '🍯' },
+  { key: 'big_figure', label: '내 곤충 대형 피규어', emoji: '🗿' },
+];
+
+/** 대전(10/3~4) 때 선택지 — 옛 기록의 이름을 찾을 때만 쓴다 */
+const PAST_PRIZES: PrizeOption[] = [
   { key: 'stag_breeding', label: '왕사슴벌레 암수 산란 사육세트', emoji: '🪲' },
   { key: 'pair_kit', label: '왕사슴벌레 or 장수풍뎅이 한 쌍 사육세트', emoji: '🦏' },
   { key: 'single_kit', label: '사슴벌레 or 장수풍뎅이 한 마리 사육세트', emoji: '🐞' },
   { key: 'larva_kit', label: '사슴벌레 or 장수풍뎅이 애벌레 사육세트', emoji: '🐛' },
-  { key: 'collect_ticket', label: '야외 곤충 채집 체험권', emoji: '🌲' },
-  { key: 'jelly', label: '곤충 젤리', emoji: '🍯' },
 ];
+
+/**
+ * 🏙️ 인천 행사(11/21~22) 순위 시상 — Jin 상품 안내 그림 그대로 (11/20). /guide/incheon 에 보여준다.
+ * 대전 시상은 아래 RANKING_REWARDS 그대로 (/guide).
+ */
+export const INCHEON_RANKING_REWARDS: { rank: string; emoji: string; text: string }[] = [
+  { rank: '1위', emoji: '🥇', text: '5회 야외채집 체험권 + 왕사슴벌레 산란세트' },
+  { rank: '2위', emoji: '🥈', text: '3회 야외채집 체험권 + 사슴벌레 암수세트' },
+  { rank: '3~5위', emoji: '🥉', text: '1회 야외채집 체험권 + 사슴벌레' },
+  { rank: '6~10위', emoji: '🏅', text: '곤충젤리' },
+];
+/** 인천 순위권(1~10위) 공통 상품 */
+export const INCHEON_COMMON_REWARDS: string[] = ['내 곤충 홀로그램 카드', '내 곤충 홀로그램 포스터', '내 곤충 대형 피규어'];
+/** 인천 상품을 주는 마지막 등수 */
+export const INCHEON_PRIZE_LAST = 10;
 
 /** 순위별 시상 (10/3~4 이틀 합산) — Jin 의 카톡 채널 안내 글 그대로. /guide 에 보여준다. */
 export const RANKING_REWARDS: { rank: string; emoji: string; text: string }[] = [
@@ -73,5 +97,5 @@ export interface SurveyAnswers {
 
 export function prizeLabel(key: string | null | undefined): string {
   if (!key) return '';
-  return PRIZES.find((prize) => prize.key === key)?.label ?? key;
+  return [...PRIZES, ...PAST_PRIZES].find((prize) => prize.key === key)?.label ?? key;
 }

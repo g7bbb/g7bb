@@ -13,9 +13,10 @@ import { SEASON_FROM, CURRENT_EVENT } from '@/lib/event-config';
 import { displayTicket, isTestTicket, normalizeTicket } from '@/lib/ticket';
 import { loadTestPlayerIds } from '@/lib/test-world';
 import { BrandMark } from '@/app/brand-logo';
+import { INCHEON_PRIZE_LAST } from '@/lib/survey';
 
-/** 상품을 주는 마지막 등수 (인천: 1~5위) */
-const PRIZE_LAST = 5;
+/** 상품을 주는 마지막 등수 (인천: 1~10위, lib/survey.ts) */
+const PRIZE_LAST = INCHEON_PRIZE_LAST;
 const REMEMBER_KEY = 'g7bb-myrank';
 const MEDALS = ['🥇', '🥈', '🥉'];
 

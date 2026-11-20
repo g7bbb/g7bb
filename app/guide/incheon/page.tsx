@@ -1,13 +1,13 @@
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { TIERS, SELL_ORDER } from '@/lib/tiers';
-import { DRAWING_CONTEST_REWARDS, RANKING_REWARDS } from '@/lib/survey';
+import { DRAWING_CONTEST_REWARDS, INCHEON_COMMON_REWARDS, INCHEON_PRIZE_LAST, INCHEON_RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 import { CURRENT_EVENT, PAST_EVENT } from '@/lib/event-config';
 
 // 📖 인천 행사 보호자 안내 (2026-11-20 Jin: "대전 안내는 그대로 두고 인천용 페이지 하나 더").
 // 대전용은 /guide. 존댓말 (보호자가 읽는 화면).
-// - 랭킹 시상: 인천 이틀 합산, **1~5위까지만** (RANKING_REWARDS 앞 3줄 = 1위 · 2위 · 3~5위)
+// - 랭킹 시상: 인천 이틀 합산, 1~10위 + 공통 상품 (INCHEON_RANKING_REWARDS, 11/20 Jin 상품 안내 그림)
 // - 참가권: lib/tiers.ts 의 지금 파는 것(SELL_ORDER) — 5천원 · 1만원 · 10만원
 // - 순위판의 지난 대전 TOP 10 · 지역 1위끼리 챔피언 배틀(예정)
 
@@ -84,9 +84,9 @@ export default function IncheonGuidePage() {
       </section>
 
       <section className="bg-slate-800/80 rounded-2xl p-4">
-        <p className="font-black">🏆 랭킹 시상 ({EVENT_DAYS} 이틀 합산 · 1~5위)</p>
+        <p className="font-black">🏆 랭킹 시상 ({EVENT_DAYS} 이틀 합산 · 1~{INCHEON_PRIZE_LAST}위)</p>
         <ul className="mt-2 text-sm text-slate-300 flex flex-col gap-2">
-          {RANKING_REWARDS.slice(0, 3).map((r) => (
+          {INCHEON_RANKING_REWARDS.map((r) => (
             <li key={r.rank}>
               <b className="text-amber-300">
                 {r.emoji} {r.rank}
@@ -95,6 +95,9 @@ export default function IncheonGuidePage() {
             </li>
           ))}
         </ul>
+        <p className="mt-2 text-sm text-slate-300">
+          <b className="text-amber-300">🎁 1~{INCHEON_PRIZE_LAST}위 공통</b> · {INCHEON_COMMON_REWARDS.join(' · ')}
+        </p>
         <p className="mt-2 text-sm text-slate-300">결과는 {RESULT_DAY} 행사가 끝나면 곤충본부 액티비티 카카오톡 채널로 알려드려요. 채널을 꼭 친구 추가해주세요!</p>
       </section>
 
