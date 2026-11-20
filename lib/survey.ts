@@ -38,7 +38,8 @@ export const INCHEON_RANKING_REWARDS: { rank: string; emoji: string; text: strin
   { rank: '3~5위', emoji: '🥉', text: '1회 야외채집 체험권 + 사슴벌레' },
   { rank: '6~10위', emoji: '🏅', text: '곤충젤리' },
 ];
-/** 인천 순위권(1~10위) 공통 상품 */
+/** 인천 1~5위 공통 상품 (11/20 Jin: "5위까지만 공통선물") */
+export const INCHEON_COMMON_LAST = 5;
 export const INCHEON_COMMON_REWARDS: string[] = ['내 곤충 홀로그램 카드', '내 곤충 홀로그램 포스터', '내 곤충 대형 피규어'];
 /** 인천 상품을 주는 마지막 등수 */
 export const INCHEON_PRIZE_LAST = 10;

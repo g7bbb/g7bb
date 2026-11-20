@@ -1,7 +1,7 @@
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { TIERS, SELL_ORDER } from '@/lib/tiers';
-import { DRAWING_CONTEST_REWARDS, INCHEON_COMMON_REWARDS, INCHEON_PRIZE_LAST, INCHEON_RANKING_REWARDS } from '@/lib/survey';
+import { DRAWING_CONTEST_REWARDS, INCHEON_COMMON_LAST, INCHEON_COMMON_REWARDS, INCHEON_PRIZE_LAST, INCHEON_RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 import { CURRENT_EVENT, PAST_EVENT } from '@/lib/event-config';
 
@@ -96,7 +96,7 @@ export default function IncheonGuidePage() {
           ))}
         </ul>
         <p className="mt-2 text-sm text-slate-300">
-          <b className="text-amber-300">🎁 1~{INCHEON_PRIZE_LAST}위 공통</b> · {INCHEON_COMMON_REWARDS.join(' · ')}
+          <b className="text-amber-300">🎁 1~{INCHEON_COMMON_LAST}위 공통</b> · {INCHEON_COMMON_REWARDS.join(' · ')}
         </p>
         <p className="mt-2 text-sm text-slate-300">결과는 {RESULT_DAY} 행사가 끝나면 곤충본부 액티비티 카카오톡 채널로 알려드려요. 채널을 꼭 친구 추가해주세요!</p>
       </section>

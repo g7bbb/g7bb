@@ -48,5 +48,5 @@
 
 ## 🎁 인천 상품 (11/20 Jin 안내 그림)
 - 1위 5회 야외채집 체험권 + 왕사슴벌레 산란세트 · 2위 3회 + 사슴벌레 암수세트 · 3~5위 1회 + 사슴벌레 · 6~10위 곤충젤리.
-- 공통(1~10위로 읽음): 내 곤충 홀로그램 카드 · 홀로그램 포스터 · 대형 피규어.
+- 공통(**1~5위만**, Jin 확인): 내 곤충 홀로그램 카드 · 홀로그램 포스터 · 대형 피규어.
 - `INCHEON_RANKING_REWARDS`·`INCHEON_COMMON_REWARDS`·`INCHEON_PRIZE_LAST`(10) — lib/survey.ts. /guide/incheon · /my-rank · 홍보 영상 · 시작 설문 상품 선택지(PRIZES)에 반영. 대전 /guide 는 RANKING_REWARDS 그대로.
