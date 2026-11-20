@@ -13,26 +13,12 @@ interface Slide {
   visual?: React.ReactNode;
 }
 
+// 🔁 11/20 Jin (인천): 7장 → 4장. "종이에 그려" 는 뺐다 (그림을 다 그리고 QR 을 찍어야 여기 온다).
 const SLIDES: Slide[] = [
   {
-    emoji: '🖍️',
-    title: '종이에 곤충을 그려!',
-    description: '내가 만들고 싶은 곤충을 마음대로 그려봐.\n잘 못 그려도 괜찮아!',
-  },
-  {
     emoji: '✏️',
-    title: '곤충 종류를 골라!',
-    description: '장수풍뎅이? 사슴벌레?\n어떤 곤충인지 알려줘.',
-    visual: (
-      <div className="bg-slate-800 rounded-xl px-4 py-3 text-slate-300 w-full text-left">
-        예: 장수풍뎅이
-      </div>
-    ),
-  },
-  {
-    emoji: '🏞️',
-    title: '사는 곳과 나이를 골라!',
-    description: '어디에서 살던 곤충인지,\n얼마나 자란 곤충인지 골라줘.',
+    title: '곤충 종류 · 사는 곳 · 나이를 골라!',
+    description: '어떤 곤충인지, 어디서 살던 곤충인지,\n얼마나 자란 곤충인지 골라줘.',
     visual: (
       <div className="grid grid-cols-3 gap-2 w-full">
         {ENVIRONMENTS.map((e) => (
@@ -45,10 +31,9 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: '💪',
-    title: '몸의 힘을 나눠줘!',
-    description: '7군데에 1~5점씩 점수를 줘.\n높은 점수를 준 곳이 더 크고 멋지게 그려져!',
-    // Jin 문구 (2026-10-01)
-    note: '너무 점수를 높게만 하면 느려지거나 약해질 수 있으니 생각을 잘해서 해야 해!!',
+    title: '몸의 힘: 1~5점!',
+    description: '점수가 높을수록 크고 멋지게 그려져!',
+    note: '전부 5점이면 오히려 약해질 수 있어!',
     visual: (
       <div className="flex flex-col gap-2 w-full">
         {BODY_PARTS.slice(0, 3).map((part, i) => (
@@ -71,19 +56,13 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: '📸',
-    title: '사진을 찍으면 변신!',
-    description: '내가 그린 그림을 사진으로 찍으면\n진짜 같은 곤충으로 변신해!',
+    title: '그림을 찍으면 변신!',
+    description: '진짜 같은 곤충으로 변신하면\n바로 배틀하러 가자! ⚔️',
   },
-  {
-    emoji: '⚔️',
-    title: '이제 배틀하러 가자!',
-    description: '만든 곤충으로 친구들과 배틀하고\n랭킹에 도전해봐!',
-  },
-  // 마지막 장 — Jin 문구 (2026-10-01)
   {
     emoji: '🏅',
     title: '뱃지를 모아봐!',
-    description: '뱃지를 모을수록 재미있고\n멋진 선물을 받을 수 있어!!',
+    description: '뱃지를 모을수록\n멋진 선물을 받을 수 있어!!',
     visual: (
       <div className="flex justify-center gap-2 text-3xl">
         <span>🥇</span>
@@ -122,13 +101,14 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* 10/3 Jin: "모두 거기서 누르려고 노력중이더라" → 설명 칸이라는 걸 장마다 크게 알려준다 */}
-      <div className="mx-6 shrink-0 rounded-2xl border-2 border-amber-300 bg-amber-400/15 px-4 py-2.5 text-center" style={{ wordBreak: 'keep-all' }}>
-        <p className="text-lg font-black text-amber-200">📖 이건 설명 칸이야!!</p>
-        <p className="text-sm text-amber-100">여기는 누르는 곳이 아니야. 아래 <b>다음 →</b> 버튼으로 넘겨봐!</p>
+      {/* 11/20 Jin: "다들 잘 못 보더라" → 노란 바탕 · 글씨 크게 */}
+      <div className="mx-4 shrink-0 rounded-2xl border-4 border-amber-200 bg-amber-400 px-4 py-3 text-center shadow-lg shadow-amber-500/30" style={{ wordBreak: 'keep-all' }}>
+        <p className="text-[min(1.875rem,7.4vw)] leading-tight font-black text-slate-900 whitespace-nowrap">📖 이건 설명 칸이야!!</p>
+        <p className="mt-1 text-lg font-bold text-slate-900">누르지 말고 아래 <b className="underline">다음 →</b> 을 눌러!</p>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="min-h-full flex flex-col items-center justify-center gap-4 px-8 py-4 text-center">
+      <div className="min-h-full flex flex-col items-center justify-center gap-4 px-8 py-4 text-center" style={{ wordBreak: 'keep-all' }}>
         <div key={`emoji-${index}`} className="text-7xl animate-pop">
           {slide.emoji}
         </div>
