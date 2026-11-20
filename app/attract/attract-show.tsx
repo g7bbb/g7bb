@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { loadTestPlayerIds } from '@/lib/test-world';
 import { useWakeLock } from '@/lib/wake-lock';
 import { EVENT_LIVE } from '@/lib/event-mode';
@@ -83,7 +84,7 @@ interface TopCard extends ShowCard {
 async function loadTop3(): Promise<TopCard[]> {
   try {
     const [{ data }, testIds] = await Promise.all([
-      supabase.from('battles').select('player_id, insect_id, score').order('score', { ascending: false }).limit(300),
+      supabase.from('battles').select('player_id, insect_id, score').gte('created_at', SEASON_FROM).order('score', { ascending: false }).limit(300),
       loadTestPlayerIds(),
     ]);
     const best = new Map<string, { insect_id: string; score: number }>();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { getCurrentPlayer } from '@/lib/session';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { calculateStats, defaultBodyParts, statsForInsect } from '@/lib/insect-stats';
@@ -61,7 +62,7 @@ export default function TipsPage() {
         // 로그인 안 했어도 1~5위는 보여준다
       }
       const [{ data }, testIds] = await Promise.all([
-        supabase.from('battles').select('player_id, insect_id, score').order('score', { ascending: false }).limit(300),
+        supabase.from('battles').select('player_id, insect_id, score').gte('created_at', SEASON_FROM).order('score', { ascending: false }).limit(300),
         loadTestPlayerIds(),
       ]);
       const viewerIsTest = isTestPlayer(me);

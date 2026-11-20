@@ -5,6 +5,7 @@ import { AdminBack } from '../admin-gate';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { loadHeartCounts } from '@/lib/hearts';
 import { filterWorldQuery, loadTestPlayerIds } from '@/lib/test-world';
 
@@ -99,7 +100,7 @@ function JudgeBoard() {
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
     const { data } = await filterWorldQuery(
-      supabase.from('insects').select('id, nickname, species, image_base64, mime_type, judge_rank, created_at'),
+      supabase.from('insects').select('id, nickname, species, image_base64, mime_type, judge_rank, created_at').gte('created_at', SEASON_FROM),
       testIds.current,
       false
     )

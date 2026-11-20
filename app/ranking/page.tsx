@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { loadVisitMap } from '@/lib/visit-count';
 import TierFrame from '@/app/card/tier-frame';
 import { BrandMark } from '@/app/brand-logo';
@@ -17,6 +18,7 @@ import { EnvironmentKey, Player } from '@/lib/types';
 import { baseMoveFor } from '@/lib/special-moves';
 import { ORIGIN_EFFECTS } from '@/lib/origins';
 import { ENVIRONMENTS } from '@/lib/environments';
+import PastTop10 from '@/app/past-top10';
 
 interface RankRow {
   player_id: string;
@@ -124,6 +126,8 @@ export default function RankingPage() {
       .order('score', { ascending: false })
       .limit(200);
 
+    // 🏙️ '전체' 도 이번 행사 기록만 (대전 기록은 옆 '대전 1~10위' 칸에, lib/event-config.ts)
+    query = query.gte('created_at', SEASON_FROM);
     if (mode === 'today') {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -272,6 +276,9 @@ export default function RankingPage() {
           })}
         </ol>
       )}
+
+      {/* 🏆 지난 대전 행사 1~10위 (작게, 11/20 Jin) — 폰은 폭이 좁아 순위 아래에 둔다 */}
+      <PastTop10 />
 
       {/* TIP — 오늘의 랭킹·전체 랭킹 어느 쪽이든 아래에 보인다 */}
       {!loading && tip && <TipBox tip={tip} />}

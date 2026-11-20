@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useRouter } from 'next/navigation';
 import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM, inSeason } from '@/lib/event-config';
 import { ENVIRONMENTS } from '@/lib/environments';
 import { ORIGIN_EFFECTS, MATCHUP_BONUS, weakTo } from '@/lib/origins';
 import { awardBadges, blockedMessage, canContinueNow, practicedWith, PRACTICE_EDGE, savePracticed, claimSlot, friendXpMultiplier, gameIsOver, hasFriendBuff, ladderToResume, playStatus, readGameState, repairLadderRun, saveBadgeCount, saveLadderRun, SavedLadder } from '@/lib/game-state';
@@ -343,9 +344,10 @@ export default function BattlePage() {
     const [{ data: rows }, { data: scores }, testIds] = await Promise.all([
       supabase
         .from('insects')
-        .select('id, player_id, nickname, species, level, stats')
-        .limit(400),
-      supabase.from('battles').select('player_id, insect_id, score').order('score', { ascending: false }).limit(1000),
+        .select('id, player_id, nickname, species, level, stats, created_at')
+        .order('created_at', { ascending: false })
+        .limit(600),
+      supabase.from('battles').select('player_id, insect_id, score').gte('created_at', SEASON_FROM).order('score', { ascending: false }).limit(1000),
       loadTestPlayerIds(),
     ]);
 
@@ -359,6 +361,8 @@ export default function BattlePage() {
 
     const list: OpponentSummary[] = (rows || [])
       .filter((row: any) => sameWorld(row.player_id, testIds, viewerIsTest))
+      // 🏙️ 이번 행사 곤충만 (대전 때 곤충은 이번 행사에 다시 배틀한 것만, lib/event-config.ts)
+      .filter((row: any) => inSeason(row.created_at) || best.has(row.id))
       .map((row: any) => ({
       id: row.id,
       player_id: row.player_id,

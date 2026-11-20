@@ -1,6 +1,7 @@
 // 한 아이의 뱃지를 DB 에서 모아 세는 곳 (뱃지 화면 · 배틀 화면이 같이 쓴다).
 // 뱃지 규칙 자체는 lib/badges.ts.
 import { supabase } from './supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { Player } from './types';
 import { BadgeFacts, countBadges, earnedBadges, heldBadges, speciesBeatKey } from './badges';
 import { readGameState, saveBadgeCount } from './game-state';
@@ -17,7 +18,7 @@ import { isStaffTicket, isTestTicket } from './ticket';
 export async function visitorNumber(playerId: string): Promise<number | null> {
   try {
     const [{ data: insects }, { data: players }] = await Promise.all([
-      supabase.from('insects').select('player_id, created_at').order('created_at', { ascending: true }).limit(5000),
+      supabase.from('insects').select('player_id, created_at').gte('created_at', SEASON_FROM).order('created_at', { ascending: true }).limit(5000),
       supabase.from('players').select('id, ticket_code').limit(5000),
     ]);
     const skip = new Set(

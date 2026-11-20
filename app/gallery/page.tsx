@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { getCurrentPlayer } from '@/lib/session';
 import { loadHeartCounts, loadMyHearts, toggleHeart } from '@/lib/hearts';
 import { loadVisitMap } from '@/lib/visit-count';
@@ -45,7 +46,7 @@ export default function GalleryPage() {
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
     const query = filterWorldQuery(
-      supabase.from('insects').select('id, player_id, nickname, species, level, image_base64, mime_type'),
+      supabase.from('insects').select('id, player_id, nickname, species, level, image_base64, mime_type').gte('created_at', SEASON_FROM),
       world.current.testIds,
       world.current.viewerIsTest
     );

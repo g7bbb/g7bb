@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { SEASON_FROM } from '@/lib/event-config';
 import { isTestPlayer, loadTestPlayerIds, sameWorld } from '@/lib/test-world';
 import { loadKidNames } from '@/lib/kid-names';
 import { loadInsectImages } from '@/lib/image-cache';
@@ -9,6 +10,8 @@ import { useWakeLock } from '@/lib/wake-lock';
 import { EVENT_LIVE } from '@/lib/event-mode';
 import { BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
+import { CURRENT_EVENT } from '@/lib/event-config';
+import PastTop10 from '@/app/past-top10';
 
 // 📺 실시간 전체 랭킹 — 부스 모니터용 (2026-10-03 Jin: "영상 옆에 띄워놓게. 가로 20cm 정도, 길게. 지나가면서 아이들이 보게")
 //
@@ -75,6 +78,7 @@ export default function LivePage() {
         supabase
           .from('battles')
           .select('player_id, insect_id, score, insects!battles_insect_id_fkey(nickname, species, level)')
+          .gte('created_at', SEASON_FROM) // 🏙️ 이번 행사 기록만 (lib/event-config.ts)
           .order('score', { ascending: false })
           .limit(1000),
         loadTestPlayerIds(),
@@ -213,7 +217,7 @@ export default function LivePage() {
               <p className="text-[2rem] leading-tight font-black tracking-tight">
                 <span className="text-amber-300">G7BB 배틀</span> 실시간 랭킹
               </p>
-              <p className="text-sm text-slate-300 font-bold">{GAME_TITLE} · 2026 대전 곤충박람회</p>
+              <p className="text-sm text-slate-300 font-bold">{GAME_TITLE} · {CURRENT_EVENT.name}</p>
             </div>
           </div>
           <p className="mt-1.5 text-xs text-slate-500">
@@ -223,10 +227,12 @@ export default function LivePage() {
         </div>
       </header>
 
+      {/* 이번 행사 순위(왼쪽, 크게) + 🏆 지난 대전 1~10위(오른쪽, 작게 — 11/20 Jin) */}
+      <div className="flex-1 min-h-0 flex gap-3">
       {rows.length === 0 ? (
         <p className="flex-1 text-center text-slate-400 text-xl py-10">아직 배틀 기록이 없어. 첫 번째 주인공이 되어봐!</p>
       ) : (
-        <div ref={listRef} className="flex-1 min-h-0 overflow-hidden flex flex-col gap-2.5 [&>*]:shrink-0">
+        <div ref={listRef} className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col gap-2.5 [&>*]:shrink-0">
           {/* 1~3위 — 그림과 함께 크게 */}
           {rows.slice(0, 3).map((r, i) => (
             <div
@@ -270,6 +276,8 @@ export default function LivePage() {
           ))}
         </div>
       )}
+      <PastTop10 className="w-[30%] min-w-[11rem] max-w-[18rem] shrink-0 self-start max-h-full overflow-hidden" />
+      </div>
 
       {spot !== null && rows[spot] && <SpotCard row={rows[spot]} rank={spot} image={images.get(rows[spot].insect_id)} />}
 
