@@ -1791,8 +1791,8 @@ export default function BattlePage() {
                 <img src="/bots/boss.jpg" alt="중간보스" className="w-full max-h-[36vh] aspect-square object-cover rounded-2xl border-2 border-rose-400" />
                 <p className="text-lg font-black text-rose-300">👹 합체곤충 키메라 · LV.{myInsect.level}</p>
                 <p className="text-sm text-slate-300" style={{ wordBreak: 'keep-all' }}>
-                  잠자리 날개 + 사마귀 앞발 + 벌 꼬리를 합친 곤충이야. 보통 곤충보다 조금 더 세!
-                  랭킹 도전 횟수는 안 줄어들고, 이기든 지든 경험치를 받아.
+                  {/* 11/20 인천: 4줄 → 2줄 */}
+                  조금 더 센 보스야! 판 수는 안 줄고, 이기든 지든 경험치를 받아!
                 </p>
                 <button
                   onClick={fightBoss}
