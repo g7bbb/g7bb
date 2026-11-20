@@ -413,7 +413,7 @@ function friendlyError(message?: string): string {
           12자 제한은 카드에서 이름이 잘리지 않게 하려는 것입니다. */}
       <section className="flex flex-col gap-2">
         <label className="text-sm text-slate-400">
-          내 곤충 닉네임 <span className="text-slate-500">— 안 지어도 돼!</span>
+          내 곤충 닉네임 <span className="text-slate-500">(게임이나 순위에 나타나는 곤충 이름이야)</span>
         </label>
         <input
           className="bg-slate-800 rounded-xl px-4 py-3 text-lg"
@@ -465,15 +465,10 @@ function friendlyError(message?: string): string {
         <p className="mt-3 bg-yellow-300/15 border border-yellow-300/50 text-yellow-200 font-bold text-sm text-center rounded-xl px-3 py-2.5 break-keep">💬 {COLLECTING_NOTE}</p>
       </Question>
 
-      {/* 시즌1 안내 (Jin 문구 그대로, 10/1 끝말 수정) */}
-      <div className="bg-amber-400/10 border border-amber-400/40 rounded-2xl px-4 py-4 text-center text-sm leading-relaxed" style={{ wordBreak: 'keep-all' }}>
-        <p className="font-bold text-amber-300">
-          이번에 참여한 친구들은 G7BB배틀 시즌1에 참여했어!
-        </p>
-        <p className="mt-1 text-slate-200">
-          꼭 1등이 아니더라도, 선물을 많이 준비할게!! 화이팅!!
-        </p>
-      </div>
+      {/* 11/20 Jin: 한 줄로 (전엔 "시즌1에 참여했어 / 꼭 1등이 아니더라도…" 2줄) */}
+      <p className="bg-amber-400/10 border border-amber-400/40 rounded-2xl px-4 py-3 text-center text-sm font-bold text-amber-300" style={{ wordBreak: 'keep-all' }}>
+        꼭 1등이 아니어도 선물 많아! 화이팅!!
+      </p>
 
       {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
