@@ -101,10 +101,10 @@ export default function HowTo({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* 10/3 Jin: "모두 거기서 누르려고 노력중이더라" → 설명 칸이라는 걸 장마다 크게 알려준다 */}
-      {/* 11/20 Jin: "다들 잘 못 보더라" → 노란 바탕 · 글씨 크게 */}
+      {/* 11/20 Jin: "다들 잘 못 보더라" → 노란 바탕 · 빨간 큰 글씨(1.5배, 폰에선 두 줄) */}
       <div className="mx-4 shrink-0 rounded-2xl border-4 border-amber-200 bg-amber-400 px-4 py-3 text-center shadow-lg shadow-amber-500/30" style={{ wordBreak: 'keep-all' }}>
-        <p className="text-[min(1.875rem,7.4vw)] leading-tight font-black text-slate-900 whitespace-nowrap">📖 이건 설명 칸이야!!</p>
-        <p className="mt-1 text-lg font-bold text-slate-900">누르지 말고 아래 <b className="underline">다음 →</b> 을 눌러!</p>
+        <p className="text-[min(2.8rem,11.1vw)] leading-tight font-black text-red-700">📖 이건 설명 칸이야!!</p>
+        <p className="mt-1 text-lg font-bold text-slate-900">잘 읽어보고 아래 <b className="underline">다음 →</b> 을 눌러!</p>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
