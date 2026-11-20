@@ -56,7 +56,8 @@ function StartInner() {
   const [pinOk, setPinOk] = useState(false);
   const [pinError, setPinError] = useState('');
   // QR 이 안 찍힐 때만 번호·비밀번호 칸을 연다 (직원이 도와줄 때)
-  const [manual, setManual] = useState(false);
+  // 첫 화면의 "QR이 안 찍혀요" 버튼은 `/start?manual=1` 로 와서 칸이 바로 열린다 (11/20 설명 줄이기)
+  const [manual, setManual] = useState(() => params.get('manual') === '1');
   // 📷 앱 안에서 QR 찍기 (qr-scanner.tsx)
   const [scanning, setScanning] = useState(false);
 

@@ -108,33 +108,29 @@ function HomeInner() {
         <h1 className="mt-4 text-2xl font-bold" style={{ wordBreak: 'keep-all' }}>
           {GAME_TITLE}
         </h1>
-        {player ? (
-          <p className="mt-2 text-slate-300">{player.display_name}, 반가워!</p>
-        ) : (
-          <p className="mt-2 text-slate-400" style={{ wordBreak: 'keep-all' }}>곤충을 다 그렸으면 종이의 QR을 찍어서 시작해!</p>
-        )}
+        {player && <p className="mt-2 text-slate-300">{player.display_name}, 반가워!</p>}
       </div>
 
       {scanning && <QrScanner onClose={() => setScanning(false)} />}
       {!player ? (
         <div className="flex flex-col gap-3">
-          {/* 📷 버튼 바로 위 안내 (10/3 Jin: "종이 오른쪽 위에 QR을 찍어줘!!! 이렇게") */}
-          <div className="bg-amber-400/15 border-2 border-amber-300 rounded-2xl px-4 py-3 text-center" style={{ wordBreak: 'keep-all' }}>
-            <p className="text-xl font-black text-amber-200">📄 종이 오른쪽 위에 QR을 찍어줘!!!</p>
-            <p className="mt-1 text-sm text-amber-100">아래 초록 버튼을 누르고, 종이 오른쪽 위 QR을 카메라에 비춰줘</p>
-          </div>
+          {/* 🔁 11/20 Jin "설명이 길다": 같은 말(QR 찍어) 세 번 → 큰 초록 버튼 하나 + 아래 한 줄 */}
           <button
             type="button"
             onClick={() => setScanning(true)}
-            className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-4 rounded-2xl text-lg"
+            className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-5 rounded-2xl text-xl"
           >
             📷 종이 QR 찍고 시작하기
           </button>
+          <p className="-mt-1 text-center text-sm text-slate-400" style={{ wordBreak: 'keep-all' }}>
+            종이 오른쪽 위 QR을 카메라에 비춰줘
+          </p>
+          {/* 손으로 번호·비밀번호 넣는 길 — "시작하기" 라고 쓰면 아이들이 초록 버튼 대신 누른다 */}
           <Link
-            href="/start"
-            className="block text-center bg-slate-800 text-slate-200 font-bold py-3 rounded-2xl"
+            href="/start?manual=1"
+            className="mx-auto block w-fit text-center bg-slate-800 text-slate-300 text-sm font-bold py-2 px-5 rounded-xl"
           >
-            🎫 시작하기
+            QR이 안 찍혀요 (번호로 시작)
           </Link>
         </div>
       ) : (
