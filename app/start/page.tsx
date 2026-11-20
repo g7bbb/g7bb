@@ -451,7 +451,7 @@ function friendlyError(message?: string): string {
               key={option.key}
               type="button"
               onClick={() => setPrize(option.key)}
-              className={`text-left px-4 py-3 rounded-xl border text-sm ${
+              className={`text-left px-4 py-3 rounded-xl border text-sm break-keep ${
                 prize === option.key
                   ? 'bg-emerald-500 text-slate-900 border-emerald-400 font-bold'
                   : 'bg-slate-800 border-slate-700'
