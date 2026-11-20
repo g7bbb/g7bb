@@ -302,33 +302,28 @@ function TipBox({ tip }: { tip: RankTip }) {
   const counter = ENVIRONMENTS.find((e) => e.key === counterKey);
   return (
     <section className="bg-sky-500/10 border-2 border-sky-400/50 rounded-2xl p-4 flex flex-col gap-2" style={{ wordBreak: 'keep-all' }}>
-      <p className="text-lg font-black text-sky-300">💡 TIP!</p>
+      {/* 11/20 인천: 2줄로. 평균 레벨 줄·"30분 뒤에" 뺌 (1만원·10만원은 기다림 없이 연달아) */}
       <p className="text-base leading-relaxed">
-        지금 랭킹 TOP{tip.count} 곤충들은{' '}
+        <b className="text-sky-300">💡 TIP!</b> TOP{tip.count}은{' '}
         <b className={attackMost ? 'text-rose-300' : 'text-sky-300'}>
-          {attackMost ? '⚔️ 공격형' : '🛡️ 수비형'} 필살기가 {pct(share)}%
+          {attackMost ? '⚔️ 공격형' : '🛡️ 수비형'}이 {pct(share)}%
         </b>
         야!{' '}
         {attackMost ? (
           <>
-            레벨업을 해서 반대 속성인 <b className="text-sky-300">🛡️ 수비력</b>을 올리면 막아내고 이길 수 있어!!
+            <b className="text-sky-300">🛡️ 수비력</b>을 올리면 이길 수 있어!
           </>
         ) : (
           <>
-            레벨업을 해서 반대 속성인 <b className="text-rose-300">⚔️ 공격력</b>을 올리면 뚫고 이길 수 있어!!
+            <b className="text-rose-300">⚔️ 공격력</b>을 올리면 이길 수 있어!
           </>
         )}
       </p>
       {origin && counter && tip.topOriginShare >= 0.4 && (
-        <p className="text-base leading-relaxed">
-          그리고 {pct(tip.topOriginShare)}%가 <b>{origin.emoji} {origin.label}</b> 출신이야.{' '}
-          <b className="text-emerald-300">{counter.emoji} {counter.label}</b> 곤충이 상성으로 더 세! (새 곤충 만들 때 골라봐)
+        <p className="text-sm leading-relaxed">
+          {origin.emoji} {origin.label} 출신이 많아 → <b className="text-emerald-300">{counter.emoji} {counter.label}</b> 곤충이 상성으로 더 세!
         </p>
       )}
-      <p className="text-sm text-slate-300">
-        랭킹 곤충 평균 <b>LV.{tip.avgLevel.toFixed(1)}</b> — 레벨이 낮으면 🔥역전 찬스로 크리티컬이 더 잘 터져!
-      </p>
-      <p className="text-base font-black text-amber-300">⏳ 30분 뒤에 또 해보자!!</p>
     </section>
   );
 }
