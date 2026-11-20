@@ -8,7 +8,7 @@ import { GUIDE_URL, ABOUT_URL, SITE_URL, ticketUrl } from '@/lib/site';
 import { BRAND, GAME_TITLE } from '@/lib/brand';
 import AdminGate from '@/app/admin/admin-gate';
 import { fetchTicketPins } from '@/lib/ticket-pin-client';
-import { TIERS, TIER_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/tiers';
+import { TIERS, TIER_ORDER, SELL_ORDER, TierKey, gamesLabel, tierStartIndex } from '@/lib/tiers';
 
 // 부스에서 아이들에게 나눠줄 A4 그림 용지를 브라우저에서 바로 뽑는 화면입니다.
 //
@@ -130,7 +130,7 @@ function PrintInner() {
           <label>
             금액
             <select value={tier} onChange={(e) => setTier(e.target.value as TierKey)}>
-              {TIER_ORDER.map((key) => (
+              {SELL_ORDER.map((key) => (
                 <option key={key} value={key}>
                   {key} · {TIERS[key].price} ({gamesLabel(TIERS[key])})
                 </option>

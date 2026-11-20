@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
-import { TIERS, TIER_ORDER } from '@/lib/tiers';
+import { TIERS, SELL_ORDER } from '@/lib/tiers';
 import { DRAWING_CONTEST_REWARDS, RANKING_REWARDS } from '@/lib/survey';
 import { BADGE_MILESTONES } from '@/lib/badges';
 
@@ -107,7 +107,7 @@ export default function GuidePage() {
       <section className="bg-slate-800/80 rounded-2xl p-4">
         <p className="font-black">🎟️ 참가권</p>
         <div className="mt-2 flex flex-col gap-2">
-          {TIER_ORDER.map((key) => {
+          {SELL_ORDER.map((key) => {
             const tier = TIERS[key];
             return (
               <div key={key} className="text-sm">

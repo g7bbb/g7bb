@@ -29,13 +29,15 @@ export const BONUS_REWARDS: { key: BonusKey; emoji: string; title: string; desc:
  * - `levelUpOnce`(2만원 이상) 인데 아직 보너스 스테이지를 한 번도 안 받았으면 → **무조건 보너스 + 상품은 레벨 1 업**.
  */
 export function planLadderEvent(
-  tier: { eventChance: number; levelUpOnce?: boolean },
+  tier: { eventChance: number; levelUpOnce?: boolean; bonusAlways?: boolean },
   hadBonusBefore: boolean,
   rand: () => number = Math.random
 ): { bossAfter: number | null; bonus: boolean; bonusLevel: boolean } {
   if (rand() >= tier.eventChance) return { bossAfter: null, bonus: false, bonusLevel: false };
   const bossAfter = 1 + Math.floor(rand() * 2);
   if (tier.levelUpOnce && !hadBonusBefore) return { bossAfter, bonus: true, bonusLevel: true };
+  // 🎁 10만원: 매 게임 보너스 스테이지 무조건 (중간보스 대신, 11/20 Jin)
+  if (tier.bonusAlways) return { bossAfter, bonus: true, bonusLevel: false };
   return { bossAfter, bonus: rand() < BONUS_SHARE, bonusLevel: false };
 }
 
