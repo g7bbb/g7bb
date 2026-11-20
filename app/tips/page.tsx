@@ -14,7 +14,6 @@ import { weakTo } from '@/lib/origins';
 import { ALLOC_STATS } from '@/lib/alloc';
 import { EnvironmentKey, Insect, Player } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
-import { LEVELUP_HEADLINE } from '@/lib/levelup-tips';
 
 // 💡 승리 팁 (2026-10-04 Jin: "현재 1~5위의 속성과 능력치를 요점으로 알려주고,
 //    레벨업하고 이 스탯을 올리면 이길 수 있어! 를 알려주면 좋겠어. 승리 팁 버튼을 만들어서 연결되게")
@@ -129,39 +128,30 @@ export default function TipsPage() {
             <p className="text-xl font-black text-amber-200 text-center">
               🆙 레벨업하고 {LABEL[suggest].emoji} {LABEL[suggest].label}{OBJ[suggest]} 올리면 이길 수 있어!
             </p>
+            {/* 11/20 인천: 6줄 → 3줄 (레벨 · 공격형/수비형 · 출신지). 연습 게임·포인트 줄은 다른 화면에 있어서 뺌 */}
             <ul className="text-base flex flex-col gap-1.5 mt-1">
               <li>
-                🆙 1~5위 평균 레벨은 <b className="text-amber-300">LV.{lv(avgLevel)}</b> →{' '}
-                <b>LV.{needLevel} 이상</b>을 만들어 보자!
-                {mine && <span className="text-slate-300"> (내 곤충 LV.{mine.level ?? 1})</span>}
-              </li>
-              <li>
-                {LABEL[suggest].emoji} <b>{LABEL[suggest].label}</b>: {LABEL[suggest].desc}
-                {myStats && weakest && (
-                  <span className="text-slate-300">
-                    {' '}
-                    (내 곤충 {Math.round(myStats[suggest] ?? 0)} · 1~5위 평균 {Math.round(avg(suggest))})
-                  </span>
+                🆙 1~5위 평균 <b className="text-amber-300">LV.{lv(avgLevel)}</b>
+                {mine && (mine.level ?? 1) >= needLevel ? (
+                  <> · 내 곤충 LV.{mine.level ?? 1} — <b className="text-emerald-300">벌써 평균보다 높아! 💪</b></>
+                ) : (
+                  <>
+                    {' '}→ <b>LV.{needLevel} 이상</b> 만들기!
+                    {mine && <span className="text-slate-300"> (내 곤충 LV.{mine.level ?? 1})</span>}
+                  </>
                 )}
               </li>
               <li>
-                ⚔️ 1~5위 중 <b>공격형 {attackCount}마리 · 수비형 {topStats.length - attackCount}마리</b>
+                ⚔️ 공격형 {attackCount} · 수비형 {topStats.length - attackCount}
                 {attackCount >= topStats.length / 2 ? ' → 수비력·HP 로 버티자!' : ' → 공격력·지능으로 뚫자!'}
-              </li>
-              <li>
-                🎯 이길 상대랑 <b>연습 게임</b>을 먼저 해봐! 공격 패턴을 읽게 돼서 그 상대를 만나면{' '}
-                <b className="text-pink-300">승리 확률 +10%</b>
               </li>
               {topOrigin && counterOrigin && (
                 <li>
-                  🗺️ 제일 많은 출신지는 {envOf(topOrigin)?.emoji} <b>{envOf(topOrigin)?.label}</b> → {envOf(counterOrigin)?.emoji}{' '}
+                  🗺️ {envOf(topOrigin)?.emoji} {envOf(topOrigin)?.label} 출신이 많아 → {envOf(counterOrigin)?.emoji}{' '}
                   <b>{envOf(counterOrigin)?.label}</b> 출신이 상성으로 강해!
                 </li>
               )}
             </ul>
-            <p className="text-sm text-amber-100/90 text-center mt-1">
-              💡 다시 와서 <b>레벨업 접속</b>하면 포인트로 능력치를 직접 올릴 수 있어!
-            </p>
           </section>
 
           {/* 🏆 1~5위 요점 */}
@@ -201,7 +191,7 @@ export default function TipsPage() {
             })}
           </section>
 
-          <p className="text-center text-sm font-bold text-amber-200">🆙 {LEVELUP_HEADLINE}</p>
+          <p className="text-center text-sm font-bold text-amber-200">🆙 레벨업해야 랭킹에 올라갈 수 있어!!</p>
         </>
       )}
 

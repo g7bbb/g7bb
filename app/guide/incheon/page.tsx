@@ -41,8 +41,8 @@ const STEPS: { emoji: string; title: string; body: string }[] = [
 ];
 
 export default function IncheonGuidePage() {
-  // 대전 뱃지 실물 선물은 인천에서 정해지지 않아 뺐다 (Jin 확인 대기)
-  const milestones = BADGE_MILESTONES.filter((m) => !m.title.includes('대전'));
+  // 11/20 Jin: 인천에서도 15개 실물 뱃지 선물을 준다 (lib/badges.ts 이름이 이번 행사로 바뀜)
+  const milestones = BADGE_MILESTONES;
   return (
     <main className="min-h-screen max-w-md mx-auto px-5 py-8 flex flex-col gap-6" style={{ wordBreak: 'keep-all' }}>
       <div className="flex flex-col items-center gap-2 text-center">

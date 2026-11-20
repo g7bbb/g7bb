@@ -41,6 +41,13 @@ export const CURRENT_EVENT: EventInfo = {
 /** 이번 행사 기록만 쓰는 기준 시각 (supabase `.gte('created_at', SEASON_FROM)`) */
 export const SEASON_FROM = CURRENT_EVENT.from;
 
+/** 이 시각(created_at)의 행사 — 이번 행사 시작 전이면 지난 행사(대전). 뱃지·포스터 꼬리에 쓴다. */
+export function eventFor(createdAt: string | null | undefined): EventInfo {
+  if (!createdAt) return CURRENT_EVENT;
+  const t = Date.parse(createdAt);
+  return Number.isFinite(t) && t < Date.parse(SEASON_FROM) ? PAST_EVENT : CURRENT_EVENT;
+}
+
 /** 이 시각(created_at)이 이번 행사 안인가 */
 export function inSeason(createdAt: string | null | undefined): boolean {
   if (!createdAt) return false;

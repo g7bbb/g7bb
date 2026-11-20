@@ -16,6 +16,7 @@ import InsectCard, { InsectCardData } from '@/app/card/insect-card';
 import SelphyCard from '@/app/card/selphy-card';
 import { SITE_URL } from '@/lib/site';
 import { fetchTicketPins } from '@/lib/ticket-pin-client';
+import { eventFor } from '@/lib/event-config';
 
 // ─────────────────────────────────────────────────────────────
 // 직원용: 곤충 찾기 → 원본 그림 받기 / A3 포스터 인쇄 (2026-10-01 Jin: "내 곤충 A3 포스터로 뽑아보려고")
@@ -636,7 +637,7 @@ function Poster({ picked, src }: { picked: Picked; src: string | null }) {
         className="absolute flex justify-between items-center"
         style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '6.6mm', fontWeight: 700, color: '#94a3b8' }}
       >
-        <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
+        <span>{posterTail(picked.insect.created_at)}</span>
         <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{displayTicket(owner?.ticket_code)}</span>
       </div>
     </div>
@@ -671,9 +672,15 @@ function ImageOnly({ picked, src }: { picked: Picked; src: string | null }) {
         className="absolute flex justify-between items-center"
         style={{ left: '16mm', right: '16mm', bottom: '11mm', fontSize: '6.6mm', fontWeight: 700, color: '#94a3b8' }}
       >
-        <span>2026 대전 곤충박람회 G7BB 배틀 시즌1</span>
+        <span>{posterTail(picked.insect.created_at)}</span>
         <span style={{ color: '#e2e8f0', fontWeight: 900, letterSpacing: '0.5mm' }}>{displayTicket(owner?.ticket_code)}</span>
       </div>
     </div>
   );
+}
+
+/** 포스터 꼬리 — 그 곤충을 만든 행사 이름 (대전: "2026 대전 곤충박람회 G7BB 배틀 시즌1", 인천: "2026 인천 G7BB 배틀 시즌1") */
+function posterTail(createdAt: string | null | undefined): string {
+  const n = eventFor(createdAt).name;
+  return `${n}${n.includes('G7BB') ? '' : ' G7BB 배틀'} 시즌1`;
 }

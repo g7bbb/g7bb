@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { findSpecies } from './species';
+import { CURRENT_EVENT, EventInfo } from './event-config';
 
 /** N번째 손님 뱃지를 주는 순서들 */
 export const VISITOR_MARKS = [1, 10, 100, 200, 300, 400, 500];
@@ -36,7 +37,9 @@ export interface BadgeDef {
 }
 
 export const BADGES: BadgeDef[] = [
-  { key: 'daejeon', emoji: '🎡', name: '대전 곤충박람회', how: '2026 대전 곤충박람회에 참가하기', special: 'daejeon' },
+  // 🏙️ 11/20 인천: 행사 뱃지는 아이가 **처음 곤충을 만든 행사**를 따른다 (대전 아이는 대전, 인천 아이는 인천).
+  //    key 는 옛 기록 때문에 'daejeon' 그대로. 화면 이름은 BadgeFacts.event 로 바꿔 보여준다 (app/badges/page.tsx).
+  { key: 'daejeon', emoji: '🎡', name: `${CURRENT_EVENT.short} G7BB 배틀`, how: `${CURRENT_EVENT.name}에 참가하기`, special: 'daejeon' },
   { key: 'firstInsect', emoji: '🐣', name: '첫 곤충 탄생', how: '내 곤충을 처음 만들기' },
   { key: 'play1', emoji: '🎮', name: '첫 게임', how: '게임에 처음 참여하기' },
   { key: 'revisit', emoji: '🔁', name: '또 왔다!', how: 'QR 로 다시 와서 게임하기' },
@@ -114,7 +117,8 @@ export interface BadgeMilestone {
 export const BADGE_MILESTONES: BadgeMilestone[] = [
   { count: 10, emoji: '💚', title: 'HP +10%', kind: 'buff', text: '내 곤충의 HP가 올라가!' },
   // 🔁 10/2 Jin: 대전 뱃지 실물 선물은 10개 → **15개**. (1만원 1게임은 아래 한도 때문에 10개를 못 넘는다)
-  { count: 15, emoji: '🎁', title: '대전 뱃지 선물', kind: 'gift', text: '진짜 대전 뱃지를 부스에서 받을 수 있어!' },
+  // 🔁 11/20 인천 Jin: 인천에서도 실물 뱃지를 준다 → 이름만 이번 행사로
+  { count: 15, emoji: '🎁', title: `${CURRENT_EVENT.short} 뱃지 선물`, kind: 'gift', text: `진짜 ${CURRENT_EVENT.short} 뱃지를 부스에서 받을 수 있어!` },
   { count: 15, emoji: '🛡️', title: '수비력 +15%', kind: 'buff', text: '내 곤충의 수비력이 올라가!' },
   { count: 20, emoji: '⚡', title: '필살기 공격 +10%', kind: 'buff', text: '내 곤충의 필살기가 더 세져!' },
   { count: COUNTED_TOTAL, emoji: '👑', title: '뱃지 올클리어 선물', kind: 'gift', text: '이번 행사 뱃지를 전부 모으면 특별한 선물이 있어!' },
@@ -169,6 +173,8 @@ export interface BadgeFacts {
   stored: Record<string, string>;
   /** 행사에서 몇 번째 손님인지 (곤충을 처음 만든 순서, 테스트·직원 번호 빼고). 모르면 없음 */
   visitorNo?: number | null;
+  /** 행사 뱃지에 쓸 행사 (처음 곤충을 만든 행사). 없으면 이번 행사 */
+  event?: EventInfo;
 }
 
 /** 조건을 채운 뱃지 전부 (게임 수 한도 적용 전) */

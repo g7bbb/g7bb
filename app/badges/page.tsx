@@ -11,6 +11,7 @@ import { loadBadgeSnapshot } from '@/lib/badge-state';
 import { awardBadges } from '@/lib/game-state';
 import { BrandMark } from '@/app/brand-logo';
 import { PerkChips } from './perk-chips';
+import { CURRENT_EVENT, EventInfo } from '@/lib/event-config';
 
 // 내 뱃지 모음 (2026-10-01 Jin). 카드·종이의 QR 로 들어오면 바로 볼 수 있다.
 // 뱃지 규칙은 lib/badges.ts.
@@ -26,6 +27,8 @@ export default function BadgesPage() {
   const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [earned, setEarned] = useState<Set<string> | null>(null);
+  // 🏙️ 행사 뱃지에 쓸 행사 (처음 곤충을 만든 행사, lib/badge-state.ts)
+  const [ev, setEv] = useState<EventInfo>(CURRENT_EVENT);
   const [held, setHeld] = useState<Set<string>>(new Set());
   const [count, setCount] = useState(0);
   const [error, setError] = useState('');
@@ -56,6 +59,7 @@ export default function BadgesPage() {
       const snap = await loadBadgeSnapshot(fresh);
       // (랭킹 뱃지는 위에서 저장했으니 snap 에 이미 들어 있다 — 여기서 따로 더하면 게임 수 한도를 건너뛴다)
       setEarned(snap.earned);
+      setEv(snap.facts.event ?? CURRENT_EVENT);
       setHeld(snap.held);
       setCount(countBadges(snap.earned));
     })().catch((err) => setError(err?.message || '뱃지를 못 불러왔어. 다시 열어줘!'));
@@ -108,17 +112,17 @@ export default function BadgesPage() {
 
           {/* 행사 뱃지는 따로 크게 — 이번 행사에 온 아이 모두가 받는 첫 뱃지 */}
           <div className="bg-slate-800 rounded-2xl p-4 flex items-center gap-4" style={{ wordBreak: 'keep-all' }}>
-            <DaejeonEmblem earned={earned.has('daejeon')} size={96} />
+            <DaejeonEmblem earned={earned.has('daejeon')} size={96} ev={ev} />
             <div>
               <p className="text-xs text-amber-300 font-bold">🎉 행사 기념 뱃지</p>
-              <p className="text-lg font-black leading-tight">2026 대전 곤충박람회</p>
+              <p className="text-lg font-black leading-tight">{ev.name}</p>
               <p className="text-xs text-slate-400 mt-1">G7BB 배틀 시즌1에 참여한 친구만 받을 수 있어!</p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             {BADGES.map((badge) => (
-              <BadgeTile key={badge.key} badge={badge} earned={earned.has(badge.key)} held={held.has(badge.key)} />
+              <BadgeTile key={badge.key} badge={badge} earned={earned.has(badge.key)} held={held.has(badge.key)} ev={ev} />
             ))}
           </div>
         </>
@@ -158,7 +162,9 @@ function MilestoneBar({ got, total }: { got: number; total: number }) {
   );
 }
 
-function BadgeTile({ badge, earned, held }: { badge: BadgeDef; earned: boolean; held: boolean }) {
+function BadgeTile({ badge, earned, held, ev }: { badge: BadgeDef; earned: boolean; held: boolean; ev: EventInfo }) {
+  // 행사 뱃지는 그 아이의 행사 이름으로 ("2026 " 은 빼고 짧게)
+  const name = badge.special === 'daejeon' ? ev.name.replace(/^\d{4}\s*/, '') : badge.name;
   return (
     <div
       className={`rounded-2xl p-2 flex flex-col items-center text-center gap-1 ${
@@ -167,7 +173,7 @@ function BadgeTile({ badge, earned, held }: { badge: BadgeDef; earned: boolean; 
       style={{ wordBreak: 'keep-all' }}
     >
       {badge.special === 'daejeon' ? (
-        <DaejeonBadge earned={earned} />
+        <DaejeonBadge earned={earned} ev={ev} />
       ) : (
         <div
           className={`w-[5.25rem] h-[5.25rem] rounded-full flex items-center justify-center text-[3rem] leading-none ${
@@ -178,7 +184,7 @@ function BadgeTile({ badge, earned, held }: { badge: BadgeDef; earned: boolean; 
         </div>
       )}
       <p className={`text-[0.6875rem] font-bold leading-tight ${earned ? 'text-slate-100' : 'text-slate-400'}`}>
-        {badge.name}
+        {name}
       </p>
       {!earned &&
         (held ? (
@@ -197,8 +203,10 @@ function BadgeTile({ badge, earned, held }: { badge: BadgeDef; earned: boolean; 
  * 꿈돌이는 대전시 캐릭터라 쓰려면 허락이 필요하다. `public/badges/kkumdori.png` 를 넣으면
  * 가운데 마스코트 자리가 그 그림으로 바뀐다 (없으면 우리 마스코트).
  */
-function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
-  const [hasLogo, setHasLogo] = useState(true);
+function DaejeonEmblem({ earned, size, ev }: { earned: boolean; size: number; ev: EventInfo }) {
+  // 꿈돌이 그림은 대전 뱃지에만 (인천 뱃지는 우리 마스코트)
+  const [logoOk, setHasLogo] = useState(true);
+  const hasLogo = logoOk && ev.short === '대전';
   const u = size / 100; // 100 기준으로 그린 뒤 크기만 맞춘다
   return (
     <div
@@ -253,7 +261,7 @@ function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
           letterSpacing: 1 * u,
         }}
       >
-        대전
+        {ev.short}
       </div>
     </div>
   );
@@ -263,7 +271,7 @@ function DaejeonEmblem({ earned, size }: { earned: boolean; size: number }) {
 // 혼자 작게 남았다 (10/2 Jin: "꽉 찬 것도 있고 안 찬 것도 있네") → 지금 rem 을 재서 같은 크기로 맞춘다.
 const BADGE_ICON_REM = 5.25;
 
-function DaejeonBadge({ earned }: { earned: boolean }) {
+function DaejeonBadge({ earned, ev }: { earned: boolean; ev: EventInfo }) {
   const [size, setSize] = useState(BADGE_ICON_REM * 16);
   useEffect(() => {
     const measure = () => {
@@ -274,5 +282,5 @@ function DaejeonBadge({ earned }: { earned: boolean }) {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, []);
-  return <DaejeonEmblem earned={earned} size={size} />;
+  return <DaejeonEmblem earned={earned} size={size} ev={ev} />;
 }

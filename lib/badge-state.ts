@@ -1,7 +1,7 @@
 // 한 아이의 뱃지를 DB 에서 모아 세는 곳 (뱃지 화면 · 배틀 화면이 같이 쓴다).
 // 뱃지 규칙 자체는 lib/badges.ts.
 import { supabase } from './supabaseClient';
-import { SEASON_FROM } from '@/lib/event-config';
+import { SEASON_FROM, eventFor } from '@/lib/event-config';
 import { Player } from './types';
 import { BadgeFacts, countBadges, earnedBadges, heldBadges, speciesBeatKey } from './badges';
 import { readGameState, saveBadgeCount } from './game-state';
@@ -49,7 +49,7 @@ export interface BadgeSnapshot {
 export async function loadBadgeSnapshot(player: Player): Promise<BadgeSnapshot> {
   const { data: insects } = await supabase
     .from('insects')
-    .select('id, species, mutations, level, judge_rank')
+    .select('id, species, mutations, level, judge_rank, created_at')
     .eq('player_id', player.id);
   const ids = (insects || []).map((row: any) => row.id);
 
@@ -86,6 +86,10 @@ export async function loadBadgeSnapshot(player: Player): Promise<BadgeSnapshot> 
     beatSpecies,
     stored: { ...state.badges },
     visitorNo,
+    // 🏙️ 행사 뱃지: 처음 곤충을 만든 행사 (대전 아이는 대전, 인천 아이는 인천)
+    event: eventFor(
+      (insects || []).map((row: any) => row.created_at as string).filter(Boolean).sort()[0]
+    ),
   };
   const earned = earnedBadges(facts);
   const held = heldBadges(facts);
