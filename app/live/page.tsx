@@ -44,9 +44,8 @@ const SPEED_TOP10 = 56;
 const SPEED_REST = 84; // 4~10위 × 1.5
 /** 줄이 짧아 흐르지 않을 때도 이 간격으로 1~3위 카드를 다시 보여준다 */
 const SPOT_EVERY_MS = 30_000;
-/** 🪄 변신 쇼를 끼워 넣는 간격과 한 번에 보여줄 마리 수 (11/21 Jin: 순위만 말고 그림 → AI 곤충으로 눈길) */
-const SHOW_EVERY_MS = 60_000;
-const SHOW_COUNT = 3;
+/** 🪄 변신 쇼를 끼워 넣는 간격 (11/21 Jin: 순위만 말고 그림 → AI 곤충으로 눈길). 한 번에 짝 전부 + 배틀 (약 22초) */
+const SHOW_EVERY_MS = 90_000;
 
 interface Row {
   player_id: string;
@@ -78,7 +77,6 @@ export default function LivePage() {
   useWakeLock(EVENT_LIVE);
   // 🪄 변신 쇼 — 1분마다 SHOW_COUNT 마리 (lib/transform-show.ts). 그림은 고정 파일이라 데이터를 안 쓴다.
   const [showing, setShowing] = useState(false);
-  const [showStart, setShowStart] = useState(0);
   useEffect(() => {
     if (!SHOW_PAIRS.length) return;
     const id = window.setInterval(() => setShowing(true), SHOW_EVERY_MS);
@@ -293,15 +291,7 @@ export default function LivePage() {
       </div>
 
       {showing && (
-        <TransformShow
-          pairs={SHOW_PAIRS}
-          start={showStart}
-          count={Math.min(SHOW_COUNT, SHOW_PAIRS.length)}
-          onDone={() => {
-            setShowing(false);
-            setShowStart((v) => (v + SHOW_COUNT) % SHOW_PAIRS.length);
-          }}
-        />
+        <TransformShow pairs={SHOW_PAIRS} onDone={() => setShowing(false)} />
       )}
       {spot !== null && rows[spot] && <SpotCard row={rows[spot]} rank={spot} image={images.get(rows[spot].insect_id)} />}
 

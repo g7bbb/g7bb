@@ -23,7 +23,7 @@ import { loadInsectImages } from '@/lib/image-cache';
 // (④ 는 10/4 Jin "현재 1~3위 곤충을 멋지게 보여주는 걸 붙여줘". 랭킹 기록이 없으면 건너뛴다)
 // 소리는 없다 (폰·태블릿은 누르기 전에는 소리를 낼 수 없음).
 
-interface ShowCard {
+export interface ShowCard {
   id: string;
   nickname: string;
   species: string;
@@ -240,7 +240,8 @@ function TitleScene() {
 }
 
 /** 배틀 시연 — 하스스톤식 공격·콰쾅·필살기·퍼펙트를 정해진 순서로 보여준다 */
-function BattleScene({ a, b }: { a: ShowCard; b: ShowCard }) {
+/** 변신 쇼(app/transform-show.tsx)에서도 쓴다 */
+export function BattleScene({ a, b }: { a: ShowCard; b: ShowCard }) {
   const [attack, setAttack] = useState<'A' | 'B' | null>(null);
   const [hit, setHit] = useState<'A' | 'B' | null>(null);
   const [hpA, setHpA] = useState(100);

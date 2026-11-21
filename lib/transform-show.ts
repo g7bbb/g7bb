@@ -10,20 +10,29 @@ export interface ShowPair {
   sketch: string;
   /** AI 가 바꿔준 곤충 그림 */
   ai: string;
-  /** 곤충 이름 (없으면 안 씀) */
+  /** 곤충 이름 (없으면 종류를 이름처럼 쓴다) */
   name?: string;
+  /** 곤충 종류 — 배틀 장면 카드·필살기에 쓴다 */
+  species: string;
   /** 그림 가로 ÷ 세로 (AI 그림 기준, 없으면 1 = 정사각형). 화면 칸 모양을 여기에 맞춘다 */
   ratio?: number;
 }
 
 /** Jin 이 보낸 짝 (11/21). 스케치는 옆으로 누운 폰 사진이라 세우고 그림 칸만 잘랐다 (회색 종이 → 흰색으로 밝게). */
 export const SHOW_PAIRS: ShowPair[] = [
-  { sketch: '/show/sketch-1.jpg', ai: '/show/ai-1.jpg', ratio: 1024 / 559 },
-  { sketch: '/show/sketch-2.jpg', ai: '/show/ai-2.jpg', ratio: 1024 / 768 },
+  { sketch: '/show/sketch-1.jpg', ai: '/show/ai-1.jpg', ratio: 1024 / 559, species: '장수풍뎅이', name: '빨간 장수풍뎅이' },
+  { sketch: '/show/sketch-2.jpg', ai: '/show/ai-2.jpg', ratio: 1024 / 768, species: '사슴벌레', name: '황금 사슴벌레' },
 ];
 
-/** 한 마리 보여주는 시간 (스케치 2.4초 → 번쩍 0.8초 → AI 곤충 3.6초) */
-export const SHOW_SKETCH_MS = 2400;
+/**
+ * 🔁 11/21 Jin: "스케치랑 완성 그림을 한 화면에 (모니터가 커서)" + "마지막에 바뀐 그림끼리 배틀하는 영상"
+ * 한 짝: 스케치만 1.6초 → 오른쪽이 번쩍 0.8초 → 둘이 나란히 4초. 짝을 다 보여준 뒤 1번 vs 2번 배틀 9초.
+ */
+export const SHOW_SKETCH_MS = 1600;
 export const SHOW_FLASH_MS = 800;
-export const SHOW_AI_MS = 3600;
+export const SHOW_AI_MS = 4000;
 export const SHOW_PAIR_MS = SHOW_SKETCH_MS + SHOW_FLASH_MS + SHOW_AI_MS;
+/** 마지막 배틀 장면 (app/attract BattleScene 그대로 — 7.3초에 승리) */
+export const SHOW_BATTLE_MS = 9500;
+/** 한 바퀴 = 짝 전부 + 배틀 */
+export const SHOW_CYCLE_MS = SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0);
