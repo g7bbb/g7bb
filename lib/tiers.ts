@@ -59,6 +59,7 @@ export interface Tier {
 //    5만·10만원 혜택 그대로 (이벤트는 2만원처럼 무조건 — 2만원보다 덜 주면 안 되니까).
 export const TIERS: Record<TierKey, Tier> = {
   // 🔁 2026-11-20 인천 Jin: 5천원 3판 · 1만원 하루 9판 · 10만원 무제한(매회 보너스). 5만원은 안 판다(옛 C 아이 표시용으로만 남김).
+  // 🔁 2026-11-21 인천 행사 당일 Jin: 1만원 3게임(9판) → **5게임(15판)**. 이미 1만원으로 올려준 아이도 바로 5게임이 된다(금액만 저장하고 게임 수는 여기서 읽음).
   A: {
     key: 'A',
     price: '5천원',
@@ -75,15 +76,15 @@ export const TIERS: Record<TierKey, Tier> = {
     price: '1만원',
     name: '레벨업권',
     emoji: '⬆️',
-    games: 3,
+    games: 5,
     oneDay: true,
-    label: '하루 9판',
+    label: '하루 15판',
     eventChance: 1,
     levelUpOnce: true,
     continuous: true,
     card: 'normal',
     perks: [
-      '9판 (3게임, 그날 하루)',
+      '15판 (5게임, 그날 하루)',
       '레벨업 보너스게임 (무조건 발동!!)',
       '앱에서 캐릭터 이용 가능 ⭐',
       '내 곤충 카드 제작',
