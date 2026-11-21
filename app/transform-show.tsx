@@ -49,7 +49,8 @@ export default function TransformShow({
     <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden" style={{ wordBreak: 'keep-all' }}>
       {step === 'ai' && <div className="bonus-rays" />}
       <p className="relative z-10 mb-[2vmin] text-[5vmin] font-black text-amber-300 drop-shadow">
-        {step === 'sketch' ? '🖍️ 친구가 그린 그림이' : step === 'flash' ? '🪄 AI 변신!!' : '✨ 진짜 곤충이 됐어!'}
+        {/* 11/21 Jin 문구 */}
+        {step === 'ai' ? '⚔️ 바뀐 이미지로 배틀!!' : '🖍️ 내가 그린 그림이 멋지게 변합니다!'}
       </p>
 
       {/* 칸 모양 = AI 그림 모양 (가로로 긴 그림도 안 잘리게). 화면 폭 92% · 높이 62% 안에 맞춘다 */}
