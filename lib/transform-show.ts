@@ -43,6 +43,17 @@ export const SHOW_BATTLE_MS = Math.round(9500 / SHOW_SPEED);
 export const SHOW_PROMPT_MS = 10000;
 export const SHOW_PROMPT_TEXT = '등에 번개 대포를 달고, 무지개 날개로 날아다녀! ⚡🌈';
 export const SHOW_PROMPT_IMAGE = '/show/ai-2.jpg';
-/** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 */
+/**
+ * 👩‍👧 맨 마지막 8초 — 보호자용 "AI 창작 3단계" (11/21 Jin: 게임·배틀보다 AI 교육·프롬프트 연습으로 보이게).
+ * 세 단계 모두 앱에 실제로 있는 것만 (그리기 · 생김새 설명 칸 · 다시 만들기 2번). 없는 걸 교육이라고 적지 말 것.
+ */
+export const SHOW_EDU_MS = 8000;
+export const SHOW_EDU_STEPS = [
+  { icon: '🖍️', title: '상상을 그림으로', desc: '종이에 나만의 곤충을 직접 그려요' },
+  { icon: '✍️', title: '생각을 말로 정확하게', desc: '색깔·효과·위치를 글로 설명해요 (AI 프롬프트)' },
+  { icon: '🔁', title: '결과를 보고 다시 요청', desc: '마음에 안 들면 설명을 고쳐서 다시 만들어요' },
+];
+export const SHOW_EDU_TAGLINE = 'AI에게 원하는 걸 정확히 말하는 힘, 놀이로 연습해요';
+/** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 + 3단계 */
 export const SHOW_CYCLE_MS =
-  SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) + SHOW_PROMPT_MS;
+  SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) + SHOW_PROMPT_MS + SHOW_EDU_MS;

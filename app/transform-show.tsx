@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import {
   SHOW_AI_MS,
   SHOW_BATTLE_MS,
+  SHOW_EDU_MS,
+  SHOW_EDU_STEPS,
+  SHOW_EDU_TAGLINE,
   SHOW_FLASH_MS,
   SHOW_PROMPT_IMAGE,
   SHOW_PROMPT_MS,
@@ -13,6 +16,7 @@ import {
   ShowPair,
 } from '@/lib/transform-show';
 import { BattleScene } from '@/app/attract/attract-show';
+import { BRAND } from '@/lib/brand';
 
 // 🪄 변신 쇼 (lib/transform-show.ts) — 화면 가득.
 // 짝마다: 왼쪽 스케치 → 가운데 🪄 → 오른쪽이 번쩍하며 AI 곤충 (한 화면에 나란히, 11/21 Jin "모니터가 커서")
@@ -20,7 +24,7 @@ import { BattleScene } from '@/app/attract/attract-show';
 // loop 면 끝없이, 아니면 한 바퀴 돌고 onDone.
 
 type Step = 'sketch' | 'flash' | 'ai';
-type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' };
+type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'edu' };
 
 export default function TransformShow({
   pairs,
@@ -31,15 +35,16 @@ export default function TransformShow({
   pairs: ShowPair[];
   loop?: boolean;
   onDone?: () => void;
-  /** 미리보기용: 이 장면만 (/show?scene=prompt) */
-  only?: 'prompt';
+  /** 미리보기용: 이 장면만 (/show?scene=prompt · /show?scene=edu) */
+  only?: 'prompt' | 'edu';
 }) {
   const slots: Slot[] = only
-    ? [{ kind: 'prompt' }]
+    ? [{ kind: only }]
     : [
         ...pairs.map((_, i) => ({ kind: 'pair' as const, i })),
         ...(pairs.length >= 2 ? [{ kind: 'battle' as const }] : []),
         { kind: 'prompt' as const },
+        { kind: 'edu' as const },
       ];
   const [n, setN] = useState(0);
   const [step, setStep] = useState<Step>('sketch');
@@ -54,8 +59,9 @@ export default function TransformShow({
         setStep('sketch');
       }
     };
-    if (slot.kind === 'battle' || slot.kind === 'prompt') {
-      const t = window.setTimeout(next, slot.kind === 'battle' ? SHOW_BATTLE_MS : SHOW_PROMPT_MS);
+    if (slot.kind !== 'pair') {
+      const ms = slot.kind === 'battle' ? SHOW_BATTLE_MS : slot.kind === 'prompt' ? SHOW_PROMPT_MS : SHOW_EDU_MS;
+      const t = window.setTimeout(next, ms);
       return () => window.clearTimeout(t);
     }
     const ts = [
@@ -84,6 +90,7 @@ export default function TransformShow({
   }
 
   if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} />;
+  if (slot.kind === 'edu') return <EduScene key={`e-${n}`} />;
 
   const pair = pairs[slot.i];
   const ratio = pair.ratio ?? 1;
@@ -185,6 +192,57 @@ function PromptScene() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 👩‍👧 "곤충본부 AI 창작 교실" 3단계 (8초, 보호자용 존댓말).
+ * 제목 → 0.9초부터 한 단계씩(1.1초 간격) → 4.6초에 맺음 문구 → 8초까지 그대로.
+ */
+function EduScene() {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const at = [900, 2000, 3100, 4600];
+    const ts = at.map((ms, i) => window.setTimeout(() => setShown(i + 1), ms));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, []);
+  const steps = SHOW_EDU_STEPS;
+  return (
+    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[4vw]" style={{ wordBreak: 'keep-all' }}>
+      {shown > steps.length && <div className="attract-rays" />}
+      <div className="relative z-10 flex items-center gap-[2vmin] animate-pop">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={BRAND.mark.white} alt="" aria-hidden style={{ height: '9vmin', width: 'auto' }} />
+        <p className="text-[6.4vmin] font-black text-white drop-shadow">
+          곤충본부 <span className="text-amber-300">AI 창작 교실</span>
+        </p>
+      </div>
+      <div className="relative z-10 mt-[5vmin] grid grid-cols-3 portrait:grid-cols-1 gap-[3vmin] w-full max-w-[150vmin]">
+        {steps.map((st, i) => (
+          <div
+            key={st.title}
+            className={`rounded-[2.4vmin] border-[0.4vmin] border-amber-300/60 bg-slate-900/90 px-[3vmin] py-[3.4vmin] portrait:py-[2.6vmin] flex flex-col portrait:flex-row items-center portrait:items-start gap-[1.6vmin] portrait:gap-[3vmin] transition-all duration-500 ${
+              shown > i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[4vmin]'
+            }`}
+          >
+            <p className="text-[9vmin] portrait:text-[8vmin] leading-none">{st.icon}</p>
+            <div className="text-center portrait:text-left">
+              <p className="text-[2.8vmin] font-black text-amber-300">{i + 1}단계</p>
+              <p className="mt-[0.6vmin] text-[4.2vmin] font-black text-white leading-tight">{st.title}</p>
+              <p className="mt-[1vmin] text-[2.8vmin] font-bold text-slate-300 leading-snug">{st.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p
+        className={`relative z-10 mt-[5vmin] text-center text-[4.4vmin] font-black text-amber-200 drop-shadow transition-all duration-700 ${
+          shown > steps.length ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+        }`}
+      >
+        {/* 세로 모니터는 쉼표에서 줄바꿈 ("놀이로 / 연습해요" 로 갈라지지 않게) */}
+        “{SHOW_EDU_TAGLINE.split(', ')[0]},<br className="hidden portrait:block" /> {SHOW_EDU_TAGLINE.split(', ').slice(1).join(', ')}”
+      </p>
     </div>
   );
 }
