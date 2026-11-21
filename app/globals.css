@@ -723,3 +723,23 @@ html, body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .live-spot { animation: none; }
 }
+
+/* 🪄 변신 쇼 (app/transform-show.tsx, 11/21) */
+.show-sketch-wobble { animation: show-wobble 2.4s ease-in-out infinite; }
+@keyframes show-wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(1.2deg) scale(1.02); }
+}
+.show-flash {
+  background: radial-gradient(circle, #fff 0%, rgba(253, 224, 71, 0.85) 25%, rgba(253, 224, 71, 0) 60%);
+  animation: show-flash 0.8s ease-out both;
+  pointer-events: none;
+}
+@keyframes show-flash {
+  0% { opacity: 0; transform: scale(0.3); }
+  35% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .show-sketch-wobble, .show-flash { animation: none; }
+}

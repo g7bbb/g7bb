@@ -12,6 +12,8 @@ import { BrandMark } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import { CURRENT_EVENT } from '@/lib/event-config';
 import PastTop10 from '@/app/past-top10';
+import TransformShow from '@/app/transform-show';
+import { SHOW_PAIRS } from '@/lib/transform-show';
 
 // 📺 실시간 전체 랭킹 — 부스 모니터용 (2026-10-03 Jin: "영상 옆에 띄워놓게. 가로 20cm 정도, 길게. 지나가면서 아이들이 보게")
 //
@@ -42,6 +44,9 @@ const SPEED_TOP10 = 56;
 const SPEED_REST = 84; // 4~10위 × 1.5
 /** 줄이 짧아 흐르지 않을 때도 이 간격으로 1~3위 카드를 다시 보여준다 */
 const SPOT_EVERY_MS = 30_000;
+/** 🪄 변신 쇼를 끼워 넣는 간격과 한 번에 보여줄 마리 수 (11/21 Jin: 순위만 말고 그림 → AI 곤충으로 눈길) */
+const SHOW_EVERY_MS = 60_000;
+const SHOW_COUNT = 3;
 
 interface Row {
   player_id: string;
@@ -71,6 +76,14 @@ export default function LivePage() {
   imagesRef.current = images;
   // 부스 모니터라 화면이 꺼지지 않게 (lib/wake-lock.ts)
   useWakeLock(EVENT_LIVE);
+  // 🪄 변신 쇼 — 1분마다 SHOW_COUNT 마리 (lib/transform-show.ts). 그림은 고정 파일이라 데이터를 안 쓴다.
+  const [showing, setShowing] = useState(false);
+  const [showStart, setShowStart] = useState(0);
+  useEffect(() => {
+    if (!SHOW_PAIRS.length) return;
+    const id = window.setInterval(() => setShowing(true), SHOW_EVERY_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -279,6 +292,17 @@ export default function LivePage() {
       <PastTop10 className="w-[30%] min-w-[11rem] max-w-[18rem] shrink-0 self-start max-h-full overflow-hidden" />
       </div>
 
+      {showing && (
+        <TransformShow
+          pairs={SHOW_PAIRS}
+          start={showStart}
+          count={Math.min(SHOW_COUNT, SHOW_PAIRS.length)}
+          onDone={() => {
+            setShowing(false);
+            setShowStart((v) => (v + SHOW_COUNT) % SHOW_PAIRS.length);
+          }}
+        />
+      )}
       {spot !== null && rows[spot] && <SpotCard row={rows[spot]} rank={spot} image={images.get(rows[spot].insect_id)} />}
 
       <p className="shrink-0 text-center text-slate-400 font-bold">🐛 종이에 곤충을 그리고 QR을 찍으면 너도 도전할 수 있어! 🐞</p>
