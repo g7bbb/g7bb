@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SHOW_AI_MS, SHOW_BATTLE_MS, SHOW_FLASH_MS, SHOW_SKETCH_MS, ShowPair } from '@/lib/transform-show';
+import { SHOW_AI_MS, SHOW_BATTLE_MS, SHOW_FLASH_MS, SHOW_SKETCH_MS, SHOW_SPEED, ShowPair } from '@/lib/transform-show';
 import { BattleScene } from '@/app/attract/attract-show';
 
 // 🪄 변신 쇼 (lib/transform-show.ts) — 화면 가득.
@@ -49,7 +49,7 @@ export default function TransformShow({ pairs, loop = false, onDone }: { pairs: 
         <div className="attract-rays" />
         <p className="relative z-10 mb-[4vmin] text-[6vmin] font-black text-amber-300 drop-shadow">⚔️ 바뀐 이미지로 배틀!!</p>
         <div className="relative z-10 w-full">
-          <BattleScene a={card(pairs[0], 0)} b={card(pairs[1], 1)} />
+          <BattleScene a={card(pairs[0], 0)} b={card(pairs[1], 1)} speed={SHOW_SPEED} />
         </div>
         <p className="relative z-10 mt-[16vmin] text-[3vmin] font-bold text-slate-300">📷 종이에 그리고 QR 을 찍으면 너도 변신!</p>
       </div>

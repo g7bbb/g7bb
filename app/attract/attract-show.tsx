@@ -241,7 +241,7 @@ function TitleScene() {
 
 /** 배틀 시연 — 하스스톤식 공격·콰쾅·필살기·퍼펙트를 정해진 순서로 보여준다 */
 /** 변신 쇼(app/transform-show.tsx)에서도 쓴다 */
-export function BattleScene({ a, b }: { a: ShowCard; b: ShowCard }) {
+export function BattleScene({ a, b, speed = 1 }: { a: ShowCard; b: ShowCard; /** 1.5 면 1.5배 빠르게 (변신 쇼, 11/21) */ speed?: number }) {
   const [attack, setAttack] = useState<'A' | 'B' | null>(null);
   const [hit, setHit] = useState<'A' | 'B' | null>(null);
   const [hpA, setHpA] = useState(100);
@@ -267,7 +267,7 @@ export function BattleScene({ a, b }: { a: ShowCard; b: ShowCard }) {
     setDist();
     const timers: number[] = [];
     let n = 0;
-    const at = (ms: number, f: () => void) => timers.push(window.setTimeout(f, ms));
+    const at = (ms: number, f: () => void) => timers.push(window.setTimeout(f, ms / speed));
     const strike = (start: number, who: 'A' | 'B', dmg: number, crit = false) => {
       at(start, () => setAttack(who));
       at(start + 280, () => {

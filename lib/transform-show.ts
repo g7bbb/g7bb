@@ -28,11 +28,13 @@ export const SHOW_PAIRS: ShowPair[] = [
  * 🔁 11/21 Jin: "스케치랑 완성 그림을 한 화면에 (모니터가 커서)" + "마지막에 바뀐 그림끼리 배틀하는 영상"
  * 한 짝: 스케치만 1.6초 → 오른쪽이 번쩍 0.8초 → 둘이 나란히 4초. 짝을 다 보여준 뒤 1번 vs 2번 배틀 9초.
  */
-export const SHOW_SKETCH_MS = 1600;
-export const SHOW_FLASH_MS = 800;
-export const SHOW_AI_MS = 4000;
+// 🔁 11/21 Jin "1.5배 빠르게" → 전부 ÷1.5 (1600·800·4000 → 1070·530·2670, 배틀 9.5초 → 6.3초)
+export const SHOW_SPEED = 1.5;
+export const SHOW_SKETCH_MS = 1070;
+export const SHOW_FLASH_MS = 530;
+export const SHOW_AI_MS = 2670;
 export const SHOW_PAIR_MS = SHOW_SKETCH_MS + SHOW_FLASH_MS + SHOW_AI_MS;
 /** 마지막 배틀 장면 (app/attract BattleScene 그대로 — 7.3초에 승리) */
-export const SHOW_BATTLE_MS = 9500;
+export const SHOW_BATTLE_MS = Math.round(9500 / SHOW_SPEED);
 /** 한 바퀴 = 짝 전부 + 배틀 */
 export const SHOW_CYCLE_MS = SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0);
