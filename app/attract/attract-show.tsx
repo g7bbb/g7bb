@@ -10,7 +10,6 @@ import { BOT_INSECTS } from '@/lib/bots';
 import { baseMoveFor } from '@/lib/special-moves';
 import { IMPACT_ART, MOVE_ART, TIMING_ART } from '@/lib/fx-art';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
-import { GAME_TITLE } from '@/lib/brand';
 import { loadKidNames } from '@/lib/kid-names';
 import { loadInsectImages } from '@/lib/image-cache';
 
@@ -200,10 +199,13 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
     >
       <div className="attract-rays" aria-hidden />
 
-      {/* 위: 게임 이름 (항상) */}
+      {/* 위: "AI를 재미있게 배우는 G7BB!" (항상, 11/21 Jin — 게임보다 AI 교육으로 보이게).
+          게임 이름 자리를 그대로 쓴다 — 줄을 하나 더 두면 카드 행진·TOP3 제목과 겹친다(1366×768·820×1180 확인). */}
       <div className="absolute top-[3vmin] inset-x-0 flex items-center justify-center gap-[1.5vmin] text-white">
         <BrandMark size={48} />
-        <span className="text-[4.2vmin] font-black tracking-tight">{GAME_TITLE}</span>
+        <span className="text-[4.2vmin] font-black tracking-tight">
+          <span className="text-amber-300">AI</span>를 재미있게 배우는 <span className="text-amber-300">G7BB!</span>
+        </span>
       </div>
 
       <div className="absolute inset-0 flex items-center justify-center" key={`${key}-${loop}`}>

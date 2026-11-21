@@ -674,7 +674,10 @@ html, body { overflow-x: clip; }
 .top3-card-king { width: min(32vw, 26vh); aspect-ratio: 4 / 5; font-size: min(3vw, 2.5vh); }
 /* 노트북처럼 낮고 넓은 화면은 글씨·간격을 줄여서 위 제목·아래 시작 버튼과 안 겹치게 */
 @media (max-aspect-ratio: 100/1) and (min-aspect-ratio: 4/3) {
-  .top3-scene { gap: 1.2vmin !important; padding-top: 7vmin; padding-bottom: 12vmin; }
+  .top3-scene { gap: 1.2vmin !important; padding-top: 10vmin; padding-bottom: 12vmin; }
+  /* 11/21: 1366×768 에서 "지금 랭킹 TOP 3" 이 맨 위 문구와 겹쳐서 카드를 조금 줄임 */
+  .top3-card { width: min(24vw, 17vh); }
+  .top3-card-king { width: min(32vw, 22vh); }
 }
 .top3-rise { animation: top3-rise 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes top3-rise {
