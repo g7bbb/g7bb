@@ -12,12 +12,14 @@ export interface ShowPair {
   ai: string;
   /** 곤충 이름 (없으면 안 씀) */
   name?: string;
+  /** 그림 가로 ÷ 세로 (AI 그림 기준, 없으면 1 = 정사각형). 화면 칸 모양을 여기에 맞춘다 */
+  ratio?: number;
 }
 
-/** ⚠️ 지금 두 줄은 자리 채우기용 예시 — Jin 이 보낸 사진으로 바꿀 것 */
+/** Jin 이 보낸 짝 (11/21). 스케치는 옆으로 누운 폰 사진이라 세우고 그림 칸만 잘랐다 (회색 종이 → 흰색으로 밝게). */
 export const SHOW_PAIRS: ShowPair[] = [
-  { sketch: '/show/sample-sketch-1.jpg', ai: '/show/sample-ai-1.jpg', name: '불꽃메뚜기' },
-  { sketch: '/show/sample-sketch-2.jpg', ai: '/show/sample-ai-2.jpg', name: '번개나비' },
+  { sketch: '/show/sketch-1.jpg', ai: '/show/ai-1.jpg', ratio: 1024 / 559 },
+  { sketch: '/show/sketch-2.jpg', ai: '/show/ai-2.jpg', ratio: 1024 / 768 },
 ];
 
 /** 한 마리 보여주는 시간 (스케치 2.4초 → 번쩍 0.8초 → AI 곤충 3.6초) */

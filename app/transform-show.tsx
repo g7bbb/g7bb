@@ -52,7 +52,11 @@ export default function TransformShow({
         {step === 'sketch' ? '🖍️ 친구가 그린 그림이' : step === 'flash' ? '🪄 AI 변신!!' : '✨ 진짜 곤충이 됐어!'}
       </p>
 
-      <div className="relative z-10 w-[min(70vmin,92vw)] aspect-square">
+      {/* 칸 모양 = AI 그림 모양 (가로로 긴 그림도 안 잘리게). 화면 폭 92% · 높이 62% 안에 맞춘다 */}
+      <div
+        className="relative z-10"
+        style={{ width: `min(92vw, ${62 * (pair.ratio ?? 1)}vh)`, aspectRatio: String(pair.ratio ?? 1) }}
+      >
         {/* 스케치 — 흰 종이 느낌 */}
         <div
           key={`s-${n}`}
