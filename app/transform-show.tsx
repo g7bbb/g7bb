@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import {
   SHOW_AI_MS,
   SHOW_BATTLE_MS,
+  SHOW_COMPARE,
+  SHOW_COMPARE_MS,
   SHOW_EDU_MS,
   SHOW_EDU_STEPS,
   SHOW_EDU_TAGLINE,
@@ -24,7 +26,8 @@ import { BRAND } from '@/lib/brand';
 // loop 면 끝없이, 아니면 한 바퀴 돌고 onDone.
 
 type Step = 'sketch' | 'flash' | 'ai';
-type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'edu' };
+export type ShowScene = 'prompt' | 'compare' | 'edu';
+type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'compare' } | { kind: 'edu' };
 
 export default function TransformShow({
   pairs,
@@ -35,8 +38,8 @@ export default function TransformShow({
   pairs: ShowPair[];
   loop?: boolean;
   onDone?: () => void;
-  /** 미리보기용: 이 장면만 (/show?scene=prompt · /show?scene=edu) */
-  only?: 'prompt' | 'edu';
+  /** 미리보기용: 이 장면만 (/show?scene=prompt · compare · edu) */
+  only?: ShowScene;
 }) {
   const slots: Slot[] = only
     ? [{ kind: only }]
@@ -44,6 +47,7 @@ export default function TransformShow({
         ...pairs.map((_, i) => ({ kind: 'pair' as const, i })),
         ...(pairs.length >= 2 ? [{ kind: 'battle' as const }] : []),
         { kind: 'prompt' as const },
+        { kind: 'compare' as const },
         { kind: 'edu' as const },
       ];
   const [n, setN] = useState(0);
@@ -60,7 +64,8 @@ export default function TransformShow({
       }
     };
     if (slot.kind !== 'pair') {
-      const ms = slot.kind === 'battle' ? SHOW_BATTLE_MS : slot.kind === 'prompt' ? SHOW_PROMPT_MS : SHOW_EDU_MS;
+      const ms =
+        slot.kind === 'battle' ? SHOW_BATTLE_MS : slot.kind === 'prompt' ? SHOW_PROMPT_MS : slot.kind === 'compare' ? SHOW_COMPARE_MS : SHOW_EDU_MS;
       const t = window.setTimeout(next, ms);
       return () => window.clearTimeout(t);
     }
@@ -90,6 +95,7 @@ export default function TransformShow({
   }
 
   if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} />;
+  if (slot.kind === 'compare') return <CompareScene key={`c-${n}`} />;
   if (slot.kind === 'edu') return <EduScene key={`e-${n}`} />;
 
   const pair = pairs[slot.i];
@@ -242,6 +248,95 @@ function EduScene() {
       >
         {/* 세로 모니터는 쉼표에서 줄바꿈 ("놀이로 / 연습해요" 로 갈라지지 않게) */}
         “{SHOW_EDU_TAGLINE.split(', ')[0]},<br className="hidden portrait:block" /> {SHOW_EDU_TAGLINE.split(', ').slice(1).join(', ')}”
+      </p>
+    </div>
+  );
+}
+
+/** 글자를 한 자씩 쳐 주는 시계 (from~to ms 동안) */
+function useTyping(text: string, from: number, to: number) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const chars = Array.from(text);
+    const per = (to - from) / chars.length;
+    const ts = chars.map((_, i) => window.setTimeout(() => setShown(i + 1), from + i * per));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, [text, from, to]);
+  return Array.from(text).slice(0, shown).join('');
+}
+
+/**
+ * 🆚 "어떻게 말하느냐에 따라 AI 그림이 달라져요" (9초, 보호자용 존댓말)
+ * 왼쪽(추상적) 글 0.5~1.3초 → 그림 1.8초 / 오른쪽(자세히) 글 2.6~5.4초 → 그림 5.9초 → 7초 맺음 문구.
+ */
+function CompareScene() {
+  const { vague, detailed } = SHOW_COMPARE;
+  const vagueText = useTyping(vague.text, 500, 1300);
+  const detailText = useTyping(detailed.text, 2600, 5400);
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const ts = [1800, 5900, 7000].map((ms, i) => window.setTimeout(() => setStep(i + 1), ms));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  const col = (
+    kind: 'vague' | 'detailed',
+    text: string,
+    typing: boolean,
+    show: boolean,
+    item: { image: string; ratio: number },
+  ) => {
+    const good = kind === 'detailed';
+    return (
+      <div className={`flex flex-col items-center gap-[1.6vmin] portrait:gap-[1.2vmin] transition-opacity duration-500 ${good && step < 1 ? 'opacity-30' : 'opacity-100'}`}>
+        <p className={`rounded-full px-[2.4vmin] py-[0.8vmin] text-[3vmin] font-black ${good ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-200'}`}>
+          {good ? '🤩 자세하게 쓰면' : '😕 대충 쓰면'}
+        </p>
+        <div
+          className={`w-[min(42vw,calc(38vh*var(--r)))] portrait:w-[86vw] min-h-[11vmin] portrait:min-h-0 rounded-[1.6vmin] border-[0.3vmin] px-[2vmin] py-[1.4vmin] portrait:py-[1vmin] text-[2.9vmin] portrait:text-[2.7vmin] font-bold leading-snug ${
+            good ? 'border-amber-300/70 bg-slate-900 text-white' : 'border-slate-600 bg-slate-900 text-slate-300'
+          }`}
+          style={{ ['--r' as any]: item.ratio }}
+        >
+          ✏️ {text}
+          {typing && <span className="show-caret">|</span>}
+        </div>
+        <div
+          className="relative w-[min(42vw,calc(38vh*var(--r)))] portrait:w-[min(86vw,calc(17vh*var(--r)))]"
+          style={{ ['--r' as any]: item.ratio, aspectRatio: String(item.ratio) }}
+        >
+          <div className={`absolute inset-0 rounded-[2vmin] border-[0.5vmin] border-dashed border-slate-600 flex items-center justify-center transition-opacity ${show ? 'opacity-0' : 'opacity-100'}`}>
+            <span className="text-[9vmin] text-slate-600 font-black">?</span>
+          </div>
+          <div
+            className={`absolute inset-0 rounded-[2vmin] overflow-hidden transition-all duration-700 ${
+              show ? `opacity-100 scale-100 ${good ? 'aura-gold' : ''}` : 'opacity-0 scale-75'
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.image} alt={good ? '자세한 설명으로 만든 곤충' : '대충 쓴 설명으로 만든 곤충'} className="w-full h-full object-cover" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[3vw]" style={{ wordBreak: 'keep-all' }}>
+      {step >= 2 && <div className="bonus-rays" />}
+      <p className="relative z-10 text-center text-[5.2vmin] portrait:text-[4.6vmin] font-black text-white leading-snug drop-shadow animate-pop">
+        어떻게 말하느냐에 따라 <span className="text-amber-300">AI 그림이 달라져요!</span>
+      </p>
+      <div className="relative z-10 mt-[3vmin] flex flex-row portrait:flex-col items-start portrait:items-center justify-center gap-[4vmin] portrait:gap-[2.4vmin]">
+        {col('vague', vagueText, vagueText.length < Array.from(vague.text).length, step >= 1, vague)}
+        {col('detailed', detailText, step >= 1 && detailText.length < Array.from(detailed.text).length, step >= 2, detailed)}
+      </div>
+      <p
+        className={`relative z-10 mt-[3vmin] text-center text-[4vmin] portrait:text-[3.6vmin] font-black text-amber-200 drop-shadow transition-all duration-700 ${
+          step >= 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+        }`}
+      >
+        구체적으로 말할수록 AI가 내 상상에 가까워져요
       </p>
     </div>
   );

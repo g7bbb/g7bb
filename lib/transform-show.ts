@@ -44,6 +44,19 @@ export const SHOW_PROMPT_MS = 10000;
 export const SHOW_PROMPT_TEXT = '등에 번개 대포를 달고, 무지개 날개로 날아다녀! ⚡🌈';
 export const SHOW_PROMPT_IMAGE = '/show/ai-2.jpg';
 /**
+ * 🆚 9초 — 추상적인 프롬프트 vs 자세한 프롬프트 (11/21 Jin 이 그림 2장을 줌. 왼쪽은 일부러 밋밋한 그림).
+ * 프롬프트 장면 다음, "AI 창작 교실" 앞. 그림 비율이 달라도 높이가 같게 그린다(ratio).
+ */
+export const SHOW_COMPARE_MS = 9000;
+export const SHOW_COMPARE = {
+  vague: { text: '보라색으로 멋있게 해줘', image: '/show/plain-1.jpg', ratio: 1024 / 559 },
+  detailed: {
+    text: '황금 사슴벌레! 빨간 눈, 등에는 번개 대포를 달고 무지개 날개를 활짝 펼쳐. 불타는 운석이 떨어지는 전쟁터를 달려오는 모습 ⚡🌈☄️',
+    image: '/show/ai-2.jpg',
+    ratio: 1024 / 768,
+  },
+};
+/**
  * 👩‍👧 맨 마지막 8초 — 보호자용 "AI 창작 3단계" (11/21 Jin: 게임·배틀보다 AI 교육·프롬프트 연습으로 보이게).
  * 세 단계 모두 앱에 실제로 있는 것만 (그리기 · 생김새 설명 칸 · 다시 만들기 2번). 없는 걸 교육이라고 적지 말 것.
  */
@@ -54,6 +67,6 @@ export const SHOW_EDU_STEPS = [
   { icon: '🔁', title: '결과를 보고 다시 요청', desc: '마음에 안 들면 설명을 고쳐서 다시 만들어요' },
 ];
 export const SHOW_EDU_TAGLINE = 'AI에게 원하는 걸 정확히 말하는 힘, 놀이로 연습해요';
-/** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 + 3단계 */
+/** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 + 비교 + 3단계 */
 export const SHOW_CYCLE_MS =
-  SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) + SHOW_PROMPT_MS + SHOW_EDU_MS;
+  SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) + SHOW_PROMPT_MS + SHOW_COMPARE_MS + SHOW_EDU_MS;
