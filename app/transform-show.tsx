@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SHOW_AI_MS, SHOW_BATTLE_MS, SHOW_FLASH_MS, SHOW_SKETCH_MS, SHOW_SPEED, ShowPair } from '@/lib/transform-show';
+import {
+  SHOW_AI_MS,
+  SHOW_BATTLE_MS,
+  SHOW_FLASH_MS,
+  SHOW_PROMPT_IMAGE,
+  SHOW_PROMPT_MS,
+  SHOW_PROMPT_TEXT,
+  SHOW_SKETCH_MS,
+  SHOW_SPEED,
+  ShowPair,
+} from '@/lib/transform-show';
 import { BattleScene } from '@/app/attract/attract-show';
 
 // 🪄 변신 쇼 (lib/transform-show.ts) — 화면 가득.
@@ -10,10 +20,27 @@ import { BattleScene } from '@/app/attract/attract-show';
 // loop 면 끝없이, 아니면 한 바퀴 돌고 onDone.
 
 type Step = 'sketch' | 'flash' | 'ai';
-type Slot = { kind: 'pair'; i: number } | { kind: 'battle' };
+type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' };
 
-export default function TransformShow({ pairs, loop = false, onDone }: { pairs: ShowPair[]; loop?: boolean; onDone?: () => void }) {
-  const slots: Slot[] = [...pairs.map((_, i) => ({ kind: 'pair' as const, i })), ...(pairs.length >= 2 ? [{ kind: 'battle' as const }] : [])];
+export default function TransformShow({
+  pairs,
+  loop = false,
+  onDone,
+  only,
+}: {
+  pairs: ShowPair[];
+  loop?: boolean;
+  onDone?: () => void;
+  /** 미리보기용: 이 장면만 (/show?scene=prompt) */
+  only?: 'prompt';
+}) {
+  const slots: Slot[] = only
+    ? [{ kind: 'prompt' }]
+    : [
+        ...pairs.map((_, i) => ({ kind: 'pair' as const, i })),
+        ...(pairs.length >= 2 ? [{ kind: 'battle' as const }] : []),
+        { kind: 'prompt' as const },
+      ];
   const [n, setN] = useState(0);
   const [step, setStep] = useState<Step>('sketch');
   const slot = slots[n % Math.max(1, slots.length)];
@@ -27,8 +54,8 @@ export default function TransformShow({ pairs, loop = false, onDone }: { pairs: 
         setStep('sketch');
       }
     };
-    if (slot.kind === 'battle') {
-      const t = window.setTimeout(next, SHOW_BATTLE_MS);
+    if (slot.kind === 'battle' || slot.kind === 'prompt') {
+      const t = window.setTimeout(next, slot.kind === 'battle' ? SHOW_BATTLE_MS : SHOW_PROMPT_MS);
       return () => window.clearTimeout(t);
     }
     const ts = [
@@ -55,6 +82,8 @@ export default function TransformShow({ pairs, loop = false, onDone }: { pairs: 
       </div>
     );
   }
+
+  if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} />;
 
   const pair = pairs[slot.i];
   const ratio = pair.ratio ?? 1;
@@ -109,6 +138,53 @@ export default function TransformShow({ pairs, loop = false, onDone }: { pairs: 
       </div>
 
       <p className="relative z-10 mt-[4vmin] text-[3vmin] font-bold text-slate-300">📷 종이에 그리고 QR 을 찍으면 너도 변신!</p>
+    </div>
+  );
+}
+
+/**
+ * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (5초, 11/21 Jin 문구)
+ * 생김새 칸에 글자가 한 자씩 써지고(0.4~2.6초) → ✨ 그 글로 만든 그림이 뜬다(3초~).
+ */
+function PromptScene() {
+  const [shown, setShown] = useState(0);
+  const [img, setImg] = useState(false);
+  useEffect(() => {
+    const chars = Array.from(SHOW_PROMPT_TEXT);
+    const per = 2200 / chars.length;
+    const ts = chars.map((_, i) => window.setTimeout(() => setShown(i + 1), 400 + i * per));
+    ts.push(window.setTimeout(() => setImg(true), 3000));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, []);
+  const typed = Array.from(SHOW_PROMPT_TEXT).slice(0, shown).join('');
+  return (
+    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[4vw]" style={{ wordBreak: 'keep-all' }}>
+      {img && <div className="bonus-rays" />}
+      <p className="relative z-10 text-center text-[5.2vmin] font-black text-amber-300 leading-snug drop-shadow animate-pop">
+        곤충 생성하는 과정에서
+        <br />
+        <span className="text-white">AI 프롬프트 쓰는 연습</span>을 해볼 수 있어요!
+      </p>
+      <div className="relative z-10 mt-[4vmin] flex flex-row portrait:flex-col items-center gap-[3vmin]">
+        {/* 앱의 "어떻게 생겼어?" 칸 모양 그대로 */}
+        <div className="w-[min(46vw,80vh)] portrait:w-[86vw] rounded-[2vmin] border-[0.4vmin] border-amber-300/70 bg-amber-400/10 p-[2.4vmin]">
+          <p className="text-[2.6vmin] font-black text-amber-200">✏️ 어떻게 생겼어? 어떤 효과를 넣을까?</p>
+          <div className="mt-[1.5vmin] min-h-[14vmin] rounded-[1.4vmin] bg-slate-900 px-[2vmin] py-[1.6vmin] text-[3.6vmin] font-bold text-white leading-snug">
+            {typed}
+            <span className="show-caret">|</span>
+          </div>
+        </div>
+        <p className={`text-[7vmin] leading-none portrait:rotate-90 transition-opacity ${img ? 'opacity-100' : 'opacity-30'}`}>➡️</p>
+        <div className="relative w-[min(30vw,40vh)] portrait:w-[60vw] aspect-[4/3]">
+          <div className={`absolute inset-0 rounded-[2vmin] border-[0.5vmin] border-dashed border-slate-600 flex items-center justify-center transition-opacity ${img ? 'opacity-0' : 'opacity-100'}`}>
+            <span className="text-[9vmin] text-slate-600 font-black">?</span>
+          </div>
+          <div className={`absolute inset-0 rounded-[2vmin] overflow-hidden transition-all duration-700 ${img ? 'opacity-100 scale-100 aura-gold' : 'opacity-0 scale-75'}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={SHOW_PROMPT_IMAGE} alt="글로 만든 곤충" className="w-full h-full object-cover" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

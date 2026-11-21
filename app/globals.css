@@ -743,3 +743,5 @@ html, body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .show-sketch-wobble, .show-flash { animation: none; }
 }
+.show-caret { animation: show-caret 0.8s steps(1) infinite; color: #fcd34d; margin-left: 0.1em; }
+@keyframes show-caret { 50% { opacity: 0; } }
