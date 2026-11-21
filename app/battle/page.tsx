@@ -461,6 +461,8 @@ export default function BattlePage() {
   useEffect(() => {
     if (!bossDue) return;
     const id = window.setTimeout(() => {
+      // 11/21: 진 판 뒤에 보스·보너스가 뜨면 "레벨업이 필요해" 팝업과 겹쳤다 → 이벤트가 이기게 그 팝업은 접는다
+      setLosePopup(false);
       if (ladderRef.current?.bonus) {
         setBonusOpen(true);
         playSound('next');
@@ -1691,8 +1693,8 @@ export default function BattlePage() {
                 className="bg-pink-400 text-slate-900 font-black py-3.5 rounded-xl"
                 style={{ wordBreak: 'keep-all' }}
               >
-                🎯 연습 1판 더! 내가 고른 곤충이랑 (본게임보다 경험치 50%)
-                <span className="block text-sm font-bold">👀 연습한 상대는 공격 패턴을 읽어서 승리 확률 +10%!</span>
+                🎯 연습 1판 더!
+                <span className="block text-sm font-bold">경험치 50% · 다음에 만나면 승률 +10%</span>
               </button>
             )}
             <div className="flex gap-2">
@@ -1778,7 +1780,7 @@ export default function BattlePage() {
         )}
 
         {/* 😢 졌을 때 "레벨업이 필요해..ㅠ" (10/4 Jin) */}
-        {losePopup && phase === 'done' && <LoseLevelPopup upsell={levelUpUpsell(player)} onClose={() => setLosePopup(false)} />}
+        {losePopup && phase === 'done' && !bossDue && <LoseLevelPopup upsell={levelUpUpsell(player)} onClose={() => setLosePopup(false)} />}
 
         {/* 👹 중간보스 경고 (lib/bots.ts) */}
         {bossAlert && bossDue && !ladder?.bonus && myInsect && typeof document !== 'undefined' &&

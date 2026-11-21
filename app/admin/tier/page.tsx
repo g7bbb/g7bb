@@ -273,7 +273,7 @@ function TierDesk() {
           <ul className="flex flex-col gap-1 text-sm">
             {log.map((row, i) => (
               <li key={i} className="flex justify-between">
-                <span className="font-bold">{row.ticket}</span>
+                <span className="font-bold">{displayTicket(row.ticket)}</span>
                 <span>
                   {TIERS[row.tier].emoji} {TIERS[row.tier].price}
                 </span>
