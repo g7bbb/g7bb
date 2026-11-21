@@ -37,10 +37,10 @@ export const SHOW_PAIR_MS = SHOW_SKETCH_MS + SHOW_FLASH_MS + SHOW_AI_MS;
 /** 마지막 배틀 장면 (app/attract BattleScene 그대로 — 7.3초에 승리) */
 export const SHOW_BATTLE_MS = Math.round(9500 / SHOW_SPEED);
 /**
- * ✍️ 맨 끝 5초 — "AI 프롬프트 쓰는 연습" (11/21 Jin 문구). 생김새 칸에 글을 쓰는 모습 → 그 그림.
+ * ✍️ 맨 끝 10초 — "AI 프롬프트 쓰는 연습" (11/21 Jin 문구). 생김새 칸에 글을 쓰는 모습 → 그 그림.
  * 예시 글은 2번 그림(번개 대포·무지개 날개)에 맞췄다.
  */
-export const SHOW_PROMPT_MS = 5000;
+export const SHOW_PROMPT_MS = 10000;
 export const SHOW_PROMPT_TEXT = '등에 번개 대포를 달고, 무지개 날개로 날아다녀! ⚡🌈';
 export const SHOW_PROMPT_IMAGE = '/show/ai-2.jpg';
 /** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 */

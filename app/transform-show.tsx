@@ -143,17 +143,17 @@ export default function TransformShow({
 }
 
 /**
- * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (5초, 11/21 Jin 문구)
- * 생김새 칸에 글자가 한 자씩 써지고(0.4~2.6초) → ✨ 그 글로 만든 그림이 뜬다(3초~).
+ * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (10초, 11/21 Jin 문구)
+ * 생김새 칸에 글자가 한 자씩 써지고(0.8~5.2초) → ✨ 그 글로 만든 그림이 뜬다(6초~).
  */
 function PromptScene() {
   const [shown, setShown] = useState(0);
   const [img, setImg] = useState(false);
   useEffect(() => {
     const chars = Array.from(SHOW_PROMPT_TEXT);
-    const per = 2200 / chars.length;
-    const ts = chars.map((_, i) => window.setTimeout(() => setShown(i + 1), 400 + i * per));
-    ts.push(window.setTimeout(() => setImg(true), 3000));
+    const per = 4400 / chars.length;
+    const ts = chars.map((_, i) => window.setTimeout(() => setShown(i + 1), 800 + i * per));
+    ts.push(window.setTimeout(() => setImg(true), 6000));
     return () => ts.forEach((t) => window.clearTimeout(t));
   }, []);
   const typed = Array.from(SHOW_PROMPT_TEXT).slice(0, shown).join('');

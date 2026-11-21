@@ -47,7 +47,8 @@ const SPEED_REST = 126; // 4~10위 × 1.5
 /** 줄이 짧아 흐르지 않을 때도 이 간격으로 1~3위 카드를 다시 보여준다 */
 const SPOT_EVERY_MS = 30_000;
 /** 🪄 변신 쇼를 끼워 넣는 간격 (11/21 Jin: 순위만 말고 그림 → AI 곤충으로 눈길). 한 번에 짝 전부 + 배틀 (약 22초) */
-const SHOW_EVERY_MS = 90_000;
+// 순위를 이만큼 보여준 뒤 변신 쇼 (11/21 Jin: 70초 → 절반 35초). 쇼가 끝나면 다시 35초 순위.
+const RANK_SHOW_MS = 35_000;
 
 interface Row {
   player_id: string;
@@ -80,10 +81,10 @@ export default function LivePage() {
   // 🪄 변신 쇼 — 1분마다 SHOW_COUNT 마리 (lib/transform-show.ts). 그림은 고정 파일이라 데이터를 안 쓴다.
   const [showing, setShowing] = useState(false);
   useEffect(() => {
-    if (!SHOW_PAIRS.length) return;
-    const id = window.setInterval(() => setShowing(true), SHOW_EVERY_MS);
-    return () => window.clearInterval(id);
-  }, []);
+    if (!SHOW_PAIRS.length || showing) return;
+    const id = window.setTimeout(() => setShowing(true), RANK_SHOW_MS);
+    return () => window.clearTimeout(id);
+  }, [showing]);
 
   const load = useCallback(async () => {
     try {
