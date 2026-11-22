@@ -748,3 +748,10 @@ html, body { overflow-x: clip; }
 }
 .show-caret { animation: show-caret 0.8s steps(1) infinite; color: #fcd34d; margin-left: 0.1em; }
 @keyframes show-caret { 50% { opacity: 0; } }
+
+/* 🐞 곤충 벽 (/wall, 11/22) — 카드가 살짝살짝 둥실, 새 곤충은 반짝, 가운데 크게 보여주기 */
+.wall-card { position: relative; animation: pop-in 0.4s ease-out both, wall-bob 3s ease-in-out infinite; }
+@keyframes wall-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
+.wall-new { box-shadow: 0 0 0 3px #fde047, 0 0 24px 6px rgba(253, 224, 71, 0.7); }
+.wall-spot { animation: boss-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@media (prefers-reduced-motion: reduce) { .wall-card, .wall-spot { animation: none; } }

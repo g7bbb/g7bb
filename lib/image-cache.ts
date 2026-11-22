@@ -13,7 +13,8 @@ import { supabase } from './supabaseClient';
 
 const DB_NAME = 'g7bb-img';
 const STORE = 'img';
-const MAX_KEEP = 80;
+// 11/22: 곤충 벽(/wall)이 아이들 곤충을 전부 띄워서 80 → 300 (한 장 0.5MB 안팎, 그 화면을 켠 기기만 쌓임)
+const MAX_KEEP = 300;
 
 /** 같은 화면 안에서 다시 열 때(첫 화면 영상 등)는 기기 저장소도 안 거치게 */
 const memory = new Map<string, string>();
