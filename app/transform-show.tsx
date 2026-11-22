@@ -26,7 +26,15 @@ import { BRAND } from '@/lib/brand';
 // loop 면 끝없이, 아니면 한 바퀴 돌고 onDone.
 
 type Step = 'sketch' | 'flash' | 'ai';
-export type ShowScene = 'prompt' | 'compare' | 'edu';
+export type ShowScene = 'prompt' | 'compare' | 'edu' | 'pairs';
+
+/**
+ * 화면 틀: 보통은 화면 가득(모니터 /live·/show). embedded 면 태블릿 대기화면(app/attract) 안에 —
+ * 위 "AI를 재미있게 배우는 G7BB!"·아래 "화면을 눌러서 시작!" 자리를 비워 둔다 (11/21 Jin).
+ */
+function wrapCls(embedded?: boolean) {
+  return embedded ? 'absolute inset-0 pt-[10vmin] pb-[11vmin] flex flex-col' : 'fixed inset-0 z-[90] bg-slate-950 flex flex-col';
+}
 type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'compare' } | { kind: 'edu' };
 
 export default function TransformShow({
@@ -34,14 +42,19 @@ export default function TransformShow({
   loop = false,
   onDone,
   only,
+  embedded,
 }: {
   pairs: ShowPair[];
   loop?: boolean;
   onDone?: () => void;
   /** 미리보기용: 이 장면만 (/show?scene=prompt · compare · edu) */
   only?: ShowScene;
+  /** 태블릿 대기화면 안에 넣을 때 (위·아래 글자 자리 비움, 배경 투명) */
+  embedded?: boolean;
 }) {
-  const slots: Slot[] = only
+  const slots: Slot[] = only === 'pairs'
+    ? pairs.map((_, i) => ({ kind: 'pair' as const, i }))
+    : only
     ? [{ kind: only }]
     : [
         ...pairs.map((_, i) => ({ kind: 'pair' as const, i })),
@@ -94,20 +107,22 @@ export default function TransformShow({
     );
   }
 
-  if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} />;
-  if (slot.kind === 'compare') return <CompareScene key={`c-${n}`} />;
-  if (slot.kind === 'edu') return <EduScene key={`e-${n}`} />;
+  if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} embedded={embedded} />;
+  if (slot.kind === 'compare') return <CompareScene key={`c-${n}`} embedded={embedded} />;
+  if (slot.kind === 'edu') return <EduScene key={`e-${n}`} embedded={embedded} />;
 
   const pair = pairs[slot.i];
   const ratio = pair.ratio ?? 1;
   // 가로 모니터: 나란히(한 칸 폭 43vw, 높이 60vh 안) / 세로 모니터: 위아래(폭 88vw, 높이 34vh 안)
   const box = { aspectRatio: String(ratio) } as React.CSSProperties;
-  const boxCls = 'relative w-[min(43vw,calc(60vh*var(--r)))] portrait:w-[min(88vw,calc(28vh*var(--r)))]';
+  const boxCls = embedded
+    ? 'relative w-[min(42vw,calc(48vh*var(--r)))] portrait:w-[min(86vw,calc(24vh*var(--r)))]'
+    : 'relative w-[min(43vw,calc(60vh*var(--r)))] portrait:w-[min(88vw,calc(28vh*var(--r)))]';
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden" style={{ wordBreak: 'keep-all' }}>
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden`} style={{ wordBreak: 'keep-all' }}>
       {step === 'ai' && <div className="bonus-rays" />}
-      <p className="relative z-10 mb-[3vmin] text-[5.5vmin] font-black text-amber-300 drop-shadow text-center px-4">🖍️ 내가 그린 그림이 멋지게 변합니다!</p>
+      <p className={`relative z-10 ${embedded ? 'mb-[2vmin] text-[4.6vmin]' : 'mb-[3vmin] text-[5.5vmin]'} font-black text-amber-300 drop-shadow text-center px-4`}>🖍️ 내가 그린 그림이 멋지게 변합니다!</p>
 
       <div className="relative z-10 flex flex-row portrait:flex-col items-center justify-center gap-[3vmin]" style={{ ['--r' as any]: ratio }}>
         {/* 왼쪽: 스케치 (흰 종이) */}
@@ -150,7 +165,8 @@ export default function TransformShow({
         </div>
       </div>
 
-      <p className="relative z-10 mt-[4vmin] text-[3vmin] font-bold text-slate-300">📷 종이에 그리고 QR 을 찍으면 너도 변신!</p>
+      {/* 대기화면 안에서는 아래 "화면을 눌러서 시작!" 버튼이 같은 말을 해서 뺀다 */}
+      {!embedded && <p className="relative z-10 mt-[4vmin] text-[3vmin] font-bold text-slate-300">📷 종이에 그리고 QR 을 찍으면 너도 변신!</p>}
     </div>
   );
 }
@@ -159,7 +175,7 @@ export default function TransformShow({
  * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (10초, 11/21 Jin 문구)
  * 생김새 칸에 글자가 한 자씩 써지고(0.8~5.2초) → ✨ 그 글로 만든 그림이 뜬다(6초~).
  */
-function PromptScene() {
+function PromptScene({ embedded }: { embedded?: boolean }) {
   const [shown, setShown] = useState(0);
   const [img, setImg] = useState(false);
   useEffect(() => {
@@ -171,7 +187,7 @@ function PromptScene() {
   }, []);
   const typed = Array.from(SHOW_PROMPT_TEXT).slice(0, shown).join('');
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[4vw]" style={{ wordBreak: 'keep-all' }}>
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[4vw]`} style={{ wordBreak: 'keep-all' }}>
       {img && <div className="bonus-rays" />}
       <p className="relative z-10 text-center text-[5.2vmin] font-black text-amber-300 leading-snug drop-shadow animate-pop">
         곤충 생성하는 과정에서
@@ -206,7 +222,7 @@ function PromptScene() {
  * 👩‍👧 "곤충본부 AI 창작 교실" 3단계 (8초, 보호자용 존댓말).
  * 제목 → 0.9초부터 한 단계씩(1.1초 간격) → 4.6초에 맺음 문구 → 8초까지 그대로.
  */
-function EduScene() {
+function EduScene({ embedded }: { embedded?: boolean }) {
   const [shown, setShown] = useState(0);
   useEffect(() => {
     const at = [900, 2000, 3100, 4600];
@@ -215,7 +231,7 @@ function EduScene() {
   }, []);
   const steps = SHOW_EDU_STEPS;
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[4vw]" style={{ wordBreak: 'keep-all' }}>
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[4vw]`} style={{ wordBreak: 'keep-all' }}>
       {shown > steps.length && <div className="attract-rays" />}
       <div className="relative z-10 flex items-center gap-[2vmin] animate-pop">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -269,7 +285,7 @@ function useTyping(text: string, from: number, to: number) {
  * 🆚 "어떻게 말하느냐에 따라 AI 그림이 달라져요" (9초, 보호자용 존댓말)
  * 왼쪽(추상적) 글 0.5~1.3초 → 그림 1.8초 / 오른쪽(자세히) 글 2.6~5.4초 → 그림 5.9초 → 7초 맺음 문구.
  */
-function CompareScene() {
+function CompareScene({ embedded }: { embedded?: boolean }) {
   const { vague, detailed } = SHOW_COMPARE;
   const vagueText = useTyping(vague.text, 500, 1300);
   const detailText = useTyping(detailed.text, 2600, 5400);
@@ -279,6 +295,10 @@ function CompareScene() {
     return () => ts.forEach((t) => window.clearTimeout(t));
   }, []);
 
+  // 대기화면 안에서는 위·아래 글자 자리만큼 그림을 줄인다
+  const wCls = embedded
+    ? 'w-[min(42vw,calc(28vh*var(--r)))] portrait:w-[min(86vw,calc(14vh*var(--r)))]'
+    : 'w-[min(42vw,calc(38vh*var(--r)))] portrait:w-[min(86vw,calc(17vh*var(--r)))]';
   const col = (
     kind: 'vague' | 'detailed',
     text: string,
@@ -293,7 +313,7 @@ function CompareScene() {
           {good ? '🤩 자세하게 쓰면' : '😕 대충 쓰면'}
         </p>
         <div
-          className={`w-[min(42vw,calc(38vh*var(--r)))] portrait:w-[86vw] min-h-[11vmin] portrait:min-h-0 rounded-[1.6vmin] border-[0.3vmin] px-[2vmin] py-[1.4vmin] portrait:py-[1vmin] text-[2.9vmin] portrait:text-[2.7vmin] font-bold leading-snug ${
+          className={`${embedded ? 'w-[44vw] min-h-[9vmin]' : 'w-[min(42vw,calc(38vh*var(--r)))] min-h-[11vmin]'} portrait:w-[86vw] portrait:min-h-0 rounded-[1.6vmin] border-[0.3vmin] px-[2vmin] py-[1.4vmin] portrait:py-[1vmin] text-[2.9vmin] portrait:text-[2.7vmin] font-bold leading-snug ${
             good ? 'border-amber-300/70 bg-slate-900 text-white' : 'border-slate-600 bg-slate-900 text-slate-300'
           }`}
           style={{ ['--r' as any]: item.ratio }}
@@ -302,7 +322,7 @@ function CompareScene() {
           {typing && <span className="show-caret">|</span>}
         </div>
         <div
-          className="relative w-[min(42vw,calc(38vh*var(--r)))] portrait:w-[min(86vw,calc(17vh*var(--r)))]"
+          className={`relative ${wCls}`}
           style={{ ['--r' as any]: item.ratio, aspectRatio: String(item.ratio) }}
         >
           <div className={`absolute inset-0 rounded-[2vmin] border-[0.5vmin] border-dashed border-slate-600 flex items-center justify-center transition-opacity ${show ? 'opacity-0' : 'opacity-100'}`}>
@@ -322,17 +342,17 @@ function CompareScene() {
   };
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center overflow-hidden px-[3vw]" style={{ wordBreak: 'keep-all' }}>
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[3vw]`} style={{ wordBreak: 'keep-all' }}>
       {step >= 2 && <div className="bonus-rays" />}
-      <p className="relative z-10 text-center text-[5.2vmin] portrait:text-[4.6vmin] font-black text-white leading-snug drop-shadow animate-pop">
+      <p className={`relative z-10 text-center ${embedded ? 'text-[4.2vmin]' : 'text-[5.2vmin] portrait:text-[4.6vmin]'} font-black text-white leading-snug drop-shadow animate-pop`}>
         어떻게 말하느냐에 따라 <span className="text-amber-300">AI 그림이 달라져요!</span>
       </p>
-      <div className="relative z-10 mt-[3vmin] flex flex-row portrait:flex-col items-start portrait:items-center justify-center gap-[4vmin] portrait:gap-[2.4vmin]">
+      <div className={`relative z-10 ${embedded ? 'mt-[1.6vmin] gap-[2.4vmin] portrait:gap-[1.6vmin]' : 'mt-[3vmin] gap-[4vmin] portrait:gap-[2.4vmin]'} flex flex-row portrait:flex-col items-start portrait:items-center justify-center`}>
         {col('vague', vagueText, vagueText.length < Array.from(vague.text).length, step >= 1, vague)}
         {col('detailed', detailText, step >= 1 && detailText.length < Array.from(detailed.text).length, step >= 2, detailed)}
       </div>
       <p
-        className={`relative z-10 mt-[3vmin] text-center text-[4vmin] portrait:text-[3.6vmin] font-black text-amber-200 drop-shadow transition-all duration-700 ${
+        className={`relative z-10 ${embedded ? 'mt-[1.6vmin] text-[3.4vmin]' : 'mt-[3vmin] text-[4vmin] portrait:text-[3.6vmin]'} text-center font-black text-amber-200 drop-shadow transition-all duration-700 ${
           step >= 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
         }`}
       >

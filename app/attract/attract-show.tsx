@@ -1,5 +1,7 @@
 'use client';
 
+import TransformShow from '@/app/transform-show';
+import { SHOW_COMPARE_MS, SHOW_PAIR_MS, SHOW_PAIRS } from '@/lib/transform-show';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { SEASON_FROM } from '@/lib/event-config';
@@ -30,11 +32,14 @@ export interface ShowCard {
   src: string;
 }
 
+// 🔁 11/21 Jin: 순위판 모니터의 변신(스케치→AI)·비교(대충 vs 자세히) 장면을 태블릿 대기화면에도 (app/transform-show.tsx 그대로)
 const SCENES = [
   { key: 'title', ms: 4500 },
+  { key: 'transform', ms: SHOW_PAIRS.length * SHOW_PAIR_MS },
   { key: 'battle', ms: 9000 },
   { key: 'parade', ms: 10500 },
   { key: 'top3', ms: 9000 },
+  { key: 'compare', ms: SHOW_COMPARE_MS },
   { key: 'cta', ms: 4500 },
 ] as const;
 
@@ -213,6 +218,8 @@ export default function AttractShow({ onClose }: { onClose: () => void }) {
         {key === 'battle' && a && b && <BattleScene a={a} b={b} />}
         {key === 'parade' && <ParadeScene cards={cards} />}
         {key === 'top3' && top3.length > 0 && <Top3Scene top={top3} />}
+        {key === 'transform' && SHOW_PAIRS.length > 0 && <TransformShow pairs={SHOW_PAIRS} only="pairs" embedded />}
+        {key === 'compare' && <TransformShow pairs={SHOW_PAIRS} only="compare" embedded />}
         {key === 'cta' && <CtaScene />}
       </div>
 
