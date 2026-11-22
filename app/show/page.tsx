@@ -14,7 +14,7 @@ export default function ShowPage() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const scene = new URLSearchParams(window.location.search).get('scene');
-    if (scene === 'prompt' || scene === 'compare' || scene === 'edu') setOnly(scene);
+    if (scene && ['prompt', 'compare', 'edu', 'mustai', 'release'].includes(scene)) setOnly(scene as ShowScene);
     setReady(true);
   }, []);
   if (!ready) return null;

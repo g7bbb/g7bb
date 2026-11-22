@@ -12,7 +12,14 @@ import {
   SHOW_FLASH_MS,
   SHOW_PROMPT_IMAGE,
   SHOW_PROMPT_MS,
-  SHOW_PROMPT_TEXT,
+  SHOW_PROMPT_WHERE,
+  SHOW_PROMPT_WHO,
+  SHOW_MUSTAI_LINES,
+  SHOW_MUSTAI_MS,
+  SHOW_RELEASE_MS,
+  SHOW_RELEASE_SERIES,
+  SHOW_RELEASE_TITLE,
+  SHOW_RELEASE_WHEN,
   SHOW_SKETCH_MS,
   SHOW_SPEED,
   ShowPair,
@@ -26,7 +33,7 @@ import { BRAND } from '@/lib/brand';
 // loop 면 끝없이, 아니면 한 바퀴 돌고 onDone.
 
 type Step = 'sketch' | 'flash' | 'ai';
-export type ShowScene = 'prompt' | 'compare' | 'edu' | 'pairs';
+export type ShowScene = 'prompt' | 'compare' | 'edu' | 'pairs' | 'mustai' | 'release';
 
 /**
  * 화면 틀: 보통은 화면 가득(모니터 /live·/show). embedded 면 태블릿 대기화면(app/attract) 안에 —
@@ -35,7 +42,7 @@ export type ShowScene = 'prompt' | 'compare' | 'edu' | 'pairs';
 function wrapCls(embedded?: boolean) {
   return embedded ? 'absolute inset-0 pt-[10vmin] pb-[11vmin] flex flex-col' : 'fixed inset-0 z-[90] bg-slate-950 flex flex-col';
 }
-type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'compare' } | { kind: 'edu' };
+type Slot = { kind: 'pair'; i: number } | { kind: 'battle' } | { kind: 'prompt' } | { kind: 'compare' } | { kind: 'edu' } | { kind: 'mustai' } | { kind: 'release' };
 
 export default function TransformShow({
   pairs,
@@ -59,9 +66,11 @@ export default function TransformShow({
     : [
         ...pairs.map((_, i) => ({ kind: 'pair' as const, i })),
         ...(pairs.length >= 2 ? [{ kind: 'battle' as const }] : []),
+        { kind: 'mustai' as const },
         { kind: 'prompt' as const },
         { kind: 'compare' as const },
         { kind: 'edu' as const },
+        { kind: 'release' as const },
       ];
   const [n, setN] = useState(0);
   const [step, setStep] = useState<Step>('sketch');
@@ -77,8 +86,14 @@ export default function TransformShow({
       }
     };
     if (slot.kind !== 'pair') {
-      const ms =
-        slot.kind === 'battle' ? SHOW_BATTLE_MS : slot.kind === 'prompt' ? SHOW_PROMPT_MS : slot.kind === 'compare' ? SHOW_COMPARE_MS : SHOW_EDU_MS;
+      const ms = {
+        battle: SHOW_BATTLE_MS,
+        mustai: SHOW_MUSTAI_MS,
+        prompt: SHOW_PROMPT_MS,
+        compare: SHOW_COMPARE_MS,
+        edu: SHOW_EDU_MS,
+        release: SHOW_RELEASE_MS,
+      }[slot.kind];
       const t = window.setTimeout(next, ms);
       return () => window.clearTimeout(t);
     }
@@ -110,6 +125,8 @@ export default function TransformShow({
   if (slot.kind === 'prompt') return <PromptScene key={`p-${n}`} embedded={embedded} />;
   if (slot.kind === 'compare') return <CompareScene key={`c-${n}`} embedded={embedded} />;
   if (slot.kind === 'edu') return <EduScene key={`e-${n}`} embedded={embedded} />;
+  if (slot.kind === 'mustai') return <MustAiScene key={`m-${n}`} embedded={embedded} />;
+  if (slot.kind === 'release') return <ReleaseScene key={`r-${n}`} embedded={embedded} />;
 
   const pair = pairs[slot.i];
   const ratio = pair.ratio ?? 1;
@@ -173,19 +190,28 @@ export default function TransformShow({
 
 /**
  * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (10초, 11/21 Jin 문구)
- * 생김새 칸에 글자가 한 자씩 써지고(0.8~5.2초) → ✨ 그 글로 만든 그림이 뜬다(6초~).
+ * 앱과 같은 두 칸: ① 누구?(0.8~3.4초) → ② 어디서 무엇을?(3.7~5.6초) → ✨ 그 글로 만든 그림(6초~). (11/22 두 칸으로)
  */
 function PromptScene({ embedded }: { embedded?: boolean }) {
-  const [shown, setShown] = useState(0);
+  const who = useTyping(SHOW_PROMPT_WHO, 800, 3400);
+  const where = useTyping(SHOW_PROMPT_WHERE, 3700, 5600);
   const [img, setImg] = useState(false);
   useEffect(() => {
-    const chars = Array.from(SHOW_PROMPT_TEXT);
-    const per = 4400 / chars.length;
-    const ts = chars.map((_, i) => window.setTimeout(() => setShown(i + 1), 800 + i * per));
-    ts.push(window.setTimeout(() => setImg(true), 6000));
-    return () => ts.forEach((t) => window.clearTimeout(t));
+    const t = window.setTimeout(() => setImg(true), 6000);
+    return () => window.clearTimeout(t);
   }, []);
-  const typed = Array.from(SHOW_PROMPT_TEXT).slice(0, shown).join('');
+  const whoDone = who.length >= Array.from(SHOW_PROMPT_WHO).length;
+  const box = (label: string, sub: string, text: string, caret: boolean, tone: 'amber' | 'sky') => (
+    <div>
+      <p className={`text-[3vmin] font-black ${tone === 'amber' ? 'text-amber-300' : 'text-sky-300'}`}>
+        {label} <span className="text-[2.4vmin]">{sub}</span>
+      </p>
+      <div className="mt-[0.8vmin] min-h-[9vmin] rounded-[1.4vmin] bg-slate-900 px-[2vmin] py-[1.2vmin] text-[3.2vmin] font-bold text-white leading-snug">
+        {text}
+        {caret && <span className="show-caret">|</span>}
+      </div>
+    </div>
+  );
   return (
     <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[4vw]`} style={{ wordBreak: 'keep-all' }}>
       {img && <div className="bonus-rays" />}
@@ -195,13 +221,10 @@ function PromptScene({ embedded }: { embedded?: boolean }) {
         <span className="text-white">AI 프롬프트 쓰는 연습</span>을 해볼 수 있어요!
       </p>
       <div className="relative z-10 mt-[4vmin] flex flex-row portrait:flex-col items-center gap-[3vmin]">
-        {/* 앱의 "어떻게 생겼어?" 칸 모양 그대로 */}
-        <div className="w-[min(46vw,80vh)] portrait:w-[86vw] rounded-[2vmin] border-[0.4vmin] border-amber-300/70 bg-amber-400/10 p-[2.4vmin]">
-          <p className="text-[2.6vmin] font-black text-amber-200">✏️ 어떻게 생겼어? 어떤 효과를 넣을까?</p>
-          <div className="mt-[1.5vmin] min-h-[14vmin] rounded-[1.4vmin] bg-slate-900 px-[2vmin] py-[1.6vmin] text-[3.6vmin] font-bold text-white leading-snug">
-            {typed}
-            <span className="show-caret">|</span>
-          </div>
+        {/* 앱의 "🤖 AI 프롬프트 쓰기" 두 칸 모양 그대로 */}
+        <div className="w-[min(48vw,84vh)] portrait:w-[86vw] rounded-[2vmin] border-[0.4vmin] border-amber-300/70 bg-amber-400/10 p-[2.2vmin] flex flex-col gap-[1.8vmin]">
+          {box('① ✏️ 누구?', '(생김새 · 효과)', who, !whoDone, 'amber')}
+          {box('② 📍 어디서 무엇을?', '(장면 · 배경)', where, whoDone && !img, 'sky')}
         </div>
         <p className={`text-[7vmin] leading-none portrait:rotate-90 transition-opacity ${img ? 'opacity-100' : 'opacity-30'}`}>➡️</p>
         <div className="relative w-[min(30vw,40vh)] portrait:w-[60vw] aspect-[4/3]">
@@ -357,6 +380,72 @@ function CompareScene({ embedded }: { embedded?: boolean }) {
         }`}
       >
         구체적으로 말할수록 AI가 내 상상에 가까워져요
+      </p>
+    </div>
+  );
+}
+
+/**
+ * 🤖 "AI, 이제 아이들에게 꼭 필요한 능력입니다." (6초, 11/22 Jin 문구, 보호자용)
+ * 배틀(노는 장면) 바로 뒤 → 뒤에 오는 프롬프트·비교·3단계가 이 말의 근거가 된다.
+ */
+function MustAiScene({ embedded }: { embedded?: boolean }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const ts = [300, 2100, 3300].map((ms, i) => window.setTimeout(() => setShown(i + 1), ms));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, []);
+  const [l1, l2, l3, l4] = SHOW_MUSTAI_LINES;
+  const fade = (on: boolean) => `transition-all duration-700 ${on ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[3vmin]'}`;
+  return (
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[6vw] text-center`} style={{ wordBreak: 'keep-all' }}>
+      <div className="attract-rays" />
+      <p className={`relative z-10 text-[10vmin] leading-none ${fade(shown >= 1)}`}>🤖</p>
+      <p className={`relative z-10 mt-[3vmin] text-[7vmin] font-black text-white leading-tight drop-shadow ${fade(shown >= 1)}`}>
+        {l1}
+        <br />
+        <span className="attract-gold">{l2}</span>
+      </p>
+      <p className={`relative z-10 mt-[5vmin] text-[4.4vmin] font-black text-slate-200 leading-snug ${fade(shown >= 2)}`}>{l3}</p>
+      <p className={`relative z-10 mt-[1.4vmin] text-[4.4vmin] font-black text-amber-200 leading-snug ${fade(shown >= 3)}`}>{l4}</p>
+    </div>
+  );
+}
+
+/**
+ * 🚀 맨 끝 출시 예고 (6초, 11/22 Jin: "내년 상반기", 공룡·물고기·과학·위인 버전)
+ * ⚠️ 첫 화면(app/page.tsx COMING_SOON·NEXT_SERIES)과 날짜·버전을 맞출 것.
+ */
+function ReleaseScene({ embedded }: { embedded?: boolean }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const ts = [200, 1600, 3400].map((ms, i) => window.setTimeout(() => setShown(i + 1), ms));
+    return () => ts.forEach((t) => window.clearTimeout(t));
+  }, []);
+  return (
+    <div className={`${wrapCls(embedded)} items-center justify-center overflow-hidden px-[5vw] text-center`} style={{ wordBreak: 'keep-all' }}>
+      {shown >= 1 && <div className="bonus-rays" />}
+      <div className={`relative z-10 transition-all duration-700 ${shown >= 1 ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
+        <p className="text-[4.4vmin] font-black text-sky-300">🚀 {SHOW_RELEASE_WHEN}</p>
+        <p className="mt-[1vmin] attract-gold text-[10vmin] font-black leading-none">{SHOW_RELEASE_TITLE}</p>
+      </div>
+      <div className="relative z-10 mt-[5vmin] flex flex-wrap items-stretch justify-center gap-[2.4vmin]">
+        {SHOW_RELEASE_SERIES.map((v, i) => (
+          <div
+            key={v.name}
+            className="w-[18vmin] rounded-[2vmin] border-[0.4vmin] border-amber-300/60 bg-slate-900/90 py-[2vmin] flex flex-col items-center gap-[0.8vmin] transition-all duration-500"
+            style={{ opacity: shown >= 2 ? 1 : 0, transform: shown >= 2 ? 'translateY(0)' : 'translateY(4vmin)', transitionDelay: `${i * 180}ms` }}
+          >
+            <span className="text-[8vmin] leading-none">{v.icon}</span>
+            <span className="text-[3.4vmin] font-black text-white">{v.name}</span>
+          </div>
+        ))}
+      </div>
+      <p className={`relative z-10 mt-[2vmin] text-[3.6vmin] font-black text-white transition-opacity duration-500 ${shown >= 2 ? 'opacity-100' : 'opacity-0'}`}>
+        버전도 출시 예정!
+      </p>
+      <p className={`relative z-10 mt-[4vmin] rounded-full bg-yellow-300 px-[3vmin] py-[1.2vmin] text-[3vmin] font-black text-slate-900 transition-all duration-700 ${shown >= 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+        📢 곤충본부 카카오톡 채널을 추가하면 출시 소식을 가장 먼저 알려드려요
       </p>
     </div>
   );

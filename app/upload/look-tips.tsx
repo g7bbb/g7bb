@@ -9,6 +9,8 @@ import { createPortal } from 'react-dom';
 // 예시에 큰턱·뿔 같은 몸 부위는 일부러 안 넣었다 — 나비에 큰턱을 붙이면 "고른 곤충 모습" 규칙과 부딪힌다.
 
 export const LOOK_MAX = 200;
+/** ② 어디서 무엇을? (장면·배경) 칸 글자 수 (11/22) */
+export const SCENE_MAX = 120;
 
 export const LOOK_EXAMPLES = [
   '⚡ 몸에서 파란 번개가 파지직 튀어',

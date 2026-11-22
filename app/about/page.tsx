@@ -12,7 +12,7 @@ const ITEMS: { emoji: string; title: string; body: string }[] = [
   { emoji: '🌙', title: '여름 · 야간 곤충채집', body: '밤 숲에서 아이들과 함께 살아있는 곤충을 직접 찾아봐요.' },
   { emoji: '🐛', title: '봄·가을·겨울 · 애벌레 채집', body: '계절마다 숨어 있는 애벌레를 찾고, 곤충이 자라는 과정을 배워요.' },
   { emoji: '🪲', title: '곤충 체험 · 사육', body: '사슴벌레·장수풍뎅이 같은 곤충을 가까이에서 만나고 직접 길러볼 수 있어요.' },
-  { emoji: '🎮', title: 'G7BB 배틀', body: '아이가 그린 곤충이 AI로 살아나 배틀하는 체험. 2027년 초에는 식물·어류·공룡 버전도 나올 예정이에요.' },
+  { emoji: '🎮', title: 'G7BB 배틀', body: '아이가 그린 곤충이 AI로 살아나 배틀하는 체험. 2027년 상반기에는 식물·어류·공룡 버전도 나올 예정이에요.' },
 ];
 
 export default function AboutPage() {

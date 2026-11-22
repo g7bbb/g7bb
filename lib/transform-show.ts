@@ -41,7 +41,9 @@ export const SHOW_BATTLE_MS = Math.round(9500 / SHOW_SPEED);
  * 예시 글은 2번 그림(번개 대포·무지개 날개)에 맞췄다.
  */
 export const SHOW_PROMPT_MS = 10000;
-export const SHOW_PROMPT_TEXT = '등에 번개 대포를 달고, 무지개 날개로 날아다녀! ⚡🌈';
+// 🔁 11/22: 앱 칸이 ① 누구(생김새·효과) ② 어디서 무엇을(장면·배경) 둘로 나뉘어서 영상도 두 칸으로
+export const SHOW_PROMPT_WHO = '황금 사슴벌레! 빨간 눈, 등에는 번개 대포, 무지개 날개 ⚡🌈';
+export const SHOW_PROMPT_WHERE = '불타는 운석이 떨어지는 전쟁터를 달려오고 있어 ☄️';
 export const SHOW_PROMPT_IMAGE = '/show/ai-2.jpg';
 /**
  * 🆚 9초 — 추상적인 프롬프트 vs 자세한 프롬프트 (11/21 Jin 이 그림 2장을 줌. 왼쪽은 일부러 밋밋한 그림).
@@ -63,10 +65,25 @@ export const SHOW_COMPARE = {
 export const SHOW_EDU_MS = 8000;
 export const SHOW_EDU_STEPS = [
   { icon: '🖍️', title: '상상을 그림으로', desc: '종이에 나만의 곤충을 직접 그려요' },
-  { icon: '✍️', title: '생각을 말로 정확하게', desc: '색깔·효과·위치를 글로 설명해요 (AI 프롬프트)' },
+  { icon: '✍️', title: '생각을 말로 정확하게', desc: '누구(생김새·효과)와 어디서 무엇을(장면)을 글로 설명해요 (AI 프롬프트)' },
   { icon: '🔁', title: '결과를 보고 다시 요청', desc: '마음에 안 들면 설명을 고쳐서 다시 만들어요' },
 ];
 export const SHOW_EDU_TAGLINE = 'AI에게 원하는 걸 정확히 말하는 힘, 놀이로 연습해요';
-/** 한 바퀴 = 짝 전부 + 배틀 + 프롬프트 + 비교 + 3단계 */
+/** 🤖 배틀 바로 뒤 6초 — 보호자용 메시지 (11/22 Jin 문구). 노는 장면 → "이게 AI 교육" 으로 넘어가는 다리 */
+export const SHOW_MUSTAI_MS = 6000;
+export const SHOW_MUSTAI_LINES = ['AI, 이제 아이들에게', '꼭 필요한 능력입니다.', '재미있게 놀면서 친해지면', '더 능숙하고 효율적으로 활용할 수 있습니다.'];
+/** 🚀 맨 끝 6초 — 출시 예고 (11/22 Jin: 내년 상반기. 첫 화면 COMING_SOON 도 "27년 상반기") */
+export const SHOW_RELEASE_MS = 6000;
+export const SHOW_RELEASE_TITLE = '곤충진화 AI 앱';
+export const SHOW_RELEASE_WHEN = '2027년 상반기 출시 예정';
+export const SHOW_RELEASE_SERIES = [
+  { icon: '🦖', name: '공룡' },
+  { icon: '🐟', name: '물고기' },
+  { icon: '🔬', name: '과학' },
+  { icon: '📜', name: '위인' },
+];
+/** 한 바퀴 = 짝 전부 + 배틀 + AI 메시지 + 프롬프트 + 비교 + 3단계 + 출시 예고 */
 export const SHOW_CYCLE_MS =
-  SHOW_PAIRS.length * SHOW_PAIR_MS + (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) + SHOW_PROMPT_MS + SHOW_COMPARE_MS + SHOW_EDU_MS;
+  SHOW_PAIRS.length * SHOW_PAIR_MS +
+  (SHOW_PAIRS.length >= 2 ? SHOW_BATTLE_MS : 0) +
+  SHOW_MUSTAI_MS + SHOW_PROMPT_MS + SHOW_COMPARE_MS + SHOW_EDU_MS + SHOW_RELEASE_MS;

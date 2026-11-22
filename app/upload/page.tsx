@@ -2,7 +2,7 @@
 
 import { readTicketPin } from '@/lib/ticket-pin-client';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
-import LookTips, { LOOK_MAX } from './look-tips';
+import LookTips, { LOOK_MAX, SCENE_MAX } from './look-tips';
 import { clearDraft, readDraft, saveDraft } from '@/lib/draft';
 import { effectiveVisit } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
@@ -58,6 +58,7 @@ interface UploadDraft {
   mutations: ReturnType<typeof defaultMutations>;
   customSpecies: string;
   customLook: string;
+  customScene?: string;
   origin: EnvironmentKey;
   ageStage: AgeStageKey;
   bodyParts: ReturnType<typeof defaultBodyParts>;
@@ -80,6 +81,8 @@ export default function UploadPage() {
    */
   const [customSpecies, setCustomSpecies] = useState('');
   const [customLook, setCustomLook] = useState('');
+  // 📍 두 번째 프롬프트 칸 "어디서 무엇을?" — 장면·배경 (11/22 Jin: 프롬프트를 '누구 + 어디서 무엇을' 두 칸으로 나눠 쓰는 연습)
+  const [customScene, setCustomScene] = useState('');
   // 💡 "어떻게 생겼어?" 도우미 팝업 — 처음 칸을 누를 때 한 번 저절로 뜬다 (10/3 Jin)
   const [lookTips, setLookTips] = useState(false);
   const lookTipsShown = useRef(false);
@@ -141,6 +144,7 @@ export default function UploadPage() {
         if (d.mutations) setMutations(d.mutations);
         if (typeof d.customSpecies === 'string') setCustomSpecies(d.customSpecies);
         if (typeof d.customLook === 'string') setCustomLook(d.customLook);
+        if (typeof d.customScene === 'string') setCustomScene(d.customScene);
         if (d.origin) setOrigin(d.origin);
         if (d.ageStage) setAgeStage(d.ageStage);
         if (d.bodyParts) setBodyParts(d.bodyParts);
@@ -180,10 +184,10 @@ export default function UploadPage() {
   useEffect(() => {
     if (!draftReady || !player) return;
     const draft: UploadDraft = {
-      species, mutations, customSpecies, customLook, origin, ageStage, bodyParts, insectName, color, mood, friendInput,
+      species, mutations, customSpecies, customLook, customScene, origin, ageStage, bodyParts, insectName, color, mood, friendInput,
     };
     saveDraft(`upload:${player.ticket_code}`, draft);
-  }, [draftReady, player, species, mutations, customSpecies, customLook, origin, ageStage, bodyParts, insectName, color, mood, friendInput]);
+  }, [draftReady, player, species, mutations, customSpecies, customLook, customScene, origin, ageStage, bodyParts, insectName, color, mood, friendInput]);
   useEffect(() => {
     if (!draftReady || !player || !attempts.length) return;
     // 그림 3장이면 1.5MB 남짓 — 저장 공간이 모자라면 조용히 건너뛴다
@@ -269,6 +273,8 @@ export default function UploadPage() {
           customSpecies: species === 'other' ? customSpecies.trim() : '',
           // 생김새·효과 설명은 모든 곤충에 (10/3 Jin: 자세히 쓰면 그림이 훨씬 멋지게 나옴)
           customLook: customLook.trim(),
+          // 장면·배경 (11/22). 저장은 안 하고 그림에만 쓴다.
+          customScene: customScene.trim(),
           bodyParts,
           mutations,
           color,
@@ -497,10 +503,11 @@ export default function UploadPage() {
             )}
             {/* ✏️ 생김새·효과 설명 — 모든 곤충 (10/1 기타 곤충만 → 10/3 Jin: 자세히 쓰니까 그림이 엄청 멋지게 나옴).
                 AI 프롬프트에만 쓰고 저장은 안 한다. */}
-            <div className="mt-3 bg-slate-800/60 border border-amber-400/50 rounded-xl p-3 flex flex-col gap-2">
+            {/* 🤖 AI 프롬프트 두 칸 (11/22 Jin): ① 누구(생김새·효과) ② 어디서 무엇을(장면·배경). 설명·예시를 크게. */}
+            <div className="mt-3 bg-slate-800/60 border border-amber-400/50 rounded-xl p-3 flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold text-amber-300" style={{ wordBreak: 'keep-all' }}>
-                  ✏️ 어떻게 생겼어? 어떤 효과를 넣을까?
+                <p className="text-base font-black text-white" style={{ wordBreak: 'keep-all' }}>
+                  🤖 AI 프롬프트 쓰기 <span className="whitespace-nowrap text-xs font-bold text-slate-400">(안 써도 돼)</span>
                 </p>
                 <button
                   type="button"
@@ -510,21 +517,48 @@ export default function UploadPage() {
                   💡 예시 보기
                 </button>
               </div>
-              <textarea
-                value={customLook}
-                onChange={(e) => setCustomLook(e.target.value.slice(0, LOOK_MAX))}
-                onFocus={() => {
-                  if (lookTipsShown.current) return;
-                  lookTipsShown.current = true;
-                  setLookTips(true);
-                }}
-                maxLength={LOOK_MAX}
-                rows={3}
-                placeholder="예: 날개 끝에서 파란 번개가 파지직 튀고, 등은 금색으로 반짝여!"
-                className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-              />
+
+              <div className="flex flex-col gap-1.5">
+                <p className="text-lg font-black text-amber-300 leading-tight" style={{ wordBreak: 'keep-all' }}>
+                  ① ✏️ 누구? <span className="text-base">(생김새 · 효과)</span>
+                </p>
+                <p className="text-sm font-bold text-amber-100/90" style={{ wordBreak: 'keep-all' }}>
+                  예) 날개 끝에서 파란 번개가 파지직 튀고, 등은 금색으로 반짝여!
+                </p>
+                <textarea
+                  value={customLook}
+                  onChange={(e) => setCustomLook(e.target.value.slice(0, LOOK_MAX))}
+                  onFocus={() => {
+                    if (lookTipsShown.current) return;
+                    lookTipsShown.current = true;
+                    setLookTips(true);
+                  }}
+                  maxLength={LOOK_MAX}
+                  rows={3}
+                  placeholder="내 곤충은 어떻게 생겼어? 어떤 효과를 넣을까?"
+                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <p className="text-lg font-black text-sky-300 leading-tight" style={{ wordBreak: 'keep-all' }}>
+                  ② 📍 어디서 무엇을? <span className="text-base">(장면 · 배경)</span>
+                </p>
+                <p className="text-sm font-bold text-sky-100/90" style={{ wordBreak: 'keep-all' }}>
+                  예) 달빛 아래 참나무 위에서 수액을 지키고 있어
+                </p>
+                <textarea
+                  value={customScene}
+                  onChange={(e) => setCustomScene(e.target.value.slice(0, SCENE_MAX))}
+                  maxLength={SCENE_MAX}
+                  rows={2}
+                  placeholder="어디에 있고, 무엇을 하고 있을까?"
+                  className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+                />
+              </div>
+
               <p className="text-xs text-amber-200/90" style={{ wordBreak: 'keep-all' }}>
-                ⚡ 번개 · 🔥 불꽃 · ❄️ 얼음 · ✨ 반짝이… <b>자세히 쓸수록 더 멋진 곤충</b>이 나와! (안 써도 돼)
+                💡 <b>누구 + 어디서 무엇을</b> 나눠서 자세히 쓸수록 AI 가 내 상상대로 그려줘!
               </p>
             </div>
             {lookTips && <LookTips value={customLook} onChange={setCustomLook} onClose={() => setLookTips(false)} />}

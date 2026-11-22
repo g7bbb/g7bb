@@ -36,7 +36,7 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, species, customSpecies, customLook, bodyParts, mutations, color, mood } =
+    const { imageBase64, mimeType, species, customSpecies, customLook, customScene, bodyParts, mutations, color, mood } =
       await req.json();
 
     if (!imageBase64 || !mimeType) {
@@ -75,6 +75,12 @@ export async function POST(req: NextRequest) {
     const lookText = ownLook
       ? `아이가 직접 설명한 생김새·효과: "${ownLook}". 이 설명(번개·불꽃·얼음 같은 효과, 색, 배경 포함)을 하나도 빠짐없이 크고 분명하게 반영해라. ` +
         `앞의 색깔·느낌 규칙과 부딪히면 아이가 직접 쓴 이 설명을 따라라. `
+      : '';
+    // 📍 아이가 정한 장면·배경 (11/22 Jin: 프롬프트 두 번째 칸 "어디서 무엇을?")
+    const ownScene = clean(customScene, 120);
+    const sceneRule = ownScene
+      ? `아이가 직접 정한 장면·배경: "${ownScene}". 배경을 이 장소로 그리고, 곤충이 이 행동을 하고 있는 모습(자세·동작)으로 그려라. ` +
+        '느낌 규칙에 적힌 배경과 부딪히면 아이가 정한 이 장면을 따라라. 그래도 곤충은 화면 중앙에 크게 그려라. '
       : '';
     const speciesName = ownName || matchedSpecies?.label || species;
     const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
@@ -132,7 +138,7 @@ export async function POST(req: NextRequest) {
       '② 아이가 고른 곤충 이름과 적어 준 설명을 최대한 그대로 따라 그려라. ' +
       `${speciesRule}\n\n` +
       `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${mutationRule}` +
-      `${lookRule} ${speciesAnatomy}${INSECT_ANATOMY_RULES}`;
+      `${lookRule} ${speciesAnatomy}${sceneRule}${INSECT_ANATOMY_RULES}`;
 
     // 행사 당일(10/3) 보강: 여러 아이가 한꺼번에 만들면 Gemini 가 "바빠(429)"·"잠깐 문제(500/503)" 를 줄 수 있다.
     // 그때는 2초 쉬고 **한 번만** 자동으로 다시 시도한다 (아이는 버튼을 한 번만 누른 셈).
