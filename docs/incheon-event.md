@@ -71,3 +71,10 @@
 - 거울·황금 보스는 경험치 1.5배(`SPECIAL_XP_RATE`), 랭킹 점수는 보통 판처럼 남김(상대 id 는 비움). 1위 격파·도장 깨기 뱃지 없음.
 - 5천원권 "2위·1위 못 이김" 규칙 없앰 — 참가권과 상관없이 똑같이 이길 수 있다 (3위 안 랭커는 모두에게 `TOP3_EDGE` 1.14, 같은 레벨 34%).
 - 코드: `buildLadderTargets` (app/battle/page.tsx).
+
+## 🌋 곤충 필드 `/field` (11/22 Jin: "곤충들이 캐릭터처럼 화면에 다 나오고 위에 HP 바")
+- 아이들 곤충(이번 행사, 테스트·직원 제외, `lib/roster.ts`)을 **곤충만 오려내** 필드 위에 세운다. 머리 위 이름·Lv·HP 바, 땅 위를 걸어 다님(앞쪽일수록 크게), 나비·벌은 떠서 날아다님.
+- 오려내기: 브라우저 안 AI — IS-Net(rembg, Apache-2.0)을 8비트로 줄인 `public/models/isnet-q8.onnx`(46MB) + onnxruntime-web(`public/ort/`), Web Worker `public/cutout-worker.js`, `lib/cutout.ts`. 서버 비용 0.
+  처음 한 번은 곤충마다 몇 초(컨테이너 느린 CPU 기준 장당 14초, PC 는 더 빠름) → 그 기기 IndexedDB `g7bb-cut` 에 저장, 다시 열면 0.3초.
+- 필드 🌋 용암 · 🌌 우주 · 🕳️ 블랙홀(가운데로 끌려감) — 버튼 또는 45초마다. 배경은 CSS 로 그림.
+- ⏭️ 다음: 한파·고온 등 환경이 HP 를 깎는 생존 시뮬레이션 (지금 HP 는 꽉 참).
