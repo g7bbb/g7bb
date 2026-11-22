@@ -70,6 +70,15 @@ export async function POST(req: NextRequest) {
     const clean = (value: unknown, max: number) =>
       typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
     const ownName = clean(customSpecies, 20);
+    // 🐶 11/22 Jin: 곤충 말고 동물·물고기·공룡 등을 그리는 아이도 있다 → "기타"에 적은 이름은 곤충이 아닐 수 있다.
+    // 그때는 곤충 규칙(다리 6개·더듬이·몸 세 부분)을 빼고 그 생물 모습 그대로 ("내가 그린 거랑 다르다" 방지).
+    // 곤충인지 아닌지는 AI 가 이름을 보고 판단한다 (물방개 → 곤충 규칙, 강아지 → 강아지 그대로).
+    const subject = ownName ? '생물' : '곤충';
+    const anatomyRules = ownName
+      ? `만약 "${ownName}"이(가) 곤충이라면 다음 규칙을 따라라: ${INSECT_ANATOMY_RULES} ` +
+        `"${ownName}"이(가) 곤충이 아니라면(동물·물고기·새·공룡·상상 속 생물 등) 이 곤충 규칙은 모두 무시하고, ` +
+        `${ownName}의 실제 몸 구조(다리 수·꼬리·털·비늘·지느러미 등) 그대로 그려라. 절대 곤충으로 바꾸지 마라.`
+      : INSECT_ANATOMY_RULES;
     const ownLook = clean(customLook, 200);
     // 아이가 직접 쓴 생김새·효과 (10/3 Jin: 번개·불꽃 같은 효과를 자세히 쓰면 그림이 훨씬 멋지게 나옴)
     const lookText = ownLook
@@ -79,13 +88,14 @@ export async function POST(req: NextRequest) {
     // 📍 아이가 정한 장면·배경 (11/22 Jin: 프롬프트 두 번째 칸 "어디서 무엇을?")
     const ownScene = clean(customScene, 120);
     const sceneRule = ownScene
-      ? `아이가 직접 정한 장면·배경: "${ownScene}". 배경을 이 장소로 그리고, 곤충이 이 행동을 하고 있는 모습(자세·동작)으로 그려라. ` +
-        '느낌 규칙에 적힌 배경과 부딪히면 아이가 정한 이 장면을 따라라. 그래도 곤충은 화면 중앙에 크게 그려라. '
+      ? `아이가 직접 정한 장면·배경: "${ownScene}". 배경을 이 장소로 그리고, ${subject}이 이 행동을 하고 있는 모습(자세·동작)으로 그려라. ` +
+        `느낌 규칙에 적힌 배경과 부딪히면 아이가 정한 이 장면을 따라라. 그래도 ${subject}은 화면 중앙에 크게 그려라. `
       : '';
     const speciesName = ownName || matchedSpecies?.label || species;
     const speciesText = speciesName ? `${speciesName} 종류를 기반으로, ` : '';
     const speciesAnatomy = ownName
       ? `아이가 직접 "${ownName}"을(를) 그렸다고 알려줬다. 실제 ${ownName}의 생김새를 따라 그려라. ` +
+        `${ownName}이(가) 곤충이 아니어도 곤충 모습으로 바꾸지 말고 ${ownName} 그대로 그려라. ` +
         (ownLook ? lookText : '')
       : matchedSpecies?.anatomy
         ? `${speciesName}의 실제 생김새는 이렇다: ${matchedSpecies.anatomy} ` +
@@ -98,8 +108,8 @@ export async function POST(req: NextRequest) {
     // 아이 그림(또는 다른 곤충 사진)이 다른 곤충처럼 보여도 그림은 색·무늬·자세 참고용일 뿐이다.
     const forbid = ownName ? '' : matchedSpecies?.forbid ?? '';
     const speciesRule = speciesName
-      ? `③ 이 곤충은 "${speciesName}"이다. 몸 전체의 큰 생김새(얼굴·입·머리·몸통·날개 모양)는 누가 봐도 한눈에 ` +
-        `${speciesName}의 모습으로 알아볼 수 있어야 한다. 아이 그림이 다른 곤충처럼 보여도, 그림은 색·무늬·자세·특별히 그린 부분을 ` +
+      ? `③ 이 ${subject}은(는) "${speciesName}"이다. 몸 전체의 큰 생김새(얼굴·입·머리·몸통·날개 모양)는 누가 봐도 한눈에 ` +
+        `${speciesName}의 모습으로 알아볼 수 있어야 한다. 아이 그림이 다른 ${subject}처럼 보여도, 그림은 색·무늬·자세·특별히 그린 부분을 ` +
         `참고하는 데만 쓰고 몸의 기본 형태는 반드시 ${speciesName}의 모습으로 그려라. ` +
         (forbid ? `${forbid} (단, 아이가 특별 진화로 직접 고른 부위는 예외로 그대로 그려라.) ` : '')
       : '';
@@ -118,27 +128,27 @@ export async function POST(req: NextRequest) {
     const lookRule = appearancePrompt(color, mood);
 
     const prompt =
-      `이 아이가 종이에 그린 곤충 그림을 참고해서, ${speciesText}실제 곤충 사진처럼 사실적인 질감과 디테일을 가진 ` +
-      '곤충 일러스트로 다시 그려줘. 강렬한 배경 이펙트(스피드라인, 빛 입자 등)를 더해서 ' +
+      `이 아이가 종이에 그린 ${subject} 그림을 참고해서, ${speciesText}실제 ${subject} 사진처럼 사실적인 질감과 디테일을 가진 ` +
+      `${subject} 일러스트로 다시 그려줘. 강렬한 배경 이펙트(스피드라인, 빛 입자 등)를 더해서 ` +
       `게임 카드 일러스트처럼 만들어줘. ${emphasis}배경은 분위기 있는 색감으로 채워줘. ` +
-      '사람 얼굴이 아니라, 어디까지나 곤충 캐릭터 자체만 화면 중앙에 크게 그려줘.\n\n' +
+      `사람 얼굴이 아니라, 어디까지나 ${subject} 캐릭터 자체만 화면 중앙에 크게 그려줘.\n\n` +
       // 🚨 2026-09-29: 새 모델이 "게임 카드처럼"을 **진짜 카드를 그리라는 뜻**으로 알아들어서
       // 테두리와 `LV. 9 / 9000` 같은 가짜 글자를 그림 안에 그려 넣었다.
       // AI가 그리는 글자는 언제나 엉터리고, 1위 상품이 포스터·피규어 제작이라 그대로 둘 수 없다.
       // 카드 틀·레벨·능력치·필살기는 **앱이 그림 위에 직접 그린다**(진짜 값으로). AI는 그림만 그린다.
       '⚠️ 절대 금지: 카드 테두리나 액자, 글자, 숫자, 레벨 표시, 능력치 바, 로고, 워터마크, ' +
       '말풍선 같은 UI 요소를 그림 안에 넣지 마라. 어떤 문자도 그리지 마라. ' +
-      '곤충과 배경만 화면 전체를 꽉 채워서 그려라.\n\n' +
+      `${subject}과 배경만 화면 전체를 꽉 채워서 그려라.\n\n` +
       // 아래 규칙은 연출보다 우선합니다. 곤충 행사에 오는 아이들은 실제 곤충을 잘 알기 때문에
       // 턱이나 다리 개수가 틀리면 바로 알아챕니다.
       // 색깔·느낌도 여기 넣습니다. 위쪽 연출 문장에 두면 "멋있게"를 핑계로 무시당합니다.
       // 🚨 절대 규칙 (2026-10-01 Jin): 1위 상품이 **3D 프린팅 피규어**라 얇은 부위는 출력하면 부러진다.
-      '🚨 절대 규칙 (무엇보다 우선): ① 이 곤충은 3D 프린팅으로 피규어를 만든다. 관절·다리·더듬이·발톱을 ' +
+      `🚨 절대 규칙 (무엇보다 우선): ① 이 ${subject}은 3D 프린팅으로 피규어를 만든다. 관절·다리·더듬이·발톱을 ` +
       '너무 얇거나 가늘게 그리지 마라. 실제보다 조금 두툼하고 튼튼하게 그려라. ' +
-      '② 아이가 고른 곤충 이름과 적어 준 설명을 최대한 그대로 따라 그려라. ' +
+      `② 아이가 고른 ${subject} 이름과 적어 준 설명을 최대한 그대로 따라 그려라. ` +
       `${speciesRule}\n\n` +
       `반드시 지켜야 할 규칙 (멋있게 그리는 것보다 이 규칙이 우선한다): ${mutationRule}` +
-      `${lookRule} ${speciesAnatomy}${sceneRule}${INSECT_ANATOMY_RULES}`;
+      `${lookRule} ${speciesAnatomy}${sceneRule}${anatomyRules}`;
 
     // 행사 당일(10/3) 보강: 여러 아이가 한꺼번에 만들면 Gemini 가 "바빠(429)"·"잠깐 문제(500/503)" 를 줄 수 있다.
     // 그때는 2초 쉬고 **한 번만** 자동으로 다시 시도한다 (아이는 버튼을 한 번만 누른 셈).

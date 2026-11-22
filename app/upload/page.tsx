@@ -490,13 +490,13 @@ export default function UploadPage() {
             </div>
             {species === 'other' && (
               <div className="mt-3 bg-slate-800/60 border border-sky-500/40 rounded-xl p-3 flex flex-col gap-2">
-                <p className="text-sm font-bold text-sky-300">🔍 어떤 곤충을 그릴 거야?</p>
+                <p className="text-sm font-bold text-sky-300">🔍 어떤 곤충(또는 동물)을 그릴 거야?</p>
                 <input
                   type="text"
                   value={customSpecies}
                   onChange={(e) => setCustomSpecies(e.target.value.slice(0, 20))}
                   maxLength={20}
-                  placeholder="예: 물방개, 장수말벌, 반딧불이"
+                  placeholder="예: 물방개, 반딧불이, 강아지, 상어"
                   className="w-full bg-slate-900 rounded-lg px-3 py-2.5 text-base font-bold placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
               </div>
