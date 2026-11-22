@@ -40,7 +40,7 @@ export const SHOW_BATTLE_MS = Math.round(9500 / SHOW_SPEED);
  * ✍️ 맨 끝 10초 — "AI 프롬프트 쓰는 연습" (11/21 Jin 문구). 생김새 칸에 글을 쓰는 모습 → 그 그림.
  * 예시 글은 2번 그림(번개 대포·무지개 날개)에 맞췄다.
  */
-export const SHOW_PROMPT_MS = 10000;
+export const SHOW_PROMPT_MS = 8000; // 11/22 10초 → 8초 (쇼가 순위보다 길어져서)
 // 🔁 11/22: 앱 칸이 ① 누구(생김새·효과) ② 어디서 무엇을(장면·배경) 둘로 나뉘어서 영상도 두 칸으로
 export const SHOW_PROMPT_WHO = '황금 사슴벌레! 빨간 눈, 등에는 번개 대포, 무지개 날개 ⚡🌈';
 export const SHOW_PROMPT_WHERE = '불타는 운석이 떨어지는 전쟁터를 달려오고 있어 ☄️';
@@ -73,7 +73,7 @@ export const SHOW_EDU_TAGLINE = 'AI에게 원하는 걸 정확히 말하는 힘,
 export const SHOW_MUSTAI_MS = 6000;
 export const SHOW_MUSTAI_LINES = ['AI, 이제 아이들에게', '꼭 필요한 능력입니다.', '재미있게 놀면서 친해지면', '더 능숙하고 효율적으로 활용할 수 있습니다.'];
 /** 🚀 맨 끝 6초 — 출시 예고 (11/22 Jin: 내년 상반기. 첫 화면 COMING_SOON 도 "27년 상반기") */
-export const SHOW_RELEASE_MS = 6000;
+export const SHOW_RELEASE_MS = 4000; // 11/22 6초 → 4초
 export const SHOW_RELEASE_TITLE = '곤충진화 AI 앱';
 export const SHOW_RELEASE_WHEN = '2027년 상반기 출시 예정';
 export const SHOW_RELEASE_SERIES = [

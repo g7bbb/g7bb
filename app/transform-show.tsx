@@ -189,15 +189,15 @@ export default function TransformShow({
 }
 
 /**
- * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (10초, 11/21 Jin 문구)
- * 앱과 같은 두 칸: ① 누구?(0.8~3.4초) → ② 어디서 무엇을?(3.7~5.6초) → ✨ 그 글로 만든 그림(6초~). (11/22 두 칸으로)
+ * ✍️ "곤충 생성하는 과정에서 AI 프롬프트 쓰는 연습을 해볼 수 있어요!" (8초, 11/21 Jin 문구)
+ * 앱과 같은 두 칸: ① 누구?(0.6~2.8초) → ② 어디서 무엇을?(3.0~4.6초) → ✨ 그 글로 만든 그림(5초~). (11/22 두 칸으로)
  */
 function PromptScene({ embedded }: { embedded?: boolean }) {
-  const who = useTyping(SHOW_PROMPT_WHO, 800, 3400);
-  const where = useTyping(SHOW_PROMPT_WHERE, 3700, 5600);
+  const who = useTyping(SHOW_PROMPT_WHO, 600, 2800);
+  const where = useTyping(SHOW_PROMPT_WHERE, 3000, 4600);
   const [img, setImg] = useState(false);
   useEffect(() => {
-    const t = window.setTimeout(() => setImg(true), 6000);
+    const t = window.setTimeout(() => setImg(true), 5000);
     return () => window.clearTimeout(t);
   }, []);
   const whoDone = who.length >= Array.from(SHOW_PROMPT_WHO).length;
@@ -413,13 +413,13 @@ function MustAiScene({ embedded }: { embedded?: boolean }) {
 }
 
 /**
- * 🚀 맨 끝 출시 예고 (6초, 11/22 Jin: "내년 상반기", 공룡·물고기·과학·위인 버전)
+ * 🚀 맨 끝 출시 예고 (4초, 11/22 Jin: "내년 상반기", 공룡·물고기·과학·위인 버전)
  * ⚠️ 첫 화면(app/page.tsx COMING_SOON·NEXT_SERIES)과 날짜·버전을 맞출 것.
  */
 function ReleaseScene({ embedded }: { embedded?: boolean }) {
   const [shown, setShown] = useState(0);
   useEffect(() => {
-    const ts = [200, 1600, 3400].map((ms, i) => window.setTimeout(() => setShown(i + 1), ms));
+    const ts = [150, 900, 1800].map((ms, i) => window.setTimeout(() => setShown(i + 1), ms));
     return () => ts.forEach((t) => window.clearTimeout(t));
   }, []);
   return (
