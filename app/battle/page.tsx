@@ -1,7 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearGameOver, getCurrentPlayer, markGameOver, readGameOverAt } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
@@ -13,7 +13,7 @@ import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadg
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
-import { BattleResult, BattleSide, SideRoll, TIER_A_CAP_RANK, TOP3_EDGE, barPercents, battleHp, forceLoseA, resolveBattle, rollBattle } from '@/lib/battle-engine';
+import { BattleResult, BattleSide, SideRoll, TOP3_EDGE, TOP3_EDGE_A, barPercents, battleHp, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
 import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
@@ -115,6 +115,57 @@ interface OpponentSummary {
   rank: number;
   /** 🤖 연습 곤충 (lib/bots.ts) — 상대가 모자랄 때만 채워진다 */
   bot?: boolean;
+  /** 🪞 1위가 싸우는 "또 다른 나" · 🚀 꼭대기까지 오른 뒤 남은 판의 황금 우주인 보스 (11/22 Jin) */
+  special?: 'mirror' | 'golden';
+  /** 🚀 황금 우주인 보스의 원래 곤충 id (그림·능력치를 빌려온다) */
+  sourceId?: string;
+}
+
+/** 🪞🚀 거울·황금 보스는 경험치 1.5배 (11/22 Jin) */
+const SPECIAL_XP_RATE = 1.5;
+const MIRROR_PREFIX = 'mirror-';
+const GOLDEN_PREFIX = 'golden-';
+/** DB 에 없는 상대 (연습 곤충·중간보스·거울·황금 보스) — battles 에 상대 id 를 비워 두고, 수비 경험치·도장 깨기도 없다 */
+function isFakeFoe(id: string): boolean {
+  return isBotId(id) || id.startsWith(MIRROR_PREFIX) || id.startsWith(GOLDEN_PREFIX);
+}
+
+/**
+ * 🏆 랭킹 도전 상대 정하기 (11/22 Jin)
+ * - 4위 아래(또는 기록 없음): 지금처럼 3위 → 2위 → 1위
+ * - 3위·2위: **나보다 위**만 (3위면 2위 → 1위, 2위면 1위) — 이미 이긴 아래 순위와 또 싸우지 않게
+ * - 1위: 🪞 또 다른 나 (같은 곤충, 출신지만 다른 걸로 랜덤)
+ * - 3위 안 아이는 꼭대기까지 이기고 판이 남으면 🚀 황금 우주인 보스 (다른 아이 곤충 하나를 무작위로 금색 우주인으로)
+ */
+function buildLadderTargets(opponents: OpponentSummary[], myRank: number | null, me: Insect | null): OpponentSummary[] {
+  const real = opponents.filter((o) => !o.bot);
+  let base: OpponentSummary[];
+  if (myRank === 1 && me) {
+    base = [{ id: `${MIRROR_PREFIX}${me.id}`, player_id: 'mirror', nickname: `또 다른 나 · ${me.nickname}`, species: me.species, level: me.level, stats: me.stats, bestScore: 0, rank: 1, special: 'mirror' }];
+  } else if ((myRank === 2 || myRank === 3) && real.some((o) => o.rank < myRank)) {
+    base = real.filter((o) => o.rank < myRank).sort((a, b) => b.rank - a.rank);
+  } else {
+    return opponents.slice(0, LADDER_SIZE).reverse();
+  }
+  // 황금 보스는 되도록 서로 다른 곤충으로 (섞어서 앞에서부터)
+  const pool = [...(real.length ? real : opponents)].sort(() => Math.random() - 0.5);
+  const out = [...base];
+  for (let k = 0; out.length < LADDER_BATTLES && pool.length && me; k++) {
+    const src = pool[k % pool.length];
+    out.push({
+      id: `${GOLDEN_PREFIX}${src.id}-${out.length}`,
+      player_id: 'golden',
+      nickname: `황금 우주인 ${src.nickname}`,
+      species: src.species,
+      level: me.level,
+      stats: src.stats,
+      bestScore: 0,
+      rank: 0,
+      special: 'golden',
+      sourceId: src.id,
+    });
+  }
+  return out;
 }
 
 /** 랭킹 도전 진행 상황. 자유 대결일 때는 null 입니다. */
@@ -125,7 +176,7 @@ interface LadderState {
   index: number;
   /** 지금까지 치른 배틀 수 */
   used: number;
-  log: { rank: number; nickname: string; won: boolean; bot?: boolean }[];
+  log: { rank: number; nickname: string; won: boolean; bot?: boolean; special?: 'mirror' | 'golden' }[];
   /** 👹 중간보스가 나타나는 때 (이 판 수가 끝난 뒤). null 이면 이번 게임엔 안 나옴 (lib/bots.ts) */
   bossAfter: number | null;
   /** 중간보스와 이미 싸웠나 (보너스 스테이지도 이걸로 '지나감' 표시) */
@@ -278,7 +329,12 @@ export default function BattlePage() {
   /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
   const [underdogNote, setUnderdogNote] = useState('');
   // 🏆 랭커 도전 규칙 (10/4 Jin): 이기면 그 자리 차지 · 3위 안은 더 강함 · 1.5만원은 2위 이상 못 이김
-  const rankRuleRef = useRef<{ target: OpponentSummary | null; top3: boolean; capped: boolean }>({ target: null, top3: false, capped: false });
+  const rankRuleRef = useRef<{ target: OpponentSummary | null; top3: boolean; tierA: boolean; special: 'mirror' | 'golden' | null }>({
+    target: null,
+    top3: false,
+    tierA: false,
+    special: null,
+  });
   const [rankNote, setRankNote] = useState('');
   const [tookRank, setTookRank] = useState<number | null>(null);
   // 🎯 연습 게임에서 만난 상대 → 공격 패턴을 읽어서 내 점수 × PRACTICE_EDGE (10/4 Jin)
@@ -405,6 +461,13 @@ export default function BattlePage() {
   useEffect(() => {
     if (player) loadOpponents(player);
   }, [player, loadOpponents]);
+
+  // 🏆 이번 랭킹 도전 상대 (순위별 규칙, 11/22). 황금 보스는 무작위라 한 번 정하면 목록이 바뀔 때까지 그대로 둔다.
+  const plannedTargets = useMemo(
+    () => buildLadderTargets(opponents, myBestRank, myInsect),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opponents, myBestRank, myInsect?.id, myInsect?.level]
+  );
 
   // 결과가 뜨면 효과음: 이김/짐 → (레벨업) → (게임이 끝났으면) 게임 끝
   // 배틀 결과·사다리·레벨업이 한 번에 바뀌므로 여기서 한꺼번에 보고 한 배틀에 한 번만 틉니다.
@@ -628,6 +691,43 @@ export default function BattlePage() {
     setStarting(true);
     setError('');
     try {
+      // 🪞 또 다른 나 — 내 곤충 그대로, 출신지(상성)만 다른 걸로 랜덤 (11/22 Jin)
+      if (summary.special === 'mirror') {
+        const others = ENVIRONMENTS.map((e) => e.key).filter((k) => k !== myInsect.origin);
+        const mirror: Insect = {
+          ...myInsect,
+          id: summary.id,
+          nickname: summary.nickname,
+          origin: others[Math.floor(Math.random() * others.length)] ?? myInsect.origin,
+          fx: 'mirror',
+        };
+        setOpponent(mirror);
+        await runFight(mirror, badgeRef.current?.count ?? 0);
+        return;
+      }
+      // 🚀 황금 우주인 보스 — 다른 아이 곤충 하나를 금색 우주인으로, 내 레벨 + 중간보스만큼 조금 세게 (11/22 Jin)
+      if (summary.special === 'golden') {
+        const src = summary.sourceId ?? '';
+        let base: Insect | null = isBotId(src) ? findBot(src) : null;
+        if (!base && src) {
+          const { data } = await supabase.from('insects').select('*').eq('id', src).maybeSingle();
+          base = (data as Insect) ?? null;
+        }
+        base = base ?? BOT_INSECTS[0];
+        const origins = ENVIRONMENTS.map((e) => e.key);
+        const golden: Insect = {
+          ...base,
+          id: summary.id,
+          nickname: summary.nickname,
+          level: myInsect.level,
+          origin: origins[Math.floor(Math.random() * origins.length)] ?? base.origin,
+          species_label: '황금 우주인 보스',
+          fx: 'golden',
+        };
+        setOpponent(golden);
+        await runFight(golden, 0, BOSS_PERKS);
+        return;
+      }
       // 🤖 연습 곤충은 DB 에 없다 — 코드에 있는 걸 그대로 쓴다.
       const bot = summary.id === BOSS_ID ? makeBoss(myInsect.level) : summary.bot ? findBot(summary.id) : null;
       if (bot) {
@@ -707,23 +807,28 @@ export default function BattlePage() {
     if (read) window.setTimeout(() => setPracticeToast(false), 2800);
 
     // 🏆 랭킹 도전에서 지금 붙는 상대 (연습·중간보스는 아님). 10/4 Jin:
-    //   ① 3위 안 랭커는 이기기 15% 어렵게 (TOP3_EDGE) ② 1.5만원권은 2위·1위를 못 이김 (TIER_A_CAP_RANK)
+    //   ① 3위 안 랭커는 이기기 15% 어렵게 (TOP3_EDGE)
+    //   ② 11/22: 5천원권은 "못 이김" 대신 3위 안 랭커가 더 세다 (TOP3_EDGE_A — 1만원보다 이기기 힘들게)
     const ladderNow = ladderRef.current;
     const target =
       !practiceRef.current && !bossRef.current && ladderNow && ladderNow.targets[ladderNow.index]?.id === foe.id
         ? ladderNow.targets[ladderNow.index]
         : null;
-    const ranker = !!target && !target.bot;
+    const special = target?.special ?? null;
+    const ranker = !!target && !target.bot && !special;
     const top3 = ranker && target!.rank <= 3;
-    const capped = ranker && target!.rank <= TIER_A_CAP_RANK && tierForPlayer(playerRef.current ?? player).key === 'A';
-    rankRuleRef.current = { target: ranker ? target : null, top3, capped };
-    // 🔒 1.5만원 제한은 화면에 안 알린다 (10/4 Jin "문구 빼도 돼") — 보통 랭커 문구 그대로
+    const tierA = tierForPlayer(playerRef.current ?? player).key === 'A';
+    rankRuleRef.current = { target: ranker ? target : null, top3, tierA, special };
     setRankNote(
-      top3
-          ? `🏆 랭킹 ${target!.rank}위 곤충이라 더 강해! (이기면 ${target!.rank}위 자리를 차지해)`
-          : ranker
-            ? `🏆 이기면 ${target!.rank}위 자리를 차지해!`
-            : ''
+      special === 'mirror'
+        ? '🪞 1위의 상대는 또 다른 나! 상성만 달라 · 경험치 1.5배'
+        : special === 'golden'
+          ? '🚀 황금 우주인 보스 등장!! · 경험치 1.5배'
+          : top3
+            ? `🏆 랭킹 ${target!.rank}위 곤충이라 더 강해! (이기면 ${target!.rank}위 자리를 차지해)`
+            : ranker
+              ? `🏆 이기면 ${target!.rank}위 자리를 차지해!`
+              : ''
     );
     setTookRank(null);
 
@@ -936,11 +1041,10 @@ export default function BattlePage() {
         defTypeA: myBase.kind === 'defense',
         defTypeB: foeBase.kind === 'defense',
         edgeA: patternReadRef.current ? PRACTICE_EDGE : 1,
-        edgeB: rankRuleRef.current.top3 ? TOP3_EDGE : 1,
+        edgeB: rankRuleRef.current.top3 ? (rankRuleRef.current.tierA ? TOP3_EDGE_A : TOP3_EDGE) : 1,
       }
     );
-    // 🔒 1.5만원권은 2위·1위를 이길 수 없다 (10/4 Jin) — 이겼어도 아깝게 진 걸로
-    const final = rankRuleRef.current.capped ? forceLoseA(resolved) : resolved;
+    const final = resolved;
 
     // 기록 저장은 연출이 도는 동안 뒤에서 진행합니다.
     const savePromise = saveResult(foe, final);
@@ -958,12 +1062,17 @@ export default function BattlePage() {
     const run = ladderRef.current;
     if (run && iWon && !bossRef.current) {
       const target = run.targets[run.index];
-      // 🤖 연습 곤충을 이긴 건 "1위를 쓰러뜨렸다" 로 치지 않는다
-      if (target?.rank === 1 && !target.bot) earned.push('beatTop1');
-      if (run.index + 1 >= run.targets.length && run.targets.some((t) => !t.bot)) earned.push('ladderClear');
+      // 🤖 연습 곤충·🪞 거울·🚀 황금 보스를 이긴 건 "1위를 쓰러뜨렸다" 로 치지 않는다
+      if (target?.rank === 1 && !target.bot && !target.special) earned.push('beatTop1');
+      // 랭킹 완주 = 마지막 진짜 랭커를 이겼을 때 (뒤에 붙은 황금 보스는 덤)
+      let lastReal = -1;
+      run.targets.forEach((t, i) => {
+        if (!t.bot && !t.special) lastReal = i;
+      });
+      if (lastReal >= 0 && run.index === lastReal) earned.push('ladderClear');
     }
     // 곤충 도장 깨기 — 이긴 상대의 곤충 종류 (연습 게임도 포함, 🤖 연습 곤충은 빼고)
-    if (iWon && !isBotId(foe.id)) earned.push(`beat_${speciesBeatKey(foe.species)}`);
+    if (iWon && !isFakeFoe(foe.id)) earned.push(`beat_${speciesBeatKey(foe.species)}`);
     void awardBadges(player.id, earned);
 
     // ③ 마지막 한 방 — 진 쪽은 0, 이긴 쪽은 이긴 만큼만 남는다 (`barPercents`).
@@ -1015,7 +1124,7 @@ export default function BattlePage() {
         ...prev,
         index: won ? prev.index + 1 : prev.index,
         used: prev.used + 1,
-        log: [...prev.log, { rank: target.rank, nickname: target.nickname, won, bot: target.bot }],
+        log: [...prev.log, { rank: target.rank, nickname: target.nickname, won, bot: target.bot, special: target.special }],
       };
       ladderRef.current = next;
       setLadder(next);
@@ -1079,7 +1188,10 @@ export default function BattlePage() {
     const gain = addXp(
       myInsect.level,
       myInsect.xp,
-      battleXpRate(myInsect.level, final.winner === 'A') * friendXpMultiplier(playerRef.current ?? player)
+      battleXpRate(myInsect.level, final.winner === 'A') *
+        friendXpMultiplier(playerRef.current ?? player) *
+        // 🪞 거울·🚀 황금 보스는 1.5배 (11/22 Jin)
+        (rankRuleRef.current.special ? SPECIAL_XP_RATE : 1)
     );
     const gained = gain.shown; // 화면에 보여줄 XP 숫자 (레벨이 높을수록 커짐)
     const newXp = gain.xp;
@@ -1097,7 +1209,7 @@ export default function BattlePage() {
         player_id: player.id,
         insect_id: myInsect.id,
         // 🤖 연습 곤충은 DB 에 없어서 비워 둔다 (외래키라 가짜 id 를 넣으면 저장이 통째로 실패한다)
-        opponent_insect_id: isBotId(foe.id) ? null : foe.id,
+        opponent_insect_id: isFakeFoe(foe.id) ? null : foe.id,
         // 예전에는 배틀마다 고른 환경을 적었다. 이제는 내 곤충의 출신지를 적는다.
         environment: myInsect.origin ?? 'meteor',
         // 🏆 랭커를 이기면 그 아이 최고 점수보다 1점 높게 → 랭킹에서 그 자리를 차지한다 (10/4 Jin A안)
@@ -1113,7 +1225,7 @@ export default function BattlePage() {
       // 수비한 곤충(상대)도 경험치를 조금 받는다 — 내 쪽의 20%, 하루 레벨 1개까지 (lib/leveling.ts)
       // 실패해도 배틀 결과에는 영향이 없다.
       try {
-        if (isBotId(foe.id)) throw new Error('bot'); // 🤖 연습 곤충은 경험치를 안 받는다
+        if (isFakeFoe(foe.id)) throw new Error('bot'); // 🤖 연습 곤충·거울·황금 보스는 경험치를 안 받는다
         const { data: fresh } = await supabase.from('insects').select('level, xp, stats').eq('id', foe.id).maybeSingle();
         if (fresh) {
           const stats = (fresh as any).stats ?? {};
@@ -1167,8 +1279,8 @@ export default function BattlePage() {
       return;
     }
 
-    // 상대 3명을 먼저 정하고 시작과 함께 적어둔다 (이어하기용)
-    const targets = opponents.slice(0, LADDER_SIZE).reverse();
+    // 상대를 먼저 정하고 시작과 함께 적어둔다 (이어하기용). 준비 화면에 보여준 그대로 (11/22 순위별 규칙)
+    const targets = plannedTargets;
     // 👹🎁 1판 또는 2판 뒤에 중간보스나 보너스 스테이지가 갑자기 나타난다.
     //    참가권마다 확률이 다르다 (10/4 Jin: 1.5만원 15% · 2만원 이상 무조건 + 첫 보너스는 레벨 1 업) — lib/bonus-stage.ts
     const hadBonus = readGameState(player).sessions.some((s) => s.ladderRun?.bonus);
@@ -1817,7 +1929,7 @@ export default function BattlePage() {
   );
   const picked = opponents.find((o) => o.id === pickedId) ?? null;
   // 도전 순서대로(3위 → 2위 → 1위) 미리 보여줍니다.
-  const ladderTargets = opponents.slice(0, LADDER_SIZE).reverse();
+  const ladderTargets = plannedTargets;
   const status = player ? playStatus(player, now) : null;
   // 🛟 중간에 나갔다 온 랭킹 도전 (남은 판이 있으면 이어서)
   const resume = ladderToResume(player);
@@ -1937,13 +2049,12 @@ export default function BattlePage() {
             {resume ? `🔁 이어서 하자! 남은 판: ${resumeLeft}판` : `⚔️ 이번 게임은 ${LADDER_BATTLES}판 할 수 있어!`}
           </p>
           <p className="text-sm text-amber-200 mt-1" style={{ wordBreak: 'keep-all' }}>
-            3위 → 2위 → 1위! 이기면 그 순위를 차지해!
+            {myBestRank === 1
+              ? '👑 지금 1위는 너야! 🪞 또 다른 나와 싸우고, 이기면 🚀 황금 우주인 보스! (경험치 1.5배)'
+              : myBestRank === 2 || myBestRank === 3
+                ? `🏆 지금 너는 ${myBestRank}위! 위 순위부터 도전해. 1위까지 이기면 🚀 황금 우주인 보스! (경험치 1.5배)`
+                : '3위 → 2위 → 1위! 이기면 그 순위를 차지해!'}
           </p>
-          {myBestRank === 1 && opponents.some((o) => !o.bot) && (
-            <p className="mt-2 text-sm font-black text-amber-300" style={{ wordBreak: 'keep-all' }}>
-              👑 지금 랭킹 1위는 너야! 그래서 2위부터 보여줘.
-            </p>
-          )}
         </div>
 
         {listLoading ? (
@@ -1965,7 +2076,7 @@ export default function BattlePage() {
                   </span>
                   <span className="text-xs text-slate-400 shrink-0">Lv.{o.level}</span>
                   <span className="text-xs text-emerald-400 shrink-0 w-14 text-right">
-                    {o.bot ? '연습' : o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
+                    {o.bot ? '연습' : o.special ? 'XP×1.5' : o.bestScore > 0 ? `${o.bestScore}점` : '기록없음'}
                   </span>
                 </li>
               ))}
@@ -2155,7 +2266,9 @@ function rankMedal(rank: number): string {
 }
 
 /** 🤖 연습 곤충은 순위 대신 로봇 표시 */
-function oppMedal(o: { rank: number; bot?: boolean }): string {
+function oppMedal(o: { rank: number; bot?: boolean; special?: 'mirror' | 'golden' }): string {
+  if (o.special === 'mirror') return '🪞';
+  if (o.special === 'golden') return '🚀';
   return o.bot ? '🤖' : rankMedal(o.rank);
 }
 
@@ -2304,8 +2417,19 @@ function FighterCardFace({ insect, visit, label }: { insect: Insect; visit: numb
       <img
         src={insectImageSrc(insect)}
         alt={label}
-        className="absolute inset-0 w-full h-full object-cover"
+        className={`absolute inset-0 w-full h-full object-cover ${insect.fx === 'golden' ? 'fx-golden' : insect.fx === 'mirror' ? 'fx-mirror' : ''}`}
       />
+      {/* 🚀 황금 우주인 — 금색으로 칠하고 유리 헬멧을 씌운다 (그림을 새로 만들지 않고 화면에서만, 11/22) */}
+      {insect.fx === 'golden' && (
+        <>
+          <div className="fx-stars absolute inset-0" aria-hidden />
+          <div className="fx-helmet absolute" aria-hidden />
+          <span className="absolute right-1.5 top-11 text-2xl drop-shadow" aria-hidden>
+            🧑‍🚀
+          </span>
+        </>
+      )}
+      {insect.fx === 'mirror' && <div className="fx-mirror-glass absolute inset-0" aria-hidden />}
       <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/85 to-transparent" />
       <div
         className="absolute top-1.5 left-1.5 rounded-md px-2 py-1 font-black text-[0.8125rem] leading-none shadow"

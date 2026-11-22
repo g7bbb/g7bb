@@ -49,6 +49,8 @@ export interface Insect {
   image_url?: string;
   /** 👹 중간보스처럼 카드에 종류 대신 보여줄 글 (lib/bots.ts) */
   species_label?: string;
+  /** 🪞 거울 곤충 · 🚀 황금 우주인 보스 — 화면에서만 쓰는 겉모습 (저장 안 함, 11/22) */
+  fx?: 'mirror' | 'golden';
   stats: CoreStats;
   level: number;
   xp: number;

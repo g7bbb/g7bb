@@ -357,7 +357,12 @@ export function calculateBattle(
  */
 export const TOP3_EDGE = 1.14;
 
-/** 🔒 1.5만원권(A)은 이 순위 이상(2위·1위)을 랭킹 도전에서 이길 수 없다 (10/4 Jin) */
+/**
+ * 🔒 5천원권(A)이 3위 안 랭커에게 도전할 때 상대 점수에 곱한다 (11/22 Jin: "못 이김 규칙을 없애되 1만원보다 이기기 힘들게").
+ * 1만원 이상 1.14 대신 1.25 — 시뮬레이션(scratchpad aedge.ts, 2만 판): 같은 레벨 34% → 25% · LV2 vs LV4 25% → 18%.
+ */
+export const TOP3_EDGE_A = 1.25;
+/** @deprecated 11/22 부터 안 씀 (5천원권도 이길 수 있음, 대신 TOP3_EDGE_A) */
 export const TIER_A_CAP_RANK = 2;
 
 /** 이긴 판을 "아깝게 진 판" 으로 바꾼다 — 내 점수를 상대의 96% 로 (1.5만원권 2위 이상 제한) */
