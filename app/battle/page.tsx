@@ -13,7 +13,7 @@ import { BADGES, BadgeMilestone, badgePerks, countBadges, earnedBadges, heldBadg
 import { BadgeSnapshot, loadBadgeSnapshot } from '@/lib/badge-state';
 import { PerkChips } from '@/app/badges/perk-chips';
 import PlayStatusCard from '@/app/play-status';
-import { BattleResult, BattleSide, SideRoll, TOP3_EDGE, TOP3_EDGE_A, barPercents, battleHp, resolveBattle, rollBattle } from '@/lib/battle-engine';
+import { BattleResult, BattleSide, SideRoll, TOP3_EDGE, barPercents, battleHp, resolveBattle, rollBattle } from '@/lib/battle-engine';
 import { statsForInsect } from '@/lib/insect-stats';
 import { BASE_CRIT, addXp, battleXpRate, critChance, defenseXpGain, levelProgress, xpDisplay } from '@/lib/leveling';
 import {
@@ -808,7 +808,7 @@ export default function BattlePage() {
 
     // 🏆 랭킹 도전에서 지금 붙는 상대 (연습·중간보스는 아님). 10/4 Jin:
     //   ① 3위 안 랭커는 이기기 15% 어렵게 (TOP3_EDGE)
-    //   ② 11/22: 5천원권은 "못 이김" 대신 3위 안 랭커가 더 세다 (TOP3_EDGE_A — 1만원보다 이기기 힘들게)
+    //   ② 11/22: 5천원권 "2위·1위 못 이김" 규칙 없앰 — 참가권과 상관없이 똑같다
     const ladderNow = ladderRef.current;
     const target =
       !practiceRef.current && !bossRef.current && ladderNow && ladderNow.targets[ladderNow.index]?.id === foe.id
@@ -1041,7 +1041,8 @@ export default function BattlePage() {
         defTypeA: myBase.kind === 'defense',
         defTypeB: foeBase.kind === 'defense',
         edgeA: patternReadRef.current ? PRACTICE_EDGE : 1,
-        edgeB: rankRuleRef.current.top3 ? (rankRuleRef.current.tierA ? TOP3_EDGE_A : TOP3_EDGE) : 1,
+        // 11/22 Jin: 5천원권도 1만원과 똑같이 (참가권으로 이기기 어렵게 하지 않음)
+        edgeB: rankRuleRef.current.top3 ? TOP3_EDGE : 1,
       }
     );
     const final = resolved;

@@ -358,7 +358,8 @@ export function calculateBattle(
 export const TOP3_EDGE = 1.14;
 
 /**
- * 🔒 5천원권(A)이 3위 안 랭커에게 도전할 때 상대 점수에 곱한다 (11/22 Jin: "못 이김 규칙을 없애되 1만원보다 이기기 힘들게").
+ * @deprecated 11/22 Jin "5천원권도 모두 이길 수 있게" → 안 씀 (참가권과 상관없이 TOP3_EDGE).
+ * 🔒 5천원권(A)이 3위 안 랭커에게 도전할 때 상대 점수에 곱하던 값.
  * 1만원 이상 1.14 대신 1.25 — 시뮬레이션(scratchpad aedge.ts, 2만 판): 같은 레벨 34% → 25% · LV2 vs LV4 25% → 18%.
  */
 export const TOP3_EDGE_A = 1.25;
