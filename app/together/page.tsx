@@ -42,7 +42,7 @@ function Together() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const test = new URLSearchParams(window.location.search).get('test') === '1' || rehearsalRef.current;
+    const test = rehearsalRef.current;
     const rows = await loadTodayInsects(test).catch(() => [] as TodayInsect[]);
     setList(rows);
     setLoading(false);
@@ -57,6 +57,11 @@ function Together() {
   }, []);
 
   useEffect(() => {
+    // 주소에 ?test=1 이면 리허설 켜고 시작
+    if (new URLSearchParams(window.location.search).get('test') === '1') {
+      rehearsalRef.current = true;
+      setRehearsal(true);
+    }
     void load();
   }, [load]);
 
@@ -106,6 +111,12 @@ function Together() {
         >
           🧪 리허설 {rehearsal ? '켜짐' : '꺼짐'}
         </button>
+        <a
+          href={`/tournament?make=1${rehearsal ? '&test=1' : ''}`}
+          className="btn-sparkle rounded-full bg-amber-400 px-4 py-1.5 text-[2.4vmin] font-black text-slate-900"
+        >
+          🏆 토너먼트 표 보기
+        </a>
       </header>
       <p className="mt-[1vmin] text-center text-[2.4vmin] font-bold text-slate-300">카드를 누르면 크게 봐! (← → 키로 넘기기)</p>
 
@@ -159,9 +170,19 @@ function Together() {
               ▶
             </button>
           </div>
-          <p className="absolute bottom-[2vmin] inset-x-0 text-center text-[2vmin] text-slate-400">
-            {(pick ?? 0) + 1} / {list.length} · 바깥을 누르면 닫혀
-          </p>
+          {pick === list.length - 1 ? (
+            <a
+              href={`/tournament?make=1${rehearsal ? '&test=1' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+              className="btn-sparkle absolute bottom-[2vmin] left-1/2 -translate-x-1/2 rounded-full bg-amber-400 px-[4vmin] py-[1.4vmin] text-[3vmin] font-black text-slate-900 whitespace-nowrap"
+            >
+              🏆 다 봤어! 토너먼트 표 보기 →
+            </a>
+          ) : (
+            <p className="absolute bottom-[2vmin] inset-x-0 text-center text-[2vmin] text-slate-400">
+              {(pick ?? 0) + 1} / {list.length} · 바깥을 누르면 닫혀
+            </p>
+          )}
         </div>
       )}
     </main>

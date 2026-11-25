@@ -17,26 +17,57 @@ import { Insect, Player } from './types';
 import { statsForInsect } from './insect-stats';
 import { BattleResult, BattleSide, resolveBattle, rollBattle } from './battle-engine';
 import { baseMoveFor, movesFor, TIMING_TIERS } from './special-moves';
+import { ENVIRONMENTS } from './environments';
+import { ORIGIN_EFFECTS } from './origins';
+import { EnvironmentKey } from './types';
 import { isStaffTicket, isTestTicket, NO_PIN_TICKETS } from './ticket';
 
 export const ROOM_TICKET = 'T-ROOM';
 
 // ── 시간표 (startAt 기준 ms) ─────────────────────────────
+// 11/25 리허설 뒤 Jin: "시간을 너무 줄였어, 길어져도 돼. 기술을 최소 3번은 쓰게" → 필살기 기회 3번 (한 판 ≈ 30초)
 /** "G7BB 배틀!! 시작!!" */
 export const T_TITLE = 0;
 /** 3 · 2 · 1 */
 export const T_COUNT = 1200;
 /** VS — 두 카드 쾅 */
 export const T_VS = 4200;
-/** ⚡ 필살기 타이밍 고리 (4초, 2초에 퍼펙트) */
-export const T_CHANCE = 5400;
+/** 필살기 기회 횟수 */
+export const CHANCE_COUNT = 3;
+/** 한 번의 기회 = 서로 치고받기(CLASH_LEN) → ⚡ 타이밍 고리(CHANCE_LEN, 2초에 퍼펙트) → 판정 보여주기(JUDGE_LEN) */
+export const CLASH_LEN = 1600;
 export const CHANCE_LEN = 4000;
-/** 고리가 끝난 뒤 상대 기기 결과를 기다리는 여유 */
-export const T_RESOLVE = T_CHANCE + CHANCE_LEN + 1800;
-/** 결과 연출 길이 */
-export const RESULT_LEN = 4500;
+export const JUDGE_LEN = 1000;
+export const ROUND_LEN = CLASH_LEN + CHANCE_LEN + JUDGE_LEN;
+/** 첫 치고받기 시작 */
+export const T_ROUND0 = 5400;
+/** i 번째(0~2) 치고받기 시작 */
+export function clashAt(i: number): number {
+  return T_ROUND0 + i * ROUND_LEN;
+}
+/** i 번째 타이밍 고리 시작 */
+export function chanceAt(i: number): number {
+  return clashAt(i) + CLASH_LEN;
+}
+/** 마지막 고리가 끝나는 때 */
+export const T_LAST_CHANCE_END = chanceAt(CHANCE_COUNT - 1) + CHANCE_LEN;
+/** 고리가 다 끝난 뒤 상대 기기 결과를 기다리는 여유 → 결과 연출 시작 */
+export const T_RESOLVE = T_LAST_CHANCE_END + 1800;
+/** 결과 연출 길이 (마지막 일격 + 승리 + "왜 이겼을까") */
+export const RESULT_LEN = 7000;
 /** 상대 결과를 이만큼 기다려도 안 오면 "못 눌렀음" 으로 친다 */
 export const WAIT_TIER_MS = 4000;
+
+/** 3번의 기회가 어느 칸(0 왼쪽 · 1 가운데 · 2 오른쪽)에 뜰지 — 시작 시각으로 섞어서 두 기기가 똑같이 본다 */
+export function chanceSlots(startAt: number): number[] {
+  const r = seeded(startAt % 2147483647);
+  const out = [0, 1, 2];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 export interface Entrant {
   pid: string;
@@ -50,8 +81,13 @@ export interface Entrant {
 export interface GameResult {
   seed: number;
   winner: 'a' | 'b';
-  tierA: string;
-  tierB: string;
+  /** 3번 기회의 타이밍 판정 (못 눌렀으면 'miss') */
+  tiersA: string[];
+  tiersB: string[];
+  /** 이긴 곤충의 남은 HP % (한끗 차이면 작다) */
+  left: number;
+  /** 왜 이겼을까 (상성 · 타이밍 · 레벨 · 능력치 · 운) */
+  reason: string;
   auto?: boolean;
 }
 
@@ -86,8 +122,8 @@ export interface DuelSignal {
   /** 몇 번째 판 (결승 3판 2선승) */
   g: number;
   joinedAt: number;
-  /** 필살기 타이밍 결과 — 아직 안 눌렀으면 없음 */
-  tier?: string;
+  /** 필살기 타이밍 결과 (기회마다 한 칸, 아직이면 null) */
+  tiers?: (string | null)[];
 }
 
 // ── 시계 맞추기 ───────────────────────────────────────────
@@ -120,31 +156,110 @@ export function seeded(seed: number): () => number {
   };
 }
 
-export function tierMult(key: string | undefined): number {
+export function tierMult(key: string | undefined | null): number {
+  if (key === 'miss' || !key) return MISS_MULT;
   return TIMING_TIERS.find((t) => t.key === key)?.scoreMultiplier ?? 1;
 }
 
+/** 못 누른 기회 */
+export const MISS_MULT = 0.9;
 /**
- * 한 판의 승패 — 두 곤충 + 씨앗 + 두 아이의 타이밍. 어느 기기에서 돌려도 같은 답.
- * 타이밍을 못 눌렀으면(tier 'miss') 필살기를 못 쓴 것으로 친다 (보통 배틀과 같은 규칙).
+ * 🌍 (체험용) 상성을 행사용보다 세게 (11/25 Jin: "본인이 정한 상성·출신지로 한끗 차이로 이길 수 있게").
+ * 행사용 상성 +7% 위에 ×1.12 를 더 → 상성 이긴 쪽 승률 58% → 약 72% (시뮬레이션). 무조건은 아니라 타이밍으로 뒤집을 수 있다.
  */
-export function computeDuel(a: Insect, b: Insect, seed: number, tierA: string, tierB: string): BattleResult {
+export const CLASS_MATCHUP_EDGE = 1.12;
+
+export interface DuelVerdict {
+  winner: 'a' | 'b';
+  left: number;
+  reason: string;
+  result: BattleResult;
+}
+
+/** 3번 기회의 평균 배수 */
+export function avgMult(tiers: (string | null)[]): number {
+  const list = [0, 1, 2].map((i) => tiers[i] ?? 'miss');
+  return list.reduce((s, k) => s + tierMult(k), 0) / list.length;
+}
+
+const STAT_NAMES: Record<string, string> = { hp: 'HP가', atk: '공격력이', def: '수비력이', int: '지능이' };
+
+/**
+ * 한 판의 승패 — 두 곤충 + 씨앗 + 두 아이의 타이밍 3번. 어느 기기에서 돌려도 같은 답.
+ * 3번 다 못 눌렀으면 필살기를 못 쓴 것으로 친다. 타이밍 배수는 3번의 평균 (못 누름 0.9).
+ */
+export function duelVerdict(a: Insect, b: Insect, seed: number, tiersA: (string | null)[], tiersB: (string | null)[]): DuelVerdict {
   const random = seeded(seed);
-  const sideA: BattleSide = { stats: statsForInsect(a), level: a.level, origin: a.origin ?? null };
-  const sideB: BattleSide = { stats: statsForInsect(b), level: b.level, origin: b.origin ?? null };
+  const statsA = statsForInsect(a);
+  const statsB = statsForInsect(b);
+  const sideA: BattleSide = { stats: statsA, level: a.level, origin: a.origin ?? null };
+  const sideB: BattleSide = { stats: statsB, level: b.level, origin: b.origin ?? null };
   const rolls = rollBattle(sideA, sideB, random);
-  const usedA = tierA === 'miss' ? [] : movesFor(a.species, a.level).map((m) => m.key);
-  const usedB = tierB === 'miss' ? [] : movesFor(b.species, b.level).map((m) => m.key);
-  const res = resolveBattle(rolls.a, rolls.b, usedA, usedB, tierMult(tierA), random, {
-    a: rolls.a.bonus && tierA !== 'miss' ? baseMoveFor(a.species).key : null,
-    b: rolls.b.bonus && tierB !== 'miss' ? baseMoveFor(b.species).key : null,
+  const pressedA = tiersA.some((k) => k && k !== 'miss');
+  const pressedB = tiersB.some((k) => k && k !== 'miss');
+  const usedA = pressedA ? movesFor(a.species, a.level).map((m) => m.key) : [];
+  const usedB = pressedB ? movesFor(b.species, b.level).map((m) => m.key) : [];
+  const mA = avgMult(tiersA);
+  const mB = avgMult(tiersB);
+  let res = resolveBattle(rolls.a, rolls.b, usedA, usedB, 1, random, {
+    a: rolls.a.bonus && pressedA ? baseMoveFor(a.species).key : null,
+    b: rolls.b.bonus && pressedB ? baseMoveFor(b.species).key : null,
     defTypeA: baseMoveFor(a.species).kind === 'defense',
     defTypeB: baseMoveFor(b.species).kind === 'defense',
-    edgeB: usedB.length ? tierMult(tierB) : 1,
+    edgeA: mA * (rolls.a.matchup === 1 ? CLASS_MATCHUP_EDGE : 1),
+    edgeB: mB * (rolls.b.matchup === 1 ? CLASS_MATCHUP_EDGE : 1),
   });
   // 토너먼트는 비김 없이 — 점수가 같으면 씨앗으로 정한다
-  if (res.winner === 'draw') return { ...res, winner: random() < 0.5 ? 'A' : 'B' };
-  return res;
+  if (res.winner === 'draw') res = { ...res, winner: random() < 0.5 ? 'A' : 'B' };
+  const winner: 'a' | 'b' = res.winner === 'A' ? 'a' : 'b';
+  const win = winner === 'a' ? res.a.score : res.b.score;
+  const lose = winner === 'a' ? res.b.score : res.a.score;
+  const margin = win > 0 ? Math.max(0, 1 - lose / win) : 0;
+  const left = Math.round(Math.min(40, Math.max(3, 3 + margin * 90)));
+
+  // 왜 이겼을까 — 아이가 "아 그래서!" 할 수 있는 이유 하나
+  const W = winner === 'a' ? a : b;
+  const L = winner === 'a' ? b : a;
+  const wRoll = winner === 'a' ? rolls.a : rolls.b;
+  const lRoll = winner === 'a' ? rolls.b : rolls.a;
+  const wM = winner === 'a' ? mA : mB;
+  const lM = winner === 'a' ? mB : mA;
+  const wTiers = winner === 'a' ? tiersA : tiersB;
+  const wStats = winner === 'a' ? statsA : statsB;
+  const lStats = winner === 'a' ? statsB : statsA;
+  const envW = ENVIRONMENTS.find((e) => e.key === W.origin);
+  const envL = ENVIRONMENTS.find((e) => e.key === L.origin);
+  let reason: string;
+  if (wRoll.matchup === 1 && envW && envL) {
+    reason = `${envW.emoji} ${envW.label} 출신이 ${envL.emoji} ${envL.label} 출신을 이기는 상성! ${ORIGIN_EFFECTS[W.origin as EnvironmentKey]?.beatsWhy ?? ''}`.trim();
+  } else if (lRoll.matchup === 1 && envW && envL) {
+    reason = `상성은 ${envL.emoji} ${envL.label} 쪽이 유리했는데, ⚡ 필살기 타이밍으로 뒤집었어!`;
+  } else if (wM - lM >= 0.06) {
+    const perfect = wTiers.filter((k) => k === 'perfect').length;
+    reason = `⚡ 필살기 타이밍을 더 잘 맞췄어!${perfect ? ` (퍼펙트 ${perfect}번)` : ''}`;
+  } else if ((W.level ?? 1) > (L.level ?? 1)) {
+    reason = `🆙 레벨이 더 높았어! (LV.${W.level} vs LV.${L.level})`;
+  } else {
+    // 능력치 중 제일 차이 나는 것
+    const keys = ['hp', 'atk', 'def', 'int'] as const;
+    let best: (typeof keys)[number] | null = null;
+    let bestRatio = 1.04;
+    keys.forEach((k) => {
+      const r = (wStats as any)[k] / Math.max(1, (lStats as any)[k]);
+      if (r > bestRatio) {
+        bestRatio = r;
+        best = k;
+      }
+    });
+    const fx = W.origin ? ORIGIN_EFFECTS[W.origin as EnvironmentKey] : null;
+    const fromOrigin = best && envW && fx && ((best === 'hp' && fx.hp > 0) || (best === 'def' && fx.def > 0));
+    if (best && fromOrigin) reason = `${envW!.emoji} ${envW!.label} 출신이라 ${STAT_NAMES[best]} 더 높았어!`;
+    else if (best) reason = `💪 ${STAT_NAMES[best]} 더 높았어! 몸의 힘을 잘 골랐어`;
+    else if (wRoll.crit) reason = '🔥 크리티컬이 터졌어!';
+    else reason = '🍀 정말 비슷했는데, 운이 조금 더 좋았어!';
+  }
+  if (margin < 0.06) reason = `🔥 한끗 차이!! ${reason}`;
+  return { winner, left, reason, result: res };
 }
 
 // ── 대진표 ───────────────────────────────────────────────
@@ -261,6 +376,13 @@ export function findMatch(t: Tournament, id: string | null | undefined): Match |
 export function nextMatchId(t: Tournament): string | null {
   for (const r of t.rounds) for (const m of r) if (!m.winner && m.a !== null && m.b !== null) return m.id;
   return null;
+}
+
+/** 앞으로 할 경기 n 개 (지금 경기부터, 양쪽이 정해진 것만) */
+export function upcomingMatches(t: Tournament, n: number): Match[] {
+  const out: Match[] = [];
+  for (const r of t.rounds) for (const m of r) if (!m.winner && m.a !== null && m.b !== null && out.length < n) out.push(m);
+  return out;
 }
 
 export function winsOf(m: Match): { a: number; b: number } {

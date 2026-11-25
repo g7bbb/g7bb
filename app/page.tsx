@@ -133,10 +133,7 @@ function HomeInner() {
             <Link href="/card" className="block text-center bg-emerald-500 text-slate-900 font-black py-4 rounded-2xl text-lg">
               🃏 내 곤충 카드 보기
             </Link>
-            <Link href="/duel" className="block text-center bg-amber-400 text-slate-900 font-black py-4 rounded-2xl text-lg">
-              ⚔️ 토너먼트 대결장
-            </Link>
-            <p className="text-center text-sm text-slate-400">⏳ 선생님이 배틀을 시작하면 대결장이 열려!</p>
+            <p className="text-center text-sm text-slate-300">⚔️ 내 차례가 되면 선생님이 불러줄게! 배틀 태블릿 앞에 앉아서 내 QR 을 찍으면 돼.</p>
             <button
               onClick={() => {
                 signOut();

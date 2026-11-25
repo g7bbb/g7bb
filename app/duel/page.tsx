@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import DuelStage, { DuelOutcome } from '@/app/tournament/duel-stage';
-import { getCurrentPlayer } from '@/lib/session';
+import { getCurrentPlayer, signOut } from '@/lib/session';
+import { isArenaDevice } from '@/lib/arena';
+import QrScanner from '@/app/start/qr-scanner';
 import {
   Tournament,
   Match,
   champion,
   findMatch,
+  upcomingMatches,
   loadInsect,
   loadTournament,
   readSignals,
@@ -28,6 +31,8 @@ import { BrandMark } from '@/app/brand-logo';
 //   내 차례 → 대기 화면(내 카드 + 상대는 그림자) → 상대가 들어오면 카드가 쾅 → "G7BB 배틀!! 시작!!" 3·2·1 → 필살기 타이밍 → 결과
 //   아니면 → "내 차례를 기다려줘" / 탈락 / 우승.
 // 신호(들어왔어요·타이밍)는 **내 줄에만** 쓴다 (lib/tournament.ts writeSignal). 진행·승패는 직원 화면이 정한다.
+// 🔒 11/25 Jin: 배틀은 **배틀 태블릿 2대**(/arena 로 켠 기기)에서만. 아이 폰은 응원 화면만.
+//    배틀 태블릿: QR 찍기 → 내 카드가 태블릿·큰 화면에 뜸 → 상대가 들어오면 HERE COMES → 배틀 → 내 경기가 끝나면 저절로 로그아웃 → 다음 친구 QR.
 
 const POLL_MS = 1000;
 
@@ -36,20 +41,28 @@ export default function DuelPage() {
   const [ready, setReady] = useState(false);
   const [t, setT] = useState<Tournament | null>(null);
   const [oppJoined, setOppJoined] = useState(false);
+  /** 상대가 지금까지 누른 판정 (신호에서) */
+  const [oppTiers, setOppTiers] = useState<(string | null)[]>([null, null, null]);
   const [ins, setIns] = useState<{ a: Insect | null; b: Insect | null }>({ a: null, b: null });
-  const [tapped, setTapped] = useState(false);
+  const [arena, setArena] = useState(false);
+  const [scan, setScan] = useState(false);
   const joinedKey = useRef('');
   /** 방금 판 결과를 보여주는 중이면 다음 판 입장 신호를 잠깐 미룬다 */
   const holdRef = useRef(false);
   const playerRef = useRef<Player | null>(null);
 
   useEffect(() => {
+    setArena(isArenaDevice());
     void syncClock();
+    // 소리는 화면을 한 번 눌러야 켜진다 — 아무 데나 처음 누를 때
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock);
     void getCurrentPlayer().then((p) => {
       playerRef.current = p;
       setPlayer(p);
       setReady(true);
     });
+    return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
   // 1초마다 대진표·상대 신호 확인
@@ -61,7 +74,7 @@ export default function DuelPage() {
       if (!p || !tt) return;
       const me = tt.entrants.findIndex((e) => e.pid === p.id);
       const m = findMatch(tt, tt.current);
-      if (me < 0 || !m || (m.a !== me && m.b !== me) || m.seed === undefined) {
+      if (!isArenaDevice() || me < 0 || !m || (m.a !== me && m.b !== me) || m.seed === undefined) {
         setOppJoined(false);
         return;
       }
@@ -76,7 +89,10 @@ export default function DuelPage() {
         });
       }
       const sigs = await readSignals([opp.pid]).catch(() => new Map());
-      setOppJoined(!!signalFor(sigs.get(opp.pid), tt, m));
+      const os = signalFor(sigs.get(opp.pid), tt, m);
+      setOppJoined(!!os);
+      const ot = os?.tiers ?? [null, null, null];
+      setOppTiers((prev) => (prev.join(',') === ot.join(',') ? prev : ot));
     }, POLL_MS);
     return () => window.clearInterval(id);
   }, []);
@@ -101,7 +117,9 @@ export default function DuelPage() {
   }, [showMatch?.startAt]);
   const resultMatch = frozen && t ? findMatch(t, frozen.mid) : null;
   const game = resultMatch && gameIdx !== null ? resultMatch.games[gameIdx] : null;
-  const outcome: DuelOutcome | null = game ? { winner: game.winner, tierA: game.tierA, tierB: game.tierB } : null;
+  const outcome: DuelOutcome | null = game
+    ? { winner: game.winner, tiersA: game.tiersA ?? [], tiersB: game.tiersB ?? [], left: game.left ?? 20, reason: game.reason ?? '' }
+    : null;
   // 결과를 다 보고 나면 대기 화면으로 (그동안은 다음 경기에 "들어왔어요" 를 안 보낸다 — 이긴 기쁨을 누릴 시간)
   const hasOutcome = !!outcome;
   useEffect(() => {
@@ -109,7 +127,7 @@ export default function DuelPage() {
     const id = window.setTimeout(() => {
       setFrozen(null);
       setGameIdx(null);
-    }, 10000);
+    }, 13000);
     return () => window.clearTimeout(id);
   }, [hasOutcome]);
   useEffect(() => {
@@ -130,38 +148,90 @@ export default function DuelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey, t?.id]);
 
-  async function press(tierKey: string) {
+  // 내 판정 3칸 — 누를 때마다 3칸 통째로 다시 쓴다 (쓰기는 한 번에 하나씩 차례로)
+  const myTiersRef = useRef<{ key: string; tiers: (string | null)[] }>({ key: '', tiers: [null, null, null] });
+  const writeChain = useRef<Promise<unknown>>(Promise.resolve());
+  function press(round: number, tierKey: string) {
     const p = playerRef.current;
     if (!p || !t || !frozen) return;
-    await writeSignal(p.id, { tid: t.id, mid: frozen.mid, g: frozen.g, joinedAt: Date.now(), tier: tierKey }).catch(() => {});
+    const key = `${t.id}:${frozen.mid}:${frozen.g}`;
+    if (myTiersRef.current.key !== key) myTiersRef.current = { key, tiers: [null, null, null] };
+    const cur = myTiersRef.current.tiers[round];
+    if (cur && cur !== 'miss') return; // 이미 누른 칸을 "못 누름" 으로 덮지 않게
+    myTiersRef.current.tiers = myTiersRef.current.tiers.map((x, i) => (i === round ? tierKey : x));
+    const sig = { tid: t.id, mid: frozen.mid, g: frozen.g, joinedAt: Date.now(), tiers: [...myTiersRef.current.tiers] };
+    writeChain.current = writeChain.current.then(() => writeSignal(p.id, sig).catch(() => {}));
   }
 
+  function leave() {
+    signOut();
+    playerRef.current = null;
+    joinedKey.current = '';
+    setPlayer(null);
+    setFrozen(null);
+    setGameIdx(null);
+  }
+
+  // 내 경기가 다 끝났으면(지금 경기도 다음 경기도 아님) 잠깐 보여주고 로그아웃 → 다음 친구 차례
+  const upcoming = t ? upcomingMatches(t, 2) : [];
+  const mineSoon = upcoming.some((m) => m.a === me || m.b === me);
+  const idle = !!player && arena && !!t && !frozen && !mineSoon;
+  const champIdle = !!t && t.status === 'done' && champion(t)?.pid === player?.id;
+  useEffect(() => {
+    if (!idle) return;
+    const id = window.setTimeout(leave, champIdle ? 20000 : me < 0 ? 5000 : 9000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idle, champIdle, me]);
+
   if (!ready) return <p className="p-10 text-center text-slate-400">불러오는 중…</p>;
-  if (!player)
+
+  const curLine =
+    t && cur && cur.a !== null && cur.b !== null ? (
+      <p className="text-[3.4vmin] font-black text-amber-200">
+        지금 경기: 👦 {t.entrants[cur.a].kid || t.entrants[cur.a].nick} vs 👦 {t.entrants[cur.b].kid || t.entrants[cur.b].nick}
+      </p>
+    ) : null;
+
+  // 📱 아이 폰 (배틀 태블릿이 아님) — 응원만
+  if (!arena)
     return (
       <Center>
-        <p className="text-[6vmin] font-black">📷 종이 QR 을 먼저 찍어줘!</p>
-        <Link href="/" className="rounded-2xl bg-amber-400 px-6 py-3 font-black text-slate-900">
+        <BrandMark size={56} />
+        <p className="text-[6vmin] font-black">⚔️ 배틀은 배틀 태블릿에서 해!</p>
+        <p className="text-[3.4vmin] text-slate-300">내 차례가 되면 선생님이 불러줄게. 배틀 태블릿 앞에 앉아서 내 종이 QR 을 찍으면 돼!</p>
+        {curLine}
+        <p className="text-[3vmin] font-bold text-slate-300">그동안 큰 화면으로 친구들을 응원해줘 📣</p>
+        <Link href="/" className="rounded-2xl bg-slate-700 px-6 py-3 font-black">
           처음 화면으로
         </Link>
       </Center>
     );
 
-  // 소리는 터치해야 켜진다 — 처음 한 번 눌러서 시작
-  if (!tapped)
+  // ⚔️ 배틀 태블릿 — 아직 아무도 안 찍었으면 QR 찍기
+  if (!player)
     return (
       <Center>
         <BrandMark size={56} />
-        <p className="text-[5vmin] font-black">⚔️ G7BB 배틀 토너먼트</p>
+        <p className="text-[5vmin] font-black">⚔️ G7BB 배틀 태블릿</p>
+        {!t || t.status !== 'running' ? (
+          <p className="text-[3.6vmin] text-slate-300">⏳ 선생님이 토너먼트를 시작하면 여기서 배틀해!</p>
+        ) : (
+          <>
+            {curLine}
+            <p className="text-[3.4vmin] font-bold text-slate-200">이 두 친구, 자기 종이 QR 을 찍어줘!</p>
+          </>
+        )}
         <button
           onClick={() => {
             unlockAudio();
-            setTapped(true);
+            setScan(true);
           }}
           className="btn-sparkle rounded-3xl bg-amber-400 px-10 py-6 text-[5vmin] font-black text-slate-900"
         >
-          👆 대결장 들어가기
+          📷 내 QR 찍기
         </button>
+        {scan && <QrScanner onClose={() => setScan(false)} />}
       </Center>
     );
 
@@ -173,13 +243,6 @@ export default function DuelPage() {
       <Center>
         <p className="text-[5vmin] font-black">⏳ 아직 토너먼트가 시작 안 했어!</p>
         <p className="text-[3vmin] text-slate-300">선생님이 시작하면 저절로 대결장이 열려.</p>
-      </Center>
-    );
-  if (me < 0)
-    return (
-      <Center>
-        <p className="text-[5vmin] font-black">이번 토너먼트 선수가 아니야 🙂</p>
-        <p className="text-[3vmin] text-slate-300">큰 화면으로 친구들 배틀을 응원해줘!</p>
       </Center>
     );
 
@@ -199,6 +262,7 @@ export default function DuelPage() {
           outcome={outcome}
           me={sideNow}
           onPress={press}
+          liveTiers={sideNow === 'a' ? { a: [null, null, null], b: oppTiers } : { a: oppTiers, b: [null, null, null] }}
           label={`${roundName(t, stageMatch.round)}${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''}`}
         />
       </main>
@@ -218,10 +282,25 @@ export default function DuelPage() {
           <p className="text-[6vmin] font-black">😊 수고했어!</p>
           <p className="text-[3.4vmin] text-slate-300">멋진 배틀이었어. 이제 큰 화면으로 친구들을 응원해줘!</p>
         </>
+      ) : me < 0 ? (
+        <>
+          <p className="text-[5vmin] font-black">이번 토너먼트 선수가 아니야 🙂</p>
+          <p className="text-[3vmin] text-slate-300">큰 화면으로 친구들 배틀을 응원해줘!</p>
+        </>
+      ) : mineSoon ? (
+        <>
+          <p className="text-[6vmin] font-black">🔥 곧 네 차례야!</p>
+          <p className="text-[3.4vmin] text-slate-300">앞 경기가 끝나면 이 화면에서 바로 대결이 시작돼. 그대로 기다려줘!</p>
+          {cur && cur.a !== null && cur.b !== null && (
+            <p className="text-[3vmin] font-bold text-amber-200">
+              지금 경기: {t.entrants[cur.a].nick} vs {t.entrants[cur.b].nick}
+            </p>
+          )}
+        </>
       ) : (
         <>
           <p className="text-[6vmin] font-black">⏳ 내 차례를 기다려줘!</p>
-          <p className="text-[3.4vmin] text-slate-300">큰 화면에 내 이름이 나오면 이 화면에서 바로 대결이 시작돼.</p>
+          <p className="text-[3.4vmin] text-slate-300">내 경기가 아직 멀었어. 내 차례가 되면 다시 QR 을 찍어줘!</p>
           {cur && cur.a !== null && cur.b !== null && (
             <p className="text-[3vmin] font-bold text-amber-200">
               지금 경기: {t.entrants[cur.a].nick} vs {t.entrants[cur.b].nick}
@@ -229,6 +308,9 @@ export default function DuelPage() {
           )}
         </>
       )}
+      <button onClick={leave} className="mt-[2vmin] rounded-2xl bg-slate-700 px-6 py-3 text-[3vmin] font-black">
+        👋 다음 친구 차례 (로그아웃)
+      </button>
     </Center>
   );
 }

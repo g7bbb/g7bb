@@ -1,5 +1,6 @@
 'use client';
 
+import { isArenaDevice } from '@/lib/arena';
 import { clearDraft, readDraft, saveDraft } from '@/lib/draft';
 import { hasBadWord, BAD_WORD_MESSAGE } from '@/lib/bad-words';
 import { Suspense, useEffect, useState } from 'react';
@@ -57,7 +58,8 @@ function StartInner() {
     void loadTournament()
       .then((tt) => {
         if (!alive) return;
-        if (tt && tt.status === 'running' && tt.entrants.some((e) => e.pid === returning.id)) {
+        // 배틀 태블릿(/arena 로 켠 기기)에서만 — 아이 폰은 대결장으로 안 보낸다 (11/25 Jin)
+        if (isArenaDevice() && tt && tt.status === 'running') {
           rememberPlayer(returning.id);
           router.replace('/duel');
         } else setDuelCheck('no');

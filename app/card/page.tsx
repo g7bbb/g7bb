@@ -171,11 +171,8 @@ function CardInner() {
             <div className="flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
               <div className="rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-4 text-center">
                 <p className="text-xl font-black text-amber-200">🎉 곤충 완성!</p>
-                <p className="mt-1 font-bold text-slate-200">⏳ 선생님이 배틀을 시작하면 수액을 차지하러 가자!</p>
+                <p className="mt-1 font-bold text-slate-200">⏳ 다같이 곤충을 본 다음 토너먼트! 내 차례가 되면 배틀 태블릿에서 내 QR 을 찍어줘.</p>
               </div>
-              <Link href="/duel" className="block text-center bg-amber-400 text-slate-900 font-black text-xl py-4 rounded-2xl">
-                ⚔️ 토너먼트 대결장
-              </Link>
             </div>
           )}
           {/* 여기서 할 일은 배틀 — 크게. 랭킹·뱃지는 아래 작게 */}

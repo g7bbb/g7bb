@@ -4,15 +4,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AdminGate from '@/app/admin/admin-gate';
 import DuelStage, { DuelOutcome } from './duel-stage';
 import {
-  CHANCE_LEN,
-  T_CHANCE,
+  CHANCE_COUNT,
+  T_LAST_CHANCE_END,
   T_RESOLVE,
   WAIT_TIER_MS,
   RESULT_LEN,
   Tournament,
   Match,
   champion,
-  computeDuel,
+  duelVerdict,
   findMatch,
   loadInsect,
   loadTodayInsects,
@@ -30,12 +30,13 @@ import {
   winsOf,
 } from '@/lib/tournament';
 import { insectImageSrc } from '@/lib/bots';
+import { loadInsectImages } from '@/lib/image-cache';
 import { Insect } from '@/lib/types';
 import { BrandMark } from '@/app/brand-logo';
 
 // ⚔️ (체험용) 수액 쟁탈 토너먼트 — 직원 노트북 + 큰 화면 (2026-11-25 Jin)
 // 이 화면이 진행의 주인이다: 대진표를 만들고, 두 선수가 들어오면 시작 시각을 정하고, 승패를 계산해 적는다.
-// 아이들은 각자 태블릿·폰의 /duel 에서 들어온다 (종이 QR 로 들어가면 토너먼트 중엔 자동으로 그리로 감).
+// 아이들은 **배틀 태블릿 2대**(/arena 로 켠 기기)의 /duel 에서 자기 종이 QR 을 찍고 들어온다. 아이 폰은 응원 화면만.
 
 const POLL_MS = 1000;
 
@@ -54,15 +55,17 @@ function Admin() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [joined, setJoined] = useState<{ a: boolean; b: boolean }>({ a: false, b: false });
+  /** 두 선수가 지금까지 누른 판정 (큰 화면 기술칸에 보여주기) */
+  const [live, setLive] = useState<{ a: (string | null)[]; b: (string | null)[] }>({ a: [null, null, null], b: [null, null, null] });
   const [ins, setIns] = useState<{ a: Insect | null; b: Insect | null }>({ a: null, b: null });
   /** 방금 끝난 판을 큰 화면에 보여주는 동안 (다음 경기로 바로 넘어가지 않게) */
   const [show, setShow] = useState<{ mid: string; startAt: number; outcome: DuelOutcome; a: Insect; b: Insect; until: number } | null>(null);
   const resolving = useRef<string>('');
   // 🧪 리허설: 테스트 번호(900~) 곤충도 참가 — 오늘 안 만들었어도 마지막 곤충 (주소 ?test=1 이면 처음부터 켜짐)
   const [rehearsal, setRehearsal] = useState(false);
-  useEffect(() => {
-    setRehearsal(new URLSearchParams(window.location.search).get('test') === '1');
-  }, []);
+  /** 📋 대진표 크게 보기 (11/25 Jin: 곤충을 다같이 본 뒤 "토너먼트 표 보기" → 누가 누구랑 하는지 → 왼쪽부터 1경기) */
+  const [view, setView] = useState<'reveal' | 'stage'>('stage');
+  const makeOnce = useRef(false);
 
   const save = useCallback(async (next: Tournament | null) => {
     tRef.current = next;
@@ -71,12 +74,22 @@ function Admin() {
   }, []);
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const test = q.get('test') === '1';
+    setRehearsal(test);
     void syncClock();
     void loadTournament().then((x) => {
       tRef.current = x;
       setT(x);
       setLoaded(true);
+      // "다같이 보기" 에서 🏆 토너먼트 표 보기 로 왔으면 바로 섞어서 대진표 (새로고침해도 다시 안 섞이게 주소에서 뺀다)
+      if (q.get('make') === '1' && !makeOnce.current) {
+        makeOnce.current = true;
+        window.history.replaceState(null, '', test ? '/tournament?test=1' : '/tournament');
+        void start(test);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cur = t ? findMatch(t, t.current) : null;
@@ -121,6 +134,9 @@ function Admin() {
       const sa = signalFor(sigs.get(pa), tt, m);
       const sb = signalFor(sigs.get(pb), tt, m);
       setJoined({ a: !!sa, b: !!sb });
+      const la = sa?.tiers ?? [null, null, null];
+      const lb = sb?.tiers ?? [null, null, null];
+      setLive((prev) => (prev.a.join(',') === la.join(',') && prev.b.join(',') === lb.join(',') ? prev : { a: la, b: lb }));
       if (!m.startAt && sa && sb) {
         const copy: Tournament = JSON.parse(JSON.stringify(tt));
         // 두 번째 선수가 들어온 뒤 "HERE COMES A NEW CHALLENGER!" (2.2초)를 보여줄 틈을 두고 시작
@@ -131,26 +147,43 @@ function Admin() {
       if (m.startAt) {
         const e = serverNow() - m.startAt;
         const key = `${m.id}:${m.games.length}`;
-        if (e < T_CHANCE + CHANCE_LEN + 300 || resolving.current === key) return;
-        const both = !!sa?.tier && !!sb?.tier;
+        if (e < T_LAST_CHANCE_END + 300 || resolving.current === key) return;
+        const full = (x?: (string | null)[]) => !!x && x.length >= CHANCE_COUNT && x.slice(0, CHANCE_COUNT).every(Boolean);
+        const both = full(sa?.tiers) && full(sb?.tiers);
         if (!both && e < T_RESOLVE + WAIT_TIER_MS) return;
         resolving.current = key;
-        await finishGame(tt, m, sa?.tier ?? 'miss', sb?.tier ?? 'miss', false);
+        await finishGame(tt, m, fillTiers(sa?.tiers, 'miss'), fillTiers(sb?.tiers, 'miss'), false);
       }
     }, POLL_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function finishGame(tt: Tournament, m: Match, tierA: string, tierB: string, auto: boolean) {
+  async function finishGame(tt: Tournament, m: Match, tiersA: string[], tiersB: string[], auto: boolean) {
     const [a, b] = await Promise.all([loadInsect(tt.entrants[m.a!].iid), loadInsect(tt.entrants[m.b!].iid)]);
     if (!a || !b || m.seed === undefined) return;
-    const res = computeDuel(a, b, m.seed, tierA, tierB);
-    const winner = res.winner === 'A' ? 'a' : 'b';
+    const v = duelVerdict(a, b, m.seed, tiersA, tiersB);
     const startAt = m.startAt ?? serverNow() - T_RESOLVE;
-    setShow({ mid: m.id, startAt, outcome: { winner, tierA, tierB }, a, b, until: Date.now() + Math.max(0, startAt + T_RESOLVE - serverNow()) + RESULT_LEN });
-    await save(recordGame(tt, m.id, { seed: m.seed, winner, tierA, tierB, auto }));
+    const outcome: DuelOutcome = { winner: v.winner, tiersA, tiersB, left: v.left, reason: v.reason };
+    setShow({ mid: m.id, startAt, outcome, a, b, until: Date.now() + Math.max(0, startAt + T_RESOLVE - serverNow()) + RESULT_LEN });
+    await save(recordGame(tt, m.id, { seed: m.seed, winner: v.winner, tiersA, tiersB, left: v.left, reason: v.reason, auto }));
   }
+
+  // 다음 라운드가 새로 짜이면 (결과를 다 보여준 뒤) 대진표를 크게 다시 보여준다
+  const roundCount = t?.rounds.length ?? 0;
+  const seenRounds = useRef(0);
+  const seenId = useRef('');
+  useEffect(() => {
+    if (show || !t) return;
+    if (seenId.current !== t.id) {
+      seenId.current = t.id;
+      seenRounds.current = roundCount;
+      return;
+    }
+    if (seenRounds.current && roundCount > seenRounds.current && t.status === 'running') setView('reveal');
+    seenRounds.current = roundCount;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundCount, show, t?.id]);
 
   // 결과를 다 보여주면 다음 경기로
   useEffect(() => {
@@ -159,14 +192,14 @@ function Admin() {
     return () => window.clearTimeout(id);
   }, [show]);
 
-  async function start() {
+  async function start(includeTest: boolean = rehearsal) {
     setBusy(true);
     setMsg('');
     try {
-      const list = await loadTodayInsects(rehearsal);
+      const list = await loadTodayInsects(includeTest);
       if (list.length < 2) {
         setMsg(
-          rehearsal
+          includeTest
             ? '곤충이 2마리 이상 있어야 해요.'
             : '오늘 만든 곤충이 2마리 이상 있어야 해요. (951·952 같은 테스트 번호로 연습할 땐 위 "🧪 리허설" 을 켜세요)'
         );
@@ -175,6 +208,7 @@ function Admin() {
       if (tRef.current?.status === 'running' && !window.confirm('진행 중인 토너먼트가 있어요. 새로 섞을까요?')) return;
       await save(makeTournament(list));
       setShow(null);
+      setView('reveal');
     } catch (e: any) {
       setMsg(e?.message || '시작하지 못했어요.');
     } finally {
@@ -191,7 +225,7 @@ function Admin() {
     const sigs = await readSignals([tt.entrants[m.a!].pid, tt.entrants[m.b!].pid]).catch(() => new Map());
     const sa = signalFor(sigs.get(tt.entrants[m.a!].pid), tt, m);
     const sb = signalFor(sigs.get(tt.entrants[m.b!].pid), tt, m);
-    await finishGame(tt, m, sa?.tier ?? 'good', sb?.tier ?? 'good', true);
+    await finishGame(tt, m, fillTiers(sa?.tiers, 'good'), fillTiers(sb?.tiers, 'good'), true);
   }
 
   async function reset() {
@@ -214,7 +248,7 @@ function Admin() {
         <h1 className="text-[4.2vmin] font-black">
           ⚔️ 수액 쟁탈 <span className="text-amber-300">G7BB 배틀 토너먼트</span>
         </h1>
-        <button onClick={start} disabled={busy} className="rounded-full bg-emerald-500 px-4 py-1.5 text-[2.2vmin] font-black text-slate-900 disabled:opacity-50">
+        <button onClick={() => void start()} disabled={busy} className="rounded-full bg-emerald-500 px-4 py-1.5 text-[2.2vmin] font-black text-slate-900 disabled:opacity-50">
           {t ? '🔀 새로 섞어 시작' : '⚔️ 배틀 토너먼트 시작!'}
         </button>
         <button
@@ -224,7 +258,15 @@ function Admin() {
         >
           🧪 리허설 {rehearsal ? '켜짐' : '꺼짐'}
         </button>
-        {t?.status === 'running' && cur && !show && (
+        {t && (
+          <button
+            onClick={() => setView(view === 'reveal' ? 'stage' : 'reveal')}
+            className="rounded-full bg-slate-700 px-4 py-1.5 text-[2vmin] font-bold"
+          >
+            {view === 'reveal' ? '⚔️ 경기 화면' : '📋 대진표 크게'}
+          </button>
+        )}
+        {t?.status === 'running' && cur && !show && view === 'stage' && (
           <button onClick={autoPlay} className="rounded-full bg-slate-700 px-4 py-1.5 text-[2vmin] font-bold">
             🤖 이 경기 자동 진행
           </button>
@@ -244,7 +286,9 @@ function Admin() {
         </div>
       )}
 
-      {t && (
+      {t && view === 'reveal' && <Reveal t={t} onGo={() => setView('stage')} />}
+
+      {t && view === 'stage' && (
         <>
           {/* 지금 경기 */}
           {stageMatch && stageMatch.a !== null && stageMatch.b !== null && (
@@ -259,7 +303,8 @@ function Admin() {
                 joinedB={show ? true : joined.b}
                 startAt={show ? show.startAt : stageMatch.startAt}
                 outcome={show ? show.outcome : null}
-                label={`${roundName(t, stageMatch.round)}${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''} — 👦 ${t.entrants[stageMatch.a].kid} vs 👦 ${t.entrants[stageMatch.b].kid}`}
+                liveTiers={live}
+                label={`${roundName(t, stageMatch.round)} ${stageMatch.slot + 1}경기${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''} — 👦 ${t.entrants[stageMatch.a].kid} vs 👦 ${t.entrants[stageMatch.b].kid}`}
               />
             </section>
           )}
@@ -278,6 +323,74 @@ function Admin() {
       )}
     </main>
   );
+}
+
+/** 📋 대진표 크게 — 1라운드 경기를 왼쪽부터 1경기·2경기… 카드로 (곤충 그림 + 아이 이름) */
+function Reveal({ t, onGo }: { t: Tournament; onGo: () => void }) {
+  const [imgs, setImgs] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    void loadInsectImages(t.entrants.map((e) => e.iid)).then(setImgs).catch(() => undefined);
+  }, [t.id, t.entrants]);
+  const r = Math.min(t.rounds.length - 1, Math.max(0, t.rounds.findIndex((round) => round.some((m) => !m.winner))));
+  const round = t.rounds[r < 0 ? t.rounds.length - 1 : r] ?? [];
+  const first = round.find((m) => m.id === t.current);
+  const person = (idx: number | null) => {
+    if (idx === null) return <div className="flex-1 flex items-center justify-center text-[2.6vmin] font-black text-emerald-300">🎉 부전승!</div>;
+    const e = t.entrants[idx];
+    const src = imgs.get(e.iid);
+    return (
+      <div className="flex-1 min-w-0 flex flex-col items-center gap-[0.6vmin]">
+        <div className="w-full aspect-[4/5] overflow-hidden rounded-[1.2vmin] bg-slate-800 border-2 border-slate-600">
+          {src && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={src} alt="" className="w-full h-full object-cover" />
+          )}
+        </div>
+        <p className="w-full truncate text-center text-[2.2vmin] font-black">{e.nick}</p>
+        <p className="w-full truncate text-center text-[2vmin] font-bold text-amber-200">👦 {e.kid}</p>
+      </div>
+    );
+  };
+  return (
+    <section className="flex flex-col items-center gap-[2.4vmin]">
+      <p className="attract-gold text-[6vmin] font-black animate-vs-slam">{roundName(t, r < 0 ? 0 : r).startsWith('🏆') ? '' : '🏆 '}{roundName(t, r < 0 ? 0 : r)} 대진표!</p>
+      <div className="flex flex-wrap justify-center gap-[2vmin] w-full">
+        {round.map((m, i) => (
+          <div
+            key={m.id}
+            className={`animate-pop w-[min(30vw,40vh)] rounded-[2vmin] border-4 p-[1.2vmin] ${
+              m.id === t.current ? 'border-amber-300 bg-amber-400/15 shadow-[0_0_24px_rgba(251,191,36,0.6)]' : m.winner ? 'border-slate-700 bg-slate-900/60 opacity-60' : 'border-slate-600 bg-slate-900'
+            }`}
+            style={{ animationDelay: `${i * 0.35}s`, animationFillMode: 'both' }}
+          >
+            <p className="text-center text-[3vmin] font-black text-amber-300">
+              {round.length === 1 ? '결승전' : `${m.slot + 1}경기`} {m.id === t.current ? '👈 지금!' : m.b === null ? '' : m.winner ? '✅ 끝' : ''}
+            </p>
+            <div className="mt-[0.8vmin] flex items-center gap-[1vmin]">
+              {person(m.a)}
+              <span className="text-[3.4vmin] font-black text-amber-300">VS</span>
+              {person(m.b)}
+            </div>
+          </div>
+        ))}
+      </div>
+      {first && first.a !== null && first.b !== null ? (
+        <>
+          <p className="text-[3.4vmin] font-black text-center">
+            ⚔️ {first.slot + 1}경기 👦 {t.entrants[first.a].kid} · 👦 {t.entrants[first.b].kid} — 배틀 태블릿 앞에 앉아서 내 QR 을 찍어줘!
+          </p>
+          <button onClick={onGo} className="btn-sparkle rounded-3xl bg-amber-400 px-[5vmin] py-[2vmin] text-[4vmin] font-black text-slate-900">
+            ⚔️ {first.slot + 1}경기 시작!
+          </button>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+/** 3칸 다 채우기 (안 온 칸은 fill) */
+function fillTiers(x: (string | null)[] | undefined, fill: string): string[] {
+  return Array.from({ length: CHANCE_COUNT }, (_, i) => x?.[i] ?? fill);
 }
 
 function Bracket({ t, currentId }: { t: Tournament; currentId: string | null }) {
