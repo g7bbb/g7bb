@@ -255,7 +255,7 @@ export default function DuelStage({
       {phase === 'resolve' && !outcome && <p className="text-[3.6vmin] font-black text-slate-200">🤔 누가 이겼을까…</p>}
 
       {challenger && phase === 'wait' && (
-        <div className="fixed inset-x-0 top-[10%] z-40 flex flex-col items-center pointer-events-none challenger-banner">
+        <div className="fixed inset-x-0 top-[10%] z-40 mx-auto w-fit flex flex-col items-center pointer-events-none challenger-banner rounded-3xl bg-black/75 px-[4vmin] py-[2vmin]">
           <p className="text-[7.5vmin] font-black italic text-white tracking-tight drop-shadow-[0_0_18px_rgba(239,68,68,0.95)] text-center leading-none">
             HERE COMES A<br />NEW CHALLENGER!
           </p>
