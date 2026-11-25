@@ -22,6 +22,7 @@ import {
   readSignals,
   recordGame,
   roundName,
+  roundSizes,
   saveTournament,
   serverNow,
   signalFor,
@@ -281,7 +282,7 @@ function Bracket({ t, currentId }: { t: Tournament; currentId: string | null }) 
                   <div
                     className={`flex items-center justify-between gap-1 px-[0.8vmin] py-[0.4vmin] text-[1.8vmin] font-bold ${won ? 'text-amber-300' : lost ? 'text-slate-500 line-through' : 'text-white'}`}
                   >
-                    <span className={`truncate max-w-[14vmin] ${e ? '' : 'text-slate-500 font-normal'}`}>{e ? `${e.nick}` : m.round === 0 ? '(부전승)' : '…'}</span>
+                    <span className={`truncate max-w-[14vmin] ${e ? '' : 'text-slate-500 font-normal'}`}>{e ? `${e.nick}` : '(부전승)'}</span>
                     {m.bestOf === 3 && <span>{side === 'a' ? w.a : w.b}</span>}
                   </div>
                 );
@@ -297,6 +298,22 @@ function Bracket({ t, currentId }: { t: Tournament; currentId: string | null }) 
             })}
           </div>
         ))}
+        {/* 아직 안 만든 라운드 자리 (앞 라운드가 끝나면 채워진다) */}
+        {roundSizes(t)
+          .slice(t.rounds.length)
+          .map((n, k) => {
+            const r = t.rounds.length + k;
+            return (
+              <div key={`f${r}`} className="flex flex-col justify-around gap-[1vmin] min-w-[16vmin] opacity-60">
+                <p className="text-center text-[2.2vmin] font-black text-amber-200">{roundName(t, r)}</p>
+                {Array.from({ length: n }, (_, i) => (
+                  <div key={i} className="rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-[0.8vmin] py-[1.2vmin] text-center text-[1.8vmin] text-slate-500">
+                    ?
+                  </div>
+                ))}
+              </div>
+            );
+          })}
       </div>
     </section>
   );

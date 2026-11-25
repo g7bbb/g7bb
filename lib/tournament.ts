@@ -161,87 +161,94 @@ export function newSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
-/** 참가 곤충을 섞어 대진표를 만든다. 2·4·8·16·32 에 모자라는 자리는 부전승. 결승만 3판 2선승. */
+/**
+ * 참가 곤충을 섞어 1라운드를 만든다 (11/25 Jin: "부전승을 최소화").
+ * 라운드마다 **최대한 많이 짝을 짓고, 홀수일 때만 1명 부전승** — 13명이면 6경기 + 1명 부전승 → 7명 → 3경기 + 1명 → 4명 → 준결승 → 결승.
+ * 부전승은 되도록 한 번도 안 받은 아이에게 (같은 아이가 두 번 쉬지 않게). 다음 라운드는 앞 라운드가 끝나면 만든다.
+ * 2명만 남은 라운드(결승)만 3판 2선승.
+ */
 export function makeTournament(entrants: Entrant[]): Tournament {
   const list = shuffle(entrants);
-  let size = 2;
-  while (size < list.length) size *= 2;
-  const totalRounds = Math.log2(size);
-  // 부전승이 한쪽에 몰리지 않게: 앞에서부터 짝을 지을 때 빈자리를 고르게 끼운다
-  const seats: (number | null)[] = new Array(size).fill(null);
-  const byes = size - list.length;
-  let k = 0;
-  for (let i = 0; i < size / 2; i++) {
-    seats[i * 2] = k < list.length ? k++ : null;
-    seats[i * 2 + 1] = i < size / 2 - byes && k < list.length ? k++ : null;
-  }
-  const rounds: Match[][] = [];
-  for (let r = 0; r < totalRounds; r++) {
-    const n = size / 2 ** (r + 1);
-    rounds.push(
-      Array.from({ length: n }, (_, slot) => ({
-        id: `r${r}m${slot}`,
-        round: r,
-        slot,
-        a: r === 0 ? seats[slot * 2] : null,
-        b: r === 0 ? seats[slot * 2 + 1] : null,
-        winner: null,
-        bestOf: r === totalRounds - 1 ? 3 : 1,
-        games: [],
-      }))
-    );
-  }
   const t: Tournament = {
     id: `t${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     status: 'running',
     entrants: list,
-    rounds,
+    rounds: [],
     current: null,
   };
-  settleByes(t);
+  t.rounds.push(buildRound(t, 0, list.map((_, i) => i)));
   t.current = nextMatchId(t);
   return t;
 }
 
-/** 한쪽만 있는 경기는 부전승으로 바로 올린다 */
-function settleByes(t: Tournament) {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const round of t.rounds) {
-      for (const m of round) {
-        if (m.winner) continue;
-        const prevDone = m.round === 0 || isFeedDone(t, m);
-        if (!prevDone) continue;
-        if (m.a !== null && m.b === null) {
-          m.winner = 'a';
-          advance(t, m);
-          changed = true;
-        } else if (m.a === null && m.b !== null) {
-          m.winner = 'b';
-          advance(t, m);
-          changed = true;
-        }
+/** 이 라운드에 올라온 아이들(entrants 번호)로 경기를 짠다. 홀수면 1명 부전승(바로 승리 처리). */
+function buildRound(t: Tournament, round: number, players: number[]): Match[] {
+  const order = [...players];
+  if (order.length % 2 === 1) {
+    // 부전승 받을 아이: 아직 한 번도 안 받은 아이 중 맨 뒤 (1라운드는 이미 섞여 있어서 사실상 무작위)
+    const hadBye = new Set(t.rounds.flat().filter((m) => m.b === null && m.a !== null).map((m) => m.a));
+    let pick = order.length - 1;
+    for (let i = order.length - 1; i >= 0; i--) {
+      if (!hadBye.has(order[i])) {
+        pick = i;
+        break;
       }
     }
+    const [bye] = order.splice(pick, 1);
+    order.push(bye);
   }
+  const final = order.length === 2;
+  const out: Match[] = [];
+  for (let i = 0; i < order.length; i += 2) {
+    const a = order[i];
+    const b = i + 1 < order.length ? order[i + 1] : null;
+    out.push({
+      id: `r${round}m${out.length}`,
+      round,
+      slot: out.length,
+      a,
+      b,
+      winner: b === null ? 'a' : null,
+      bestOf: final ? 3 : 1,
+      games: [],
+    });
+  }
+  return out;
 }
 
-function isFeedDone(t: Tournament, m: Match): boolean {
-  const prev = t.rounds[m.round - 1];
-  return !!prev[m.slot * 2]?.winner && !!prev[m.slot * 2 + 1]?.winner;
-}
-
-function advance(t: Tournament, m: Match) {
-  const next = t.rounds[m.round + 1]?.[Math.floor(m.slot / 2)];
-  const who = m.winner === 'a' ? m.a : m.b;
-  if (!next) {
+/** 지금 라운드가 다 끝났으면 다음 라운드를 만든다 (1명 남으면 끝) */
+function maybeNextRound(t: Tournament) {
+  const last = t.rounds[t.rounds.length - 1];
+  if (!last || last.some((m) => !m.winner)) return;
+  const winners = last.map((m) => (m.winner === 'a' ? m.a : m.b)).filter((x): x is number => x !== null);
+  if (winners.length <= 1) {
     t.status = 'done';
     return;
   }
-  if (m.slot % 2 === 0) next.a = who;
-  else next.b = who;
+  t.rounds.push(buildRound(t, t.rounds.length, winners));
+}
+
+/** 참가 인원으로 본 전체 라운드 수 (13명 → 13·7·4·2 = 4라운드) */
+export function totalRounds(t: Tournament): number {
+  let n = t.entrants.length;
+  let r = 0;
+  while (n > 1) {
+    n = Math.ceil(n / 2);
+    r++;
+  }
+  return r;
+}
+
+/** 라운드마다 경기 수 (화면에 아직 안 만든 라운드 자리를 그릴 때) */
+export function roundSizes(t: Tournament): number[] {
+  const out: number[] = [];
+  let n = t.entrants.length;
+  while (n > 1) {
+    out.push(Math.ceil(n / 2));
+    n = Math.ceil(n / 2);
+  }
+  return out;
 }
 
 export function findMatch(t: Tournament, id: string | null | undefined): Match | null {
@@ -260,7 +267,7 @@ export function winsOf(m: Match): { a: number; b: number } {
   return { a: m.games.filter((g) => g.winner === 'a').length, b: m.games.filter((g) => g.winner === 'b').length };
 }
 
-/** 한 판 결과를 적고, 경기가 끝났으면(단판 / 3판 2선승) 승자를 올리고 다음 경기로 */
+/** 한 판 결과를 적고, 경기가 끝났으면(단판 / 3판 2선승) 승자를 정하고, 라운드가 끝났으면 다음 라운드를 만든다 */
 export function recordGame(t: Tournament, mid: string, game: GameResult): Tournament {
   const copy: Tournament = JSON.parse(JSON.stringify(t));
   const m = findMatch(copy, mid);
@@ -273,24 +280,23 @@ export function recordGame(t: Tournament, mid: string, game: GameResult): Tourna
   const need = m.bestOf === 3 ? 2 : 1;
   if (w.a >= need || w.b >= need) {
     m.winner = w.a >= need ? 'a' : 'b';
-    advance(copy, m);
-    settleByes(copy);
+    maybeNextRound(copy);
     copy.current = nextMatchId(copy);
+    if (!copy.current && copy.status !== 'done') maybeNextRound(copy);
     if (!copy.current) copy.status = 'done';
   }
   return copy;
 }
 
 export function roundName(t: Tournament, round: number): string {
-  const left = t.rounds.length - round;
+  const left = totalRounds(t) - round;
   if (left === 1) return '🏆 결승';
   if (left === 2) return '준결승';
-  if (left === 3) return '8강';
-  if (left === 4) return '16강';
   return `${round + 1}라운드`;
 }
 
 export function champion(t: Tournament): Entrant | null {
+  if (t.status !== 'done') return null;
   const final = t.rounds[t.rounds.length - 1]?.[0];
   if (!final?.winner) return null;
   const idx = final.winner === 'a' ? final.a : final.b;
