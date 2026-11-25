@@ -58,6 +58,11 @@ function Admin() {
   /** 방금 끝난 판을 큰 화면에 보여주는 동안 (다음 경기로 바로 넘어가지 않게) */
   const [show, setShow] = useState<{ mid: string; startAt: number; outcome: DuelOutcome; a: Insect; b: Insect; until: number } | null>(null);
   const resolving = useRef<string>('');
+  // 🧪 리허설: 테스트 번호(900~) 곤충도 참가 — 오늘 안 만들었어도 마지막 곤충 (주소 ?test=1 이면 처음부터 켜짐)
+  const [rehearsal, setRehearsal] = useState(false);
+  useEffect(() => {
+    setRehearsal(new URLSearchParams(window.location.search).get('test') === '1');
+  }, []);
 
   const save = useCallback(async (next: Tournament | null) => {
     tRef.current = next;
@@ -158,10 +163,13 @@ function Admin() {
     setBusy(true);
     setMsg('');
     try {
-      const test = new URLSearchParams(window.location.search).get('test') === '1';
-      const list = await loadTodayInsects(test);
+      const list = await loadTodayInsects(rehearsal);
       if (list.length < 2) {
-        setMsg('오늘 만든 곤충이 2마리 이상 있어야 해요.');
+        setMsg(
+          rehearsal
+            ? '곤충이 2마리 이상 있어야 해요.'
+            : '오늘 만든 곤충이 2마리 이상 있어야 해요. (951·952 같은 테스트 번호로 연습할 땐 위 "🧪 리허설" 을 켜세요)'
+        );
         return;
       }
       if (tRef.current?.status === 'running' && !window.confirm('진행 중인 토너먼트가 있어요. 새로 섞을까요?')) return;
@@ -208,6 +216,13 @@ function Admin() {
         </h1>
         <button onClick={start} disabled={busy} className="rounded-full bg-emerald-500 px-4 py-1.5 text-[2.2vmin] font-black text-slate-900 disabled:opacity-50">
           {t ? '🔀 새로 섞어 시작' : '⚔️ 배틀 토너먼트 시작!'}
+        </button>
+        <button
+          onClick={() => setRehearsal((v) => !v)}
+          className={`rounded-full px-3 py-1.5 text-[1.8vmin] font-bold border ${rehearsal ? 'bg-sky-500 text-slate-900 border-sky-300' : 'bg-slate-800 text-slate-300 border-slate-600'}`}
+          title="테스트 번호(900~) 곤충도 참가"
+        >
+          🧪 리허설 {rehearsal ? '켜짐' : '꺼짐'}
         </button>
         {t?.status === 'running' && cur && !show && (
           <button onClick={autoPlay} className="rounded-full bg-slate-700 px-4 py-1.5 text-[2vmin] font-bold">

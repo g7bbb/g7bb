@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AdminGate from '@/app/admin/admin-gate';
 import StatRadar from '@/app/upload/stat-radar';
 import { loadTodayInsects, TodayInsect, loadInsect } from '@/lib/tournament';
@@ -36,10 +36,13 @@ function Together() {
   const [loading, setLoading] = useState(true);
   const [pick, setPick] = useState<number | null>(null);
   const [detail, setDetail] = useState<Insect | null>(null);
+  // 🧪 리허설: 테스트 번호(900~) 곤충도 (오늘 안 만들었어도 마지막 곤충)
+  const [rehearsal, setRehearsal] = useState(false);
+  const rehearsalRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const test = new URLSearchParams(window.location.search).get('test') === '1';
+    const test = new URLSearchParams(window.location.search).get('test') === '1' || rehearsalRef.current;
     const rows = await loadTodayInsects(test).catch(() => [] as TodayInsect[]);
     setList(rows);
     setLoading(false);
@@ -92,6 +95,16 @@ function Together() {
         <span className="rounded-full bg-amber-400 px-[1.6vmin] py-[0.3vmin] text-[2.8vmin] font-black text-slate-900">{list.length}마리</span>
         <button onClick={() => void load()} className="rounded-full border border-white/30 px-3 py-1 text-[2vmin] font-bold">
           🔄 새로고침
+        </button>
+        <button
+          onClick={() => {
+            rehearsalRef.current = !rehearsal;
+            setRehearsal(!rehearsal);
+            void load();
+          }}
+          className={`rounded-full border px-3 py-1 text-[2vmin] font-bold ${rehearsal ? 'bg-sky-500 text-slate-900 border-sky-300' : 'border-white/30 text-slate-300'}`}
+        >
+          🧪 리허설 {rehearsal ? '켜짐' : '꺼짐'}
         </button>
       </header>
       <p className="mt-[1vmin] text-center text-[2.4vmin] font-bold text-slate-300">카드를 누르면 크게 봐! (← → 키로 넘기기)</p>

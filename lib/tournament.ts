@@ -416,7 +416,25 @@ export async function loadTodayInsects(includeTest = false): Promise<TodayInsect
     .gte('created_at', todayStartIso())
     .order('created_at', { ascending: true })
     .limit(400);
-  const rows = data || [];
+  const rows: any[] = [...(data || [])];
+  // 🧪 리허설: 테스트 번호(900~)는 오늘 만든 게 없어도 **마지막 곤충**을 넣는다 (11/25 Jin "악마의왼발은 이미 만들었는데")
+  if (includeTest) {
+    const { data: tps } = await supabase.from('players').select('id, ticket_code').gte('ticket_code', 'A-900').lte('ticket_code', 'A-999');
+    const tids = (tps || []).map((p: any) => p.id);
+    if (tids.length) {
+      const { data: older } = await supabase
+        .from('insects')
+        .select('id, player_id, nickname, species, level, origin, created_at')
+        .in('player_id', tids)
+        .order('created_at', { ascending: true })
+        .limit(400);
+      const have = new Set(rows.map((r) => r.id));
+      (older || []).forEach((r: any) => {
+        if (!have.has(r.id)) rows.push(r);
+      });
+      rows.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+    }
+  }
   const pids = Array.from(new Set(rows.map((r: any) => r.player_id)));
   const players = new Map<string, Pick<Player, 'display_name' | 'ticket_code'>>();
   for (let i = 0; i < pids.length; i += 100) {
