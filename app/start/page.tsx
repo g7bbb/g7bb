@@ -14,6 +14,7 @@ import { logToSheet } from '@/lib/sheet-log';
 import { GAME_TITLE } from '@/lib/brand';
 import { BrandLogo, BrandMark } from '@/app/brand-logo';
 import Returning from './returning';
+import { loadTournament } from '@/lib/tournament';
 import QrScanner from './qr-scanner';
 import { adoptFriendLinks, isPending } from '@/lib/game-state';
 import { tierForPlayer } from '@/lib/tiers';
@@ -47,6 +48,26 @@ function StartInner() {
   const [error, setError] = useState('');
   // QR 번호가 이미 등록된 아이면, 설문을 다시 받지 않고 바로 이어서 하게 합니다.
   const [returning, setReturning] = useState<Player | null>(null);
+  // ⚔️ (체험용) 토너먼트 중이고 이 아이가 선수면 QR 로 들어오자마자 대결장(/duel)으로 (11/25 Jin)
+  const [duelCheck, setDuelCheck] = useState<'checking' | 'no'>('checking');
+  useEffect(() => {
+    if (!returning) return;
+    let alive = true;
+    setDuelCheck('checking');
+    void loadTournament()
+      .then((tt) => {
+        if (!alive) return;
+        if (tt && tt.status === 'running' && tt.entrants.some((e) => e.pid === returning.id)) {
+          rememberPlayer(returning.id);
+          router.replace('/duel');
+        } else setDuelCheck('no');
+      })
+      .catch(() => alive && setDuelCheck('no'));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returning?.id]);
   // 직원이 금액을 먼저 올려둔 번호 (이름 없는 자리). 처음 온 아이처럼 이름·설문을 받되, 그 자리에 채웁니다.
   const [prepaid, setPrepaid] = useState<Player | null>(null);
   const [checking, setChecking] = useState(false);
@@ -308,6 +329,10 @@ function friendlyError(message?: string): string {
   // ── 다시 온 아이 ─────────────────────────────────────────
   // 카드·종이의 QR 을 찍고 온 경우입니다. 이름도 설문도 이미 받아뒀으니 다시 묻지 않습니다.
   // 새 곤충 / 레벨업 / 30분 대기는 returning.tsx 가 맡습니다 (2026-10-01).
+  if (returning && duelCheck !== 'no') {
+    // ⚔️ 토너먼트 확인 중 (잠깐) — 선수면 바로 대결장으로
+    if (duelCheck === 'checking') return <main className="min-h-screen flex items-center justify-center text-slate-400">불러오는 중…</main>;
+  }
   if (returning) {
     return <Returning player={returning} onNotMe={() => setReturning(null)} />;
   }

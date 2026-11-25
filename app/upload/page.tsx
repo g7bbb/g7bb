@@ -320,7 +320,8 @@ export default function UploadPage() {
         mutations,
         image_base64: result.image,
         mime_type: result.mime,
-        stats,
+        // ✍️ 아이가 쓴 프롬프트도 같이 남긴다 (11/25 체험용 "오늘 곤충 다같이 보기"에서 큰 화면에 보여줌). stats 는 jsonb 라 구조 변경 없음.
+        stats: { ...stats, prompt: { look: customLook.trim(), scene: customScene.trim() } },
         level: 1,
         xp: 0,
         battle_count: 0,
