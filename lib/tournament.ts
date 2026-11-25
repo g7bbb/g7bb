@@ -17,7 +17,7 @@ import { Insect, Player } from './types';
 import { statsForInsect } from './insect-stats';
 import { BattleResult, BattleSide, resolveBattle, rollBattle } from './battle-engine';
 import { baseMoveFor, movesFor, TIMING_TIERS } from './special-moves';
-import { isStaffTicket, isTestTicket } from './ticket';
+import { isStaffTicket, isTestTicket, NO_PIN_TICKETS } from './ticket';
 
 export const ROOM_TICKET = 'T-ROOM';
 
@@ -419,7 +419,9 @@ export async function loadTodayInsects(includeTest = false): Promise<TodayInsect
   const rows: any[] = [...(data || [])];
   // 🧪 리허설: 테스트 번호(900~)는 오늘 만든 게 없어도 **마지막 곤충**을 넣는다 (11/25 Jin "악마의왼발은 이미 만들었는데")
   if (includeTest) {
-    const { data: tps } = await supabase.from('players').select('id, ticket_code').gte('ticket_code', 'A-900').lte('ticket_code', 'A-999');
+    // ⚠️ 테스트 번호 전부를 넣으면 예전에 시험하던 번호들(안 온 선수)이 대진표를 채워서 내 차례가 안 온다 (11/25 실제로 겪음)
+    //    → 오늘 만든 테스트 곤충 + 리허설 번호(951·952·953, 비밀번호 없는 번호)의 마지막 곤충만
+    const { data: tps } = await supabase.from('players').select('id, ticket_code').in('ticket_code', NO_PIN_TICKETS);
     const tids = (tps || []).map((p: any) => p.id);
     if (tids.length) {
       const { data: older } = await supabase
