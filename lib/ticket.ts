@@ -51,7 +51,8 @@ export function isStaffTicket(code: string | null | undefined): boolean {
  * 🔓 비밀번호 없이 번호만 치면 바로 들어가는 번호 (2026-10-06 Jin: "951번은 입력하면 바로 접속하게").
  * 개발·시운전용. 번호를 더 넣으려면 이 목록에만 추가하면 된다. ⚠️ 진짜 아이 번호(900 미만)는 넣지 말 것.
  */
-export const NO_PIN_TICKETS = ['A-951'];
+// 11/25 체험 리허설용으로 952·953 도 (태블릿 두 대로 토너먼트 시험). 전부 테스트 번호(900~)라 진짜 아이와 안 섞인다.
+export const NO_PIN_TICKETS = ['A-951', 'A-952', 'A-953'];
 export function skipsPin(code: string | null | undefined): boolean {
   return !!code && NO_PIN_TICKETS.includes(code);
 }
