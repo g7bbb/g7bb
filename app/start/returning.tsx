@@ -16,6 +16,7 @@ import { playSound, unlockAudio } from '@/lib/sfx';
 import { effectiveVisit, frameUpgrade } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import FrameUpPopup from '@/app/card/frame-up';
+import { useExperienceMode } from '@/lib/experience';
 
 // ─────────────────────────────────────────────────────────────
 // 다시 온 아이 (카드·종이의 QR 을 찍고 들어온 경우) — 2026-10-01 Jin 설계
@@ -42,6 +43,8 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
   const [leveling, setLeveling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // 🧪 체험 모드: 레벨업·배틀·참가권 없이 "내 카드 / 새로 만들기" 만 (lib/experience.ts)
+  const exp = useExperienceMode();
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -144,7 +147,24 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
 
   // ── 지금 무엇을 할 수 있는지에 따라 큰 버튼 하나를 고릅니다 ──
   let main: React.ReactNode = null;
-  if (insectCount === null) {
+  if (exp && insectCount !== null) {
+    main =
+      insectCount === 0 || (last?.newInsect && !last.insectMade) ? (
+        <BigButton onClick={() => go('/upload')}>곤충 만들러 가기</BigButton>
+      ) : (
+        <div className="flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
+          <BigButton onClick={() => go('/card')}>🃏 내 곤충 카드 보기</BigButton>
+          <button
+            onClick={chooseNewInsect}
+            disabled={busy}
+            className="bg-slate-700 disabled:opacity-50 text-slate-100 font-bold py-3 rounded-xl"
+          >
+            🎨 새로 만들기
+          </button>
+          <p className="text-center text-sm text-slate-400">⏳ 선생님이 배틀을 시작하면 대결장이 열려!</p>
+        </div>
+      );
+  } else if (insectCount === null) {
     main = <p className="text-center text-sm text-slate-400">내 곤충을 불러오는 중...</p>;
   } else if (insectCount === 0 || (last?.newInsect && !last.insectMade)) {
     // 아직 곤충이 없거나, 이번 게임에서 새 곤충을 만들기로 하고 아직 안 만든 경우
@@ -202,11 +222,12 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
         </p>
       </div>
 
-      <PlayStatusCard status={status} />
+      {exp === false && <PlayStatusCard status={status} />}
 
       {main}
       {error && <p className="text-sm text-red-400 text-center">{error}</p>}
 
+      {exp === false && <>
       <a href="/tips" onClick={() => rememberPlayer(player.id)} className="text-center bg-sky-400 text-slate-900 font-black py-3 rounded-xl">
         💡 승리 팁 — 1~5위 곤충은 어떤 능력치일까?
       </a>
@@ -221,6 +242,7 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
           🏆 랭킹
         </a>
       </div>
+      </>}
 
       {/* 번호가 잘못 읽혔을 수도 있으니 빠져나갈 길을 둡니다. */}
       <button onClick={onNotMe} className="text-xs text-slate-500 underline">

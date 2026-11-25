@@ -329,6 +329,29 @@ export function saveTournament(t: Tournament | null): Promise<void> {
   return job;
 }
 
+/** 🧪 체험 모드 켜고 끄기 (직원 메뉴) — 같은 T-ROOM 줄의 survey.mode. 토너먼트 저장과 같은 차례 줄로 (서로 덮지 않게) */
+export function saveRoomMode(on: boolean): Promise<void> {
+  const job = saveChain.then(async () => {
+    const row = await roomRow();
+    const mode = on ? 'class' : null;
+    if (row) {
+      const { error } = await supabase.from('players').update({ survey: { ...(row.survey ?? {}), mode } }).eq('id', row.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('players').insert({ ticket_code: ROOM_TICKET, display_name: '⚔️토너먼트', survey: { mode } });
+      if (error) throw error;
+    }
+  });
+  saveChain = job.catch(() => undefined);
+  return job;
+}
+
+/** 체험 모드인지 (T-ROOM survey.mode === 'class') */
+export async function loadRoomMode(): Promise<boolean> {
+  const row = await roomRow();
+  return row?.survey?.mode === 'class';
+}
+
 async function saveNow(t: Tournament | null): Promise<void> {
   const row = await roomRow();
   if (row) {

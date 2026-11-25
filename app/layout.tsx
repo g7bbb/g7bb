@@ -3,6 +3,7 @@ import './globals.css';
 import { GAME_NAME, GAME_TITLE } from '@/lib/brand';
 import BgmPlayer from './bgm-player';
 import SessionGuard from './session-guard';
+import ExperienceGuard from './experience-guard';
 
 export const metadata: Metadata = {
   title: GAME_TITLE,
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <BgmPlayer />
         <SessionGuard />
+        <ExperienceGuard />
       </body>
     </html>
   );

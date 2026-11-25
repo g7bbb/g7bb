@@ -12,6 +12,7 @@ import { Player } from '@/lib/types';
 import { BrandLogo } from '@/app/brand-logo';
 import { GAME_TITLE } from '@/lib/brand';
 import QrScanner from '@/app/start/qr-scanner';
+import { useExperienceMode } from '@/lib/experience';
 
 const KAKAO_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '';
 
@@ -89,6 +90,9 @@ function HomeInner() {
     getCurrentPlayer().then(setPlayer);
   }, [params, router]);
 
+  // 🧪 체험 모드면 체험용 첫 화면 (lib/experience.ts) — 랭킹·배틀·뱃지·참가권 없이 QR · 내 카드 · 대결장만
+  const exp = useExperienceMode();
+
   async function copyTicket() {
     if (!player?.ticket_code) return;
     try {
@@ -98,6 +102,54 @@ function HomeInner() {
     } catch {
       // 복사가 막힌 브라우저에서는 화면의 번호를 직접 보고 입력하면 됩니다.
     }
+  }
+
+  if (exp) {
+    return (
+      <main className="max-w-md mx-auto min-h-screen flex flex-col justify-center gap-6 px-6 py-10" style={{ wordBreak: 'keep-all' }}>
+        <div className="text-center">
+          <BrandLogo size={150} />
+          <h1 className="mt-4 text-2xl font-black">🧪 AI 곤충 만들기 체험</h1>
+          <p className="mt-1 text-amber-200 font-bold">🤖 AI를 재미있게 배우는 G7BB!</p>
+          {player && <p className="mt-3 text-slate-300">{player.display_name}, 반가워!</p>}
+        </div>
+        {scanning && <QrScanner onClose={() => setScanning(false)} />}
+        {!player ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="block text-center bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-5 rounded-2xl text-xl"
+            >
+              📷 종이 QR 찍고 시작하기
+            </button>
+            <p className="-mt-1 text-center text-sm text-slate-400">종이 오른쪽 위 QR을 카메라에 비춰줘</p>
+            <Link href="/start?manual=1" className="mx-auto block w-fit text-center bg-slate-800 text-slate-300 text-sm font-bold py-2 px-5 rounded-xl">
+              QR이 안 찍혀요 (번호로 시작)
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <Link href="/card" className="block text-center bg-emerald-500 text-slate-900 font-black py-4 rounded-2xl text-lg">
+              🃏 내 곤충 카드 보기
+            </Link>
+            <Link href="/duel" className="block text-center bg-amber-400 text-slate-900 font-black py-4 rounded-2xl text-lg">
+              ⚔️ 토너먼트 대결장
+            </Link>
+            <p className="text-center text-sm text-slate-400">⏳ 선생님이 배틀을 시작하면 대결장이 열려!</p>
+            <button
+              onClick={() => {
+                signOut();
+                setPlayer(null);
+              }}
+              className="mt-2 mx-auto block w-fit bg-slate-800 text-slate-300 text-sm font-bold py-2 px-5 rounded-xl"
+            >
+              👋 {player.display_name} 끝내기 (다음 친구 차례)
+            </button>
+          </div>
+        )}
+      </main>
+    );
   }
 
   return (

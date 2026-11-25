@@ -15,6 +15,7 @@ import InsectCard, { InsectCardData } from './insect-card';
 import { BrandMark } from '@/app/brand-logo';
 import { visitorNumber } from '@/lib/badge-state';
 import { VISITOR_MARKS } from '@/lib/badges';
+import { useExperienceMode } from '@/lib/experience';
 
 // 아이에게 보여주고 현장에서 출력해 줄 **곤충 카드** 화면입니다.
 //
@@ -110,6 +111,9 @@ function CardInner() {
     load();
   }, [load]);
 
+  // 🧪 체험 모드면 배틀·랭킹·뱃지·레벨업 대신 "선생님이 배틀을 시작하면…" + 대결장 (lib/experience.ts)
+  const exp = useExperienceMode();
+
   return (
     <main className="max-w-md mx-auto min-h-screen flex flex-col gap-4 px-5 py-8">
       <h1 className="text-2xl font-bold text-center"><BrandMark size={32} className="mr-2 -mt-1" />내 곤충 카드</h1>
@@ -125,7 +129,7 @@ function CardInner() {
         </div>
       ) : (
         <>
-          {visitorNo && VISITOR_MARKS.includes(visitorNo) && (
+          {exp === false && visitorNo && VISITOR_MARKS.includes(visitorNo) && (
             <div className="boss-alert bg-amber-400/20 border-2 border-amber-300 rounded-2xl p-4 text-center">
               <p className="text-2xl font-black text-amber-200">🎊 {visitorNo}번째 손님! 🎊</p>
               <p className="mt-1 text-sm text-amber-100" style={{ wordBreak: 'keep-all' }}>
@@ -136,9 +140,9 @@ function CardInner() {
           <InsectCard data={cards[picked]} />
 
           {/* 🆙 레벨업이 중요해! (10/4 Jin) → 11/20 인천: 한 줄로 */}
-          <div className="rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-3 text-center" style={{ wordBreak: 'keep-all' }}>
+          {exp === false && <div className="rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-3 text-center" style={{ wordBreak: 'keep-all' }}>
             <p className="text-lg font-black text-amber-200">🆙 레벨업해야 랭킹에 올라갈 수 있어!!</p>
-          </div>
+          </div>}
 
           {/* 두 번 이상 만든 아이는 지난 카드도 넘겨볼 수 있어야 합니다.
               회차마다 테두리가 달라지는 게 이 체험의 재미 포인트라, 모아보는 맛이 있어야 합니다. */}
@@ -163,7 +167,19 @@ function CardInner() {
             📸 <b className="text-slate-200">화면을 찍으면</b> 카드를 가져갈 수 있어!
           </p>
 
+          {exp && (
+            <div className="flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
+              <div className="rounded-2xl border-2 border-amber-300/70 bg-amber-400/15 px-4 py-4 text-center">
+                <p className="text-xl font-black text-amber-200">🎉 곤충 완성!</p>
+                <p className="mt-1 font-bold text-slate-200">⏳ 선생님이 배틀을 시작하면 수액을 차지하러 가자!</p>
+              </div>
+              <Link href="/duel" className="block text-center bg-amber-400 text-slate-900 font-black text-xl py-4 rounded-2xl">
+                ⚔️ 토너먼트 대결장
+              </Link>
+            </div>
+          )}
           {/* 여기서 할 일은 배틀 — 크게. 랭킹·뱃지는 아래 작게 */}
+          {exp === false && <>
           <Link
             href="/battle"
             className="block text-center bg-sky-500 text-slate-900 font-black text-xl py-4 rounded-2xl"
@@ -184,6 +200,7 @@ function CardInner() {
               🏅 뱃지
             </Link>
           </div>
+          </>}
         </>
       )}
     </main>

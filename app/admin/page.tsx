@@ -4,6 +4,8 @@ import Link from 'next/link';
 import AdminGate from './admin-gate';
 import { forgetAdmin } from '@/lib/ticket-pin-client';
 import { signOut } from '@/lib/session';
+import { useEffect, useState } from 'react';
+import { fetchExperienceMode, setExperienceMode } from '@/lib/experience';
 
 // 🧑‍🏫 직원 메뉴 (10/3 Jin: "직원용 화면에서 뒤로가기가 있으면 좋겠어. 주소를 다 못 외우니")
 // 직원 화면 주소를 한곳에 모았다. 각 직원 화면 왼쪽 위 "← 직원 메뉴" 로 여기로 돌아온다.
@@ -26,6 +28,7 @@ export default function AdminHome() {
     <AdminGate title="직원 메뉴" hideBack>
       <main className="max-w-md mx-auto min-h-screen flex flex-col gap-3 px-5 py-8" style={{ wordBreak: 'keep-all' }}>
         <h1 className="text-2xl font-black text-center mb-2">🧑‍🏫 직원 메뉴</h1>
+        <ModeSwitch />
         {MENU.map((m) => (
           <Link key={m.href} href={m.href} className="bg-slate-800 hover:bg-slate-700 rounded-2xl px-5 py-4 flex items-center gap-4">
             <span className="text-3xl">{m.emoji}</span>
@@ -55,5 +58,45 @@ export default function AdminHome() {
         </button>
       </main>
     </AdminGate>
+  );
+}
+
+/** 🧪 체험 모드 스위치 (11/25 Jin) — 켜면 아이 화면에서 행사용 내용(랭킹·배틀·뱃지·참가권·레벨업)이 사라진다 (lib/experience.ts) */
+function ModeSwitch() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void fetchExperienceMode().then(setOn);
+  }, []);
+  async function flip() {
+    const next = !on;
+    if (!window.confirm(next ? '체험 모드를 켤까요?\n아이 화면에서 랭킹·배틀·뱃지·참가권이 숨겨져요.' : '체험 모드를 끌까요?\n행사용 화면으로 돌아가요.')) return;
+    setBusy(true);
+    try {
+      await setExperienceMode(next);
+      setOn(next);
+    } catch {
+      window.alert('바꾸지 못했어요. 인터넷을 확인하고 다시 눌러주세요.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className={`rounded-2xl px-5 py-4 border-2 ${on ? 'border-emerald-400 bg-emerald-500/15' : 'border-slate-600 bg-slate-800'}`} style={{ wordBreak: 'keep-all' }}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-lg font-black">🧪 체험 모드 {on === null ? '…' : on ? '켜짐' : '꺼짐 (행사용)'}</p>
+          <p className="text-sm text-slate-400">켜면 아이 화면이 체험용으로 (랭킹·배틀·뱃지·참가권 숨김 · 토너먼트 대결장)</p>
+        </div>
+        <button
+          onClick={flip}
+          disabled={busy || on === null}
+          className={`shrink-0 rounded-full px-4 py-2 font-black disabled:opacity-50 ${on ? 'bg-slate-700 text-white' : 'bg-emerald-500 text-slate-900'}`}
+        >
+          {on ? '끄기' : '켜기'}
+        </button>
+      </div>
+      {on && <p className="mt-2 text-xs text-emerald-200">아이 기기는 화면을 새로 열 때부터 바뀌어요. 이미 열려 있으면 새로고침!</p>}
+    </div>
   );
 }

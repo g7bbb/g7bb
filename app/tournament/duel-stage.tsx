@@ -6,7 +6,7 @@ import { CHANCE_LEN, T_CHANCE, T_COUNT, T_RESOLVE, T_VS, serverNow } from '@/lib
 import { judgeTiming, movesFor, TIMING_TIERS } from '@/lib/special-moves';
 import { levelTier, frameShines } from '@/lib/card';
 import { ENVIRONMENTS } from '@/lib/environments';
-import { playPerfect, playTap } from '@/lib/sfx';
+import { playPerfect, playSound, playTap } from '@/lib/sfx';
 
 // ⚔️ 토너먼트 한 판 화면 — 큰 화면(screen)·아이 태블릿(me='a'|'b')이 같이 쓴다.
 // 시간표(lib/tournament.ts T_*)를 **서버 시각**으로 따라가서 두 기기가 같은 순간에 같은 장면을 본다.
@@ -55,6 +55,23 @@ export default function DuelStage({
   label?: string;
 }) {
   const [phase, setPhase] = useState<Phase>('wait');
+  // ⚡ 상대가 들어오는 순간 "HERE COMES A NEW CHALLENGER!" (11/25 Jin: 격투게임처럼 그림자 → 띠잉)
+  const [challenger, setChallenger] = useState<'a' | 'b' | null>(null);
+  const prevJoined = useRef({ a: joinedA, b: joinedB });
+  useEffect(() => {
+    const prev = prevJoined.current;
+    const side: 'a' | 'b' | null = !prev.a && joinedA ? 'a' : !prev.b && joinedB ? 'b' : null;
+    prevJoined.current = { a: joinedA, b: joinedB };
+    if (!side || (startAt && serverNow() >= startAt)) return;
+    setChallenger(side);
+    try {
+      playSound('next');
+    } catch {
+      // 소리는 없어도 된다
+    }
+    const id = window.setTimeout(() => setChallenger(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [joinedA, joinedB, startAt]);
   const [count, setCount] = useState(3);
   const [myTier, setMyTier] = useState<string | null>(null);
   const [resultStep, setResultStep] = useState(0);
@@ -73,7 +90,8 @@ export default function DuelStage({
     let raf = 0;
     const tick = () => {
       const e = serverNow() - startAt;
-      const p: Phase = e < T_COUNT ? 'title' : e < T_VS ? 'count' : e < T_CHANCE ? 'vs' : e < T_CHANCE + CHANCE_LEN ? 'chance' : 'resolve';
+      // 시작 시각 전(도전자 등장 연출 중)은 아직 대기 화면
+      const p: Phase = e < 0 ? 'wait' : e < T_COUNT ? 'title' : e < T_VS ? 'count' : e < T_CHANCE ? 'vs' : e < T_CHANCE + CHANCE_LEN ? 'chance' : 'resolve';
       if (p === 'count') setCount(Math.max(1, 3 - Math.floor((e - T_COUNT) / 1000)));
       if (p !== phaseRef.current && phaseRef.current !== 'result') {
         phaseRef.current = p;
@@ -142,8 +160,8 @@ export default function DuelStage({
         <p className={`text-[2.8vmin] font-black ${isMe ? 'text-amber-300' : 'text-slate-300'}`}>{isMe ? '⭐ 나' : side === 'a' ? '🔴 왼쪽' : '🔵 오른쪽'}</p>
         <div
           className={`relative ${me ? 'w-[min(38vw,46vh)]' : 'w-[min(26vw,34vh)]'} aspect-[4/5] rounded-[2vmin] p-[0.7vmin] ${joined && frameShines(tier) ? 'holo-frame' : ''} ${
-            phase === 'vs' ? 'animate-vs-slam' : ''
-          }`}
+            phase === 'vs' || challenger === side ? 'animate-vs-slam' : ''
+          } ${challenger === side ? 'challenger-flash' : ''}`}
           style={{ background: joined ? tier.frame : '#1e293b' }}
         >
           <div className="relative w-full h-full overflow-hidden rounded-[1.5vmin] bg-slate-900">
@@ -236,6 +254,14 @@ export default function DuelStage({
       )}
       {phase === 'resolve' && !outcome && <p className="text-[3.6vmin] font-black text-slate-200">🤔 누가 이겼을까…</p>}
 
+      {challenger && phase === 'wait' && (
+        <div className="fixed inset-x-0 top-[10%] z-40 flex flex-col items-center pointer-events-none challenger-banner">
+          <p className="text-[7.5vmin] font-black italic text-white tracking-tight drop-shadow-[0_0_18px_rgba(239,68,68,0.95)] text-center leading-none">
+            HERE COMES A<br />NEW CHALLENGER!
+          </p>
+          <p className="mt-[1.4vmin] text-[4vmin] font-black text-amber-300 drop-shadow">⚡ 새로운 도전자 등장!! ⚡</p>
+        </div>
+      )}
       {/* 덮개: 시작 문구 · 카운트다운 */}
       {(phase === 'title' || phase === 'count') && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 pointer-events-none">

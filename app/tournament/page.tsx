@@ -118,7 +118,8 @@ function Admin() {
       setJoined({ a: !!sa, b: !!sb });
       if (!m.startAt && sa && sb) {
         const copy: Tournament = JSON.parse(JSON.stringify(tt));
-        findMatch(copy, m.id)!.startAt = serverNow() + 800;
+        // 두 번째 선수가 들어온 뒤 "HERE COMES A NEW CHALLENGER!" (2.2초)를 보여줄 틈을 두고 시작
+        findMatch(copy, m.id)!.startAt = serverNow() + 3000;
         await save(copy);
         return;
       }
