@@ -101,6 +101,8 @@ export interface Match {
   winner: 'a' | 'b' | null;
   bestOf: 1 | 3;
   games: GameResult[];
+  /** 🔥 패자부활전 (1라운드에서 짝이 없던 아이 vs 제일 아깝게 진 아이) */
+  revival?: boolean;
   /** 지금 진행 중인 판의 씨앗과 시작 시각(서버 ms). 둘 다 들어와야 시작 시각이 정해진다 */
   seed?: number;
   startAt?: number;
@@ -113,6 +115,10 @@ export interface Tournament {
   entrants: Entrant[];
   rounds: Match[][];
   current: string | null;
+  /** 1라운드에서 짝이 없어 패자부활전을 기다리는 아이 (홀수 인원) */
+  waiting?: number | null;
+  /** 패자부활로 다시 기회를 받은 아이들 (한 번만) */
+  revived?: number[];
 }
 
 /** 아이 쪽 신호 (그 아이 players.survey.duel) */
@@ -277,10 +283,12 @@ export function newSeed(): number {
 }
 
 /**
- * 참가 곤충을 섞어 1라운드를 만든다 (11/25 Jin: "부전승을 최소화").
- * 라운드마다 **최대한 많이 짝을 짓고, 홀수일 때만 1명 부전승** — 13명이면 6경기 + 1명 부전승 → 7명 → 3경기 + 1명 → 4명 → 준결승 → 결승.
- * 부전승은 되도록 한 번도 안 받은 아이에게 (같은 아이가 두 번 쉬지 않게). 다음 라운드는 앞 라운드가 끝나면 만든다.
- * 2명만 남은 라운드(결승)만 3판 2선승.
+ * 참가 곤충을 섞어 1라운드를 만든다.
+ * 🔥 11/26 Jin: 부전승 없이 **패자부활전** (B안) — 모두 최소 1번은 배틀하고, 공짜로 올라가는 아이가 없게.
+ *   - 홀수(15명): 1라운드 7경기 + 1명 대기 → 7경기가 끝나면 **패자부활전**(대기한 아이 vs 제일 아깝게 진 아이) → 이긴 아이까지 8명.
+ *   - 라운드가 끝나 이긴 아이가 홀수(14명 → 7명)면 그 라운드 패자 중 **제일 아깝게 진 아이가 바로 부활** → 8명.
+ *   - "제일 아깝게 진" = 이긴 쪽이 남긴 HP(left)가 제일 적었던 경기의 패자. 한 아이는 한 번만 부활.
+ *   - 16명은 딱 맞아서 부활·대기 없음. 2명만 남은 라운드(결승)만 3판 2선승.
  */
 export function makeTournament(entrants: Entrant[]): Tournament {
   const list = shuffle(entrants);
@@ -291,29 +299,20 @@ export function makeTournament(entrants: Entrant[]): Tournament {
     entrants: list,
     rounds: [],
     current: null,
+    waiting: null,
+    revived: [],
   };
-  t.rounds.push(buildRound(t, 0, list.map((_, i) => i)));
+  const players = list.map((_, i) => i);
+  if (players.length % 2 === 1 && players.length > 1) t.waiting = players.pop()!;
+  t.rounds.push(buildRound(t, 0, players));
   t.current = nextMatchId(t);
   return t;
 }
 
-/** 이 라운드에 올라온 아이들(entrants 번호)로 경기를 짠다. 홀수면 1명 부전승(바로 승리 처리). */
+/** 이 라운드에 올라온 아이들(entrants 번호)로 경기를 짠다. (혹시 홀수면 마지막 아이 부전승 — 부활할 패자가 없을 때만) */
 function buildRound(t: Tournament, round: number, players: number[]): Match[] {
   const order = [...players];
-  if (order.length % 2 === 1) {
-    // 부전승 받을 아이: 아직 한 번도 안 받은 아이 중 맨 뒤 (1라운드는 이미 섞여 있어서 사실상 무작위)
-    const hadBye = new Set(t.rounds.flat().filter((m) => m.b === null && m.a !== null).map((m) => m.a));
-    let pick = order.length - 1;
-    for (let i = order.length - 1; i >= 0; i--) {
-      if (!hadBye.has(order[i])) {
-        pick = i;
-        break;
-      }
-    }
-    const [bye] = order.splice(pick, 1);
-    order.push(bye);
-  }
-  const final = order.length === 2;
+  const final = order.length === 2 && (t.waiting === null || t.waiting === undefined);
   const out: Match[] = [];
   for (let i = 0; i < order.length; i += 2) {
     const a = order[i];
@@ -332,38 +331,77 @@ function buildRound(t: Tournament, round: number, players: number[]): Match[] {
   return out;
 }
 
-/** 지금 라운드가 다 끝났으면 다음 라운드를 만든다 (1명 남으면 끝) */
+/** 이 라운드에서 제일 아깝게 진 아이 (패자부활전 경기·이미 부활한 아이 빼고). 없으면 null */
+function bestLoser(t: Tournament, round: Match[]): number | null {
+  const revived = new Set(t.revived ?? []);
+  const cands = round
+    .filter((m) => !m.revival && m.winner && m.a !== null && m.b !== null)
+    .map((m) => {
+      const loser = m.winner === 'a' ? m.b! : m.a!;
+      const last = m.games[m.games.length - 1];
+      return { loser, left: last?.left ?? 50, r: Math.random() };
+    })
+    .filter((c) => !revived.has(c.loser));
+  if (!cands.length) return null;
+  cands.sort((x, y) => x.left - y.left || x.r - y.r);
+  return cands[0].loser;
+}
+
+/** 이 아이가 패자부활로 올라온 아이인지 */
+export function isRevived(t: Tournament, idx: number | null): boolean {
+  return idx !== null && (t.revived ?? []).includes(idx);
+}
+
+/** 지금 라운드가 다 끝났으면 → (대기한 아이가 있으면) 패자부활전 / 다음 라운드 (홀수면 아깝게 진 아이 부활) / 1명 남으면 끝 */
 function maybeNextRound(t: Tournament) {
   const last = t.rounds[t.rounds.length - 1];
   if (!last || last.some((m) => !m.winner)) return;
+  if (t.waiting !== null && t.waiting !== undefined) {
+    const w = t.waiting;
+    t.waiting = null;
+    const loser = bestLoser(t, last);
+    const round = t.rounds.length - 1;
+    if (loser !== null) {
+      t.revived = [...(t.revived ?? []), loser];
+      last.push({ id: `r${round}m${last.length}`, round, slot: last.length, a: w, b: loser, winner: null, bestOf: 1, games: [], revival: true });
+    } else {
+      // 진 아이가 없으면(이럴 일은 없지만) 그냥 올라간다
+      last.push({ id: `r${round}m${last.length}`, round, slot: last.length, a: w, b: null, winner: 'a', bestOf: 1, games: [] });
+      maybeNextRound(t);
+    }
+    return;
+  }
   const winners = last.map((m) => (m.winner === 'a' ? m.a : m.b)).filter((x): x is number => x !== null);
   if (winners.length <= 1) {
     t.status = 'done';
     return;
   }
+  if (winners.length % 2 === 1) {
+    const loser = bestLoser(t, last);
+    if (loser !== null) {
+      t.revived = [...(t.revived ?? []), loser];
+      winners.push(loser);
+    }
+  }
   t.rounds.push(buildRound(t, t.rounds.length, winners));
 }
 
-/** 참가 인원으로 본 전체 라운드 수 (13명 → 13·7·4·2 = 4라운드) */
-export function totalRounds(t: Tournament): number {
-  let n = t.entrants.length;
-  let r = 0;
-  while (n > 1) {
-    n = Math.ceil(n / 2);
-    r++;
-  }
-  return r;
-}
-
-/** 라운드마다 경기 수 (화면에 아직 안 만든 라운드 자리를 그릴 때) */
+/** 라운드마다 경기 수 (15명 → 8(7 + 패자부활전) · 4 · 2 · 1 / 14명 → 7 · 4 · 2 · 1) */
 export function roundSizes(t: Tournament): number[] {
   const out: number[] = [];
   let n = t.entrants.length;
   while (n > 1) {
-    out.push(Math.ceil(n / 2));
-    n = Math.ceil(n / 2);
+    out.push(n % 2 === 0 ? n / 2 : (n - 1) / 2 + 1);
+    let next = Math.ceil(n / 2);
+    if (next % 2 === 1 && next > 1) next += 1;
+    n = next;
   }
   return out;
+}
+
+/** 전체 라운드 수 */
+export function totalRounds(t: Tournament): number {
+  return roundSizes(t).length;
 }
 
 export function findMatch(t: Tournament, id: string | null | undefined): Match | null {
@@ -402,9 +440,11 @@ export function recordGame(t: Tournament, mid: string, game: GameResult): Tourna
   const need = m.bestOf === 3 ? 2 : 1;
   if (w.a >= need || w.b >= need) {
     m.winner = w.a >= need ? 'a' : 'b';
-    maybeNextRound(copy);
-    copy.current = nextMatchId(copy);
-    if (!copy.current && copy.status !== 'done') maybeNextRound(copy);
+    for (let k = 0; k < 4; k++) {
+      maybeNextRound(copy);
+      copy.current = nextMatchId(copy);
+      if (copy.current || copy.status === 'done') break;
+    }
     if (!copy.current) copy.status = 'done';
   }
   return copy;
@@ -415,6 +455,21 @@ export function roundName(t: Tournament, round: number): string {
   if (left === 1) return '🏆 결승';
   if (left === 2) return '준결승';
   return `${round + 1}라운드`;
+}
+
+/** 경기 이름 — "1라운드 3경기" · "🔥 패자부활전" · "🏆 결승" */
+export function matchLabel(t: Tournament, m: Match): string {
+  if (m.revival) return '🔥 패자부활전';
+  const name = roundName(t, m.round);
+  const count = t.rounds[m.round]?.filter((x) => !x.revival).length ?? 1;
+  return count <= 1 ? name : `${name} ${m.slot + 1}경기`;
+}
+
+/** 패자부활로 올라온 아이가 이 경기에서 "부활한 아이" 로 보이는지 (진 경기 다음부터) */
+export function showRevived(t: Tournament, m: Match, idx: number | null): boolean {
+  if (!isRevived(t, idx)) return false;
+  const lost = t.rounds.flat().find((x) => x.winner && !x.revival && (x.winner === 'a' ? x.b === idx : x.a === idx));
+  return !!lost && lost.id !== m.id && (m.revival || m.round > lost.round);
 }
 
 export function champion(t: Tournament): Entrant | null {

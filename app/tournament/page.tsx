@@ -23,6 +23,8 @@ import {
   recordGame,
   roundName,
   roundSizes,
+  matchLabel,
+  showRevived,
   saveTournament,
   serverNow,
   signalFor,
@@ -170,7 +172,8 @@ function Admin() {
   }
 
   // 다음 라운드가 새로 짜이면 (결과를 다 보여준 뒤) 대진표를 크게 다시 보여준다
-  const roundCount = t?.rounds.length ?? 0;
+  // (패자부활전 경기가 새로 생겨도 — 1라운드가 끝나면 "🔥 패자부활전!" 을 크게)
+  const roundCount = t ? t.rounds.flat().length : 0;
   const seenRounds = useRef(0);
   const seenId = useRef('');
   useEffect(() => {
@@ -304,7 +307,7 @@ function Admin() {
                 startAt={show ? show.startAt : stageMatch.startAt}
                 outcome={show ? show.outcome : null}
                 liveTiers={live}
-                label={`${roundName(t, stageMatch.round)} ${stageMatch.slot + 1}경기${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''} — 👦 ${t.entrants[stageMatch.a].kid} vs 👦 ${t.entrants[stageMatch.b].kid}`}
+                label={`${matchLabel(t, stageMatch)}${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''} — 👦 ${t.entrants[stageMatch.a].kid} vs 👦 ${t.entrants[stageMatch.b].kid}`}
               />
             </section>
           )}
@@ -334,55 +337,91 @@ function Reveal({ t, onGo }: { t: Tournament; onGo: () => void }) {
   const r = Math.min(t.rounds.length - 1, Math.max(0, t.rounds.findIndex((round) => round.some((m) => !m.winner))));
   const round = t.rounds[r < 0 ? t.rounds.length - 1 : r] ?? [];
   const first = round.find((m) => m.id === t.current);
-  const person = (idx: number | null) => {
+  const person = (idx: number | null, m?: Match) => {
     if (idx === null) return <div className="flex-1 flex items-center justify-center text-[2.6vmin] font-black text-emerald-300">🎉 부전승!</div>;
     const e = t.entrants[idx];
     const src = imgs.get(e.iid);
+    const rev = m ? showRevived(t, m, idx) : false;
     return (
       <div className="flex-1 min-w-0 flex flex-col items-center gap-[0.6vmin]">
-        <div className="w-full aspect-[4/5] overflow-hidden rounded-[1.2vmin] bg-slate-800 border-2 border-slate-600">
+        <div className={`relative w-full aspect-[4/5] overflow-hidden rounded-[1.2vmin] bg-slate-800 border-2 ${rev ? 'border-orange-400' : 'border-slate-600'}`}>
           {src && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={src} alt="" className="w-full h-full object-cover" />
           )}
+          {rev && <span className="absolute left-1 top-1 rounded-md bg-orange-500 px-1.5 text-[1.8vmin] font-black text-white">🔥 부활</span>}
         </div>
         <p className="w-full truncate text-center text-[2.2vmin] font-black">{e.nick}</p>
         <p className="w-full truncate text-center text-[2vmin] font-bold text-amber-200">👦 {e.kid}</p>
       </div>
     );
   };
+  const roundIdx = r < 0 ? 0 : r;
+  const revivedHere = round
+    .flatMap((m) => [m.a, m.b].map((idx) => ({ idx, m })))
+    .filter(({ idx, m }) => !m.revival && showRevived(t, m, idx));
+  const waiting = roundIdx === 0 && t.waiting !== null && t.waiting !== undefined ? t.waiting : null;
   return (
     <section className="flex flex-col items-center gap-[2.4vmin]">
-      <p className="attract-gold text-[6vmin] font-black animate-vs-slam">{roundName(t, r < 0 ? 0 : r).startsWith('🏆') ? '' : '🏆 '}{roundName(t, r < 0 ? 0 : r)} 대진표!</p>
+      <p className="attract-gold text-[6vmin] font-black animate-vs-slam">
+        {first?.revival ? '🔥 패자부활전!' : `${roundName(t, roundIdx).startsWith('🏆') ? '' : '🏆 '}${roundName(t, roundIdx)} 대진표!`}
+      </p>
+      {first?.revival && first.b !== null && (
+        <p className="text-[3.4vmin] font-black text-orange-300 text-center">한끗 차이로 아깝게 진 👦 {t.entrants[first.b].kid} 에게 한 번 더 기회!</p>
+      )}
+      {revivedHere.map(({ idx }) => (
+        <p key={idx} className="text-[3.4vmin] font-black text-orange-300 text-center animate-pop">
+          🔥 패자부활! 한끗 차이로 아깝게 진 👦 {t.entrants[idx!].kid} 가 다시 올라왔어!
+        </p>
+      ))}
       <div className="flex flex-wrap justify-center gap-[2vmin] w-full">
         {round.map((m, i) => (
           <div
             key={m.id}
-            className={`animate-pop w-[min(30vw,40vh)] rounded-[2vmin] border-4 p-[1.2vmin] ${
-              m.id === t.current ? 'border-amber-300 bg-amber-400/15 shadow-[0_0_24px_rgba(251,191,36,0.6)]' : m.winner ? 'border-slate-700 bg-slate-900/60 opacity-60' : 'border-slate-600 bg-slate-900'
+            className={`animate-pop ${round.length > 4 ? 'w-[min(22vw,32vh)]' : 'w-[min(30vw,40vh)]'} rounded-[2vmin] border-4 p-[1.2vmin] ${
+              m.id === t.current
+                ? m.revival
+                  ? 'border-orange-400 bg-orange-500/15 shadow-[0_0_28px_rgba(251,146,60,0.7)]'
+                  : 'border-amber-300 bg-amber-400/15 shadow-[0_0_24px_rgba(251,191,36,0.6)]'
+                : m.winner
+                  ? 'border-slate-700 bg-slate-900/60 opacity-60'
+                  : 'border-slate-600 bg-slate-900'
             }`}
             style={{ animationDelay: `${i * 0.35}s`, animationFillMode: 'both' }}
           >
-            <p className="text-center text-[3vmin] font-black text-amber-300">
-              {round.length === 1 ? '결승전' : `${m.slot + 1}경기`} {m.id === t.current ? '👈 지금!' : m.b === null ? '' : m.winner ? '✅ 끝' : ''}
+            <p className={`text-center text-[3vmin] font-black ${m.revival ? 'text-orange-300' : 'text-amber-300'}`}>
+              {m.revival ? '🔥 패자부활전' : round.filter((x) => !x.revival).length === 1 ? roundName(t, m.round).replace('🏆 결승', '🏆 결승전') : `${m.slot + 1}경기`}{' '}
+              {m.id === t.current ? '👈 지금!' : m.b === null ? '' : m.winner ? '✅ 끝' : ''}
             </p>
             <div className="mt-[0.8vmin] flex items-center gap-[1vmin]">
-              {person(m.a)}
+              {person(m.a, m)}
               <span className="text-[3.4vmin] font-black text-amber-300">VS</span>
-              {person(m.b)}
+              {person(m.b, m)}
             </div>
           </div>
         ))}
+        {waiting !== null && (
+          <div className="animate-pop w-[min(22vw,32vh)] rounded-[2vmin] border-4 border-dashed border-orange-400/70 bg-slate-900 p-[1.2vmin]" style={{ animationDelay: `${round.length * 0.35}s`, animationFillMode: 'both' }}>
+            <p className="text-center text-[3vmin] font-black text-orange-300">🔥 패자부활전 대기</p>
+            <div className="mt-[0.8vmin] flex items-center gap-[1vmin]">
+              {person(waiting)}
+              <span className="text-[3.4vmin] font-black text-orange-300">VS</span>
+              <div className="flex-1 text-center text-[2.2vmin] font-black text-slate-300">❓ 제일 아깝게 진 친구</div>
+            </div>
+            <p className="mt-[0.6vmin] text-center text-[2vmin] font-bold text-slate-300">1라운드가 다 끝나면 붙어!</p>
+          </div>
+        )}
       </div>
       {first && first.a !== null && first.b !== null ? (
-        <>
+        // 경기가 많아 화면이 길어져도 시작 버튼은 늘 보이게 (아래에 붙음)
+        <div className="sticky bottom-0 z-20 w-full flex flex-col items-center gap-[1.2vmin] bg-slate-950/90 py-[1.4vmin] backdrop-blur">
           <p className="text-[3.4vmin] font-black text-center">
-            ⚔️ {first.slot + 1}경기 👦 {t.entrants[first.a].kid} · 👦 {t.entrants[first.b].kid} — 배틀 태블릿 앞에 앉아서 내 QR 을 찍어줘!
+            ⚔️ {matchLabel(t, first)} 👦 {t.entrants[first.a].kid} · 👦 {t.entrants[first.b].kid} — 배틀 태블릿 앞에 앉아서 내 QR 을 찍어줘!
           </p>
           <button onClick={onGo} className="btn-sparkle rounded-3xl bg-amber-400 px-[5vmin] py-[2vmin] text-[4vmin] font-black text-slate-900">
-            ⚔️ {first.slot + 1}경기 시작!
+            ⚔️ {matchLabel(t, first)} 시작!
           </button>
-        </>
+        </div>
       ) : null}
     </section>
   );
@@ -411,20 +450,29 @@ function Bracket({ t, currentId }: { t: Tournament; currentId: string | null }) 
                   <div
                     className={`flex items-center justify-between gap-1 px-[0.8vmin] py-[0.4vmin] text-[1.8vmin] font-bold ${won ? 'text-amber-300' : lost ? 'text-slate-500 line-through' : 'text-white'}`}
                   >
-                    <span className={`truncate max-w-[14vmin] ${e ? '' : 'text-slate-500 font-normal'}`}>{e ? `${e.nick}` : '(부전승)'}</span>
+                    <span className={`truncate max-w-[14vmin] ${e ? '' : 'text-slate-500 font-normal'}`}>
+                      {e ? `${showRevived(t, m, idx) ? '🔥' : ''}${e.nick}` : '(부전승)'}
+                    </span>
                     {m.bestOf === 3 && <span>{side === 'a' ? w.a : w.b}</span>}
                   </div>
                 );
               };
               const live = m.id === currentId;
               return (
-                <div key={m.id} className={`rounded-lg border ${live ? 'border-amber-300 bg-amber-400/15 shadow-[0_0_14px_rgba(251,191,36,0.5)]' : 'border-slate-700 bg-slate-900'}`}>
+                <div key={m.id} className={`rounded-lg border ${m.revival ? 'border-dashed border-orange-400/80 ' : ''}${live ? 'border-amber-300 bg-amber-400/15 shadow-[0_0_14px_rgba(251,191,36,0.5)]' : 'border-slate-700 bg-slate-900'}`}>
+                  {m.revival && <p className="px-[0.8vmin] pt-[0.3vmin] text-[1.5vmin] font-black text-orange-300">🔥 패자부활전</p>}
                   {row('a')}
                   <div className="h-px bg-slate-700" />
                   {row('b')}
                 </div>
               );
             })}
+            {r === 0 && t.waiting !== null && t.waiting !== undefined && (
+              <div className="rounded-lg border border-dashed border-orange-400/80 bg-slate-900 px-[0.8vmin] py-[0.4vmin] text-[1.8vmin] font-bold">
+                <p className="text-[1.5vmin] font-black text-orange-300">🔥 패자부활전 대기</p>
+                <p className="truncate max-w-[14vmin]">{t.entrants[t.waiting].nick}</p>
+              </div>
+            )}
           </div>
         ))}
         {/* 아직 안 만든 라운드 자리 (앞 라운드가 끝나면 채워진다) */}

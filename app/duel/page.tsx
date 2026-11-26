@@ -15,7 +15,7 @@ import {
   loadInsect,
   loadTournament,
   readSignals,
-  roundName,
+  matchLabel,
   signalFor,
   syncClock,
   winsOf,
@@ -263,7 +263,7 @@ export default function DuelPage() {
           me={sideNow}
           onPress={press}
           liveTiers={sideNow === 'a' ? { a: [null, null, null], b: oppTiers } : { a: oppTiers, b: [null, null, null] }}
-          label={`${roundName(t, stageMatch.round)}${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''}`}
+          label={`${matchLabel(t, stageMatch)}${stageMatch.bestOf === 3 ? ` · 3판 2선승 (${winsOf(stageMatch).a} : ${winsOf(stageMatch).b})` : ''}`}
         />
       </main>
     );
@@ -271,7 +271,9 @@ export default function DuelPage() {
 
   // 내 차례가 아닐 때
   const champ = t.status === 'done' ? champion(t) : null;
-  const out = myMatches.some((m) => m.winner && (m.winner === 'a' ? m.b === me : m.a === me));
+  // 졌어도 패자부활로 다시 올라오면(아직 안 끝난 경기가 있으면) 탈락이 아니다
+  const stillIn = myMatches.some((m) => !m.winner) || t.waiting === me;
+  const out = !stillIn && myMatches.some((m) => m.winner && (m.winner === 'a' ? m.b === me : m.a === me));
   return (
     <Center>
       <BrandMark size={48} />
@@ -286,6 +288,11 @@ export default function DuelPage() {
         <>
           <p className="text-[5vmin] font-black">이번 토너먼트 선수가 아니야 🙂</p>
           <p className="text-[3vmin] text-slate-300">큰 화면으로 친구들 배틀을 응원해줘!</p>
+        </>
+      ) : t.waiting === me ? (
+        <>
+          <p className="text-[6vmin] font-black">🔥 너는 패자부활전 선수야!</p>
+          <p className="text-[3.4vmin] text-slate-300">1라운드가 다 끝나면, 제일 아깝게 진 친구랑 붙어. 그때 다시 QR 을 찍어줘!</p>
         </>
       ) : mineSoon ? (
         <>
