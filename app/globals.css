@@ -876,3 +876,13 @@ html, body { overflow-x: clip; }
 .together-progress {
   animation: together-progress linear forwards;
 }
+
+/* 🎬 게임 설명 — 타이밍 고리 시범의 "지금!" (4초 중 2초 근처에만 보임) */
+@keyframes howto-now {
+  0%, 42% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  48%, 56% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  64%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+.howto-now {
+  animation: howto-now 4000ms linear infinite;
+}
