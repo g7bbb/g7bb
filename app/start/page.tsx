@@ -59,7 +59,8 @@ function StartInner() {
       .then((tt) => {
         if (!alive) return;
         // 배틀 태블릿(/arena 로 켠 기기)에서만 — 아이 폰은 대결장으로 안 보낸다 (11/25 Jin)
-        if (isArenaDevice() && tt && tt.status === 'running') {
+        // (토너먼트 선수가 아니면 — 늦게 온 친구 — 그대로 곤충 만들기)
+        if (isArenaDevice() && tt && tt.status === 'running' && tt.entrants.some((e) => e.pid === returning.id)) {
           rememberPlayer(returning.id);
           router.replace('/duel');
         } else setDuelCheck('no');

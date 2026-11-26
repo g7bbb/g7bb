@@ -8,7 +8,8 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { findPlayerByTicket, getCurrentPlayer } from '@/lib/session';
+import { findPlayerByTicket, getCurrentPlayer, signOut } from '@/lib/session';
+import { isArenaDevice } from '@/lib/arena';
 import { normalizeTicket } from '@/lib/ticket';
 import { Player } from '@/lib/types';
 import InsectCard, { InsectCardData } from './insect-card';
@@ -173,6 +174,16 @@ function CardInner() {
                 <p className="text-xl font-black text-amber-200">🎉 곤충 완성!</p>
                 <p className="mt-1 font-bold text-slate-200">⏳ 다같이 곤충을 본 다음 토너먼트! 내 차례가 되면 배틀 태블릿에서 내 QR 을 찍어줘.</p>
               </div>
+              {/* 폰 없는 친구들이 태블릿을 돌려 쓰니까 — 다 만들면 다음 친구 차례로 (11/26 Jin) */}
+              <button
+                onClick={() => {
+                  signOut();
+                  window.location.assign(isArenaDevice() ? '/duel' : '/');
+                }}
+                className="block w-full text-center bg-slate-700 text-white font-black text-lg py-4 rounded-2xl"
+              >
+                👋 다 만들었어! 다음 친구 차례
+              </button>
             </div>
           )}
           {/* 여기서 할 일은 배틀 — 크게. 랭킹·뱃지는 아래 작게 */}

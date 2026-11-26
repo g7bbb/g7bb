@@ -867,3 +867,12 @@ html, body { overflow-x: clip; }
   80% { opacity: 1; }
   100% { transform: translateX(0) scale(1.05); opacity: 0; }
 }
+
+/* 📺 다같이 보기 — 자동 넘기기 남은 시간 막대 (11/26) */
+@keyframes together-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.together-progress {
+  animation: together-progress linear forwards;
+}

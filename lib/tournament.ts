@@ -638,3 +638,27 @@ export async function loadTodayInsects(includeTest = false): Promise<TodayInsect
   });
   return Array.from(latest.values());
 }
+
+/**
+ * 오늘 QR 로 들어왔는데 아직 곤충을 안 만든 아이들 (다같이 보기의 그림자 칸).
+ * 오늘 처음 등록한 아이만 (예전 행사에서 온 아이는 곤충을 만들면 그때 나타난다).
+ */
+export async function loadTodayWaiting(includeTest = false, haveInsect: Set<string> = new Set()): Promise<{ pid: string; kid: string }[]> {
+  try {
+    const { data } = await supabase.from('players').select('id, display_name, ticket_code, created_at').gte('created_at', todayStartIso()).limit(200);
+    const rows: any[] = [...(data || [])];
+    if (includeTest) {
+      const { data: tps } = await supabase.from('players').select('id, display_name, ticket_code, created_at').in('ticket_code', NO_PIN_TICKETS);
+      (tps || []).forEach((p: any) => {
+        if (!rows.some((r) => r.id === p.id)) rows.push(p);
+      });
+    }
+    return rows
+      .filter((p) => p.ticket_code !== ROOM_TICKET && !isStaffTicket(p.ticket_code) && (includeTest || !isTestTicket(p.ticket_code)))
+      .filter((p) => !haveInsect.has(p.id) && (p.display_name || '').trim())
+      .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))
+      .map((p) => ({ pid: p.id, kid: p.display_name }));
+  } catch {
+    return [];
+  }
+}

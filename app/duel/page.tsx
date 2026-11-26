@@ -215,7 +215,10 @@ export default function DuelPage() {
         <BrandMark size={56} />
         <p className="text-[5vmin] font-black">⚔️ G7BB 배틀 태블릿</p>
         {!t || t.status !== 'running' ? (
-          <p className="text-[3.6vmin] text-slate-300">⏳ 선생님이 토너먼트를 시작하면 여기서 배틀해!</p>
+          <>
+            <p className="text-[4vmin] font-black text-amber-200">🐞 곤충 만들기: 종이 QR 을 찍으면 시작해!</p>
+            <p className="text-[3vmin] text-slate-300">다 만들면 "다음 친구 차례" 를 눌러줘. 토너먼트가 시작되면 여기서 배틀해!</p>
+          </>
         ) : (
           <>
             {curLine}
