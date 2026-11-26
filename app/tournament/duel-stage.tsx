@@ -18,7 +18,8 @@ import {
 import { judgeTiming, movesFor, TIMING_TIERS } from '@/lib/special-moves';
 import { levelTier, frameShines } from '@/lib/card';
 import { ENVIRONMENTS } from '@/lib/environments';
-import { playPerfect, playSound, playTap } from '@/lib/sfx';
+import { attackSoundFor, audioContext, playPerfect, playSound, playTap, specialSoundFor, unlockAudio } from '@/lib/sfx';
+import { setBgmTrack, startBgm } from '@/lib/bgm';
 
 // ⚔️ 토너먼트 한 판 화면 — 큰 화면(screen)·아이 태블릿(me='a'|'b')이 같이 쓴다.
 // 시간표(lib/tournament.ts)를 **서버 시각**으로 따라가서 두 기기가 같은 순간에 같은 장면을 본다.
@@ -160,13 +161,6 @@ export default function DuelStage({
         setPhase(p);
         setRi(i);
         setClashStep(cs);
-        if (p === 'clash' && cs > 0) {
-          try {
-            playTap(cs === 1 ? 300 : 360);
-          } catch {
-            // 소리는 없어도 된다
-          }
-        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -196,6 +190,7 @@ export default function DuelStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outKey, startAt]);
 
+
   function press() {
     if (phase !== 'chance' || !startAt || myTiersRef.current[ri] || !onPress) return;
     const tier = judgeTiming(serverNow() - (startAt + chanceAt(ri)));
@@ -203,6 +198,8 @@ export default function DuelStage({
     setMyTiers(myTiersRef.current);
     if (tier.key === 'perfect') playPerfect();
     else playTap(tier.key === 'ok' ? 500 : 800);
+    const mv = myMoves.length ? myMoves[ri % myMoves.length] : null;
+    if (mv) playSound(specialSoundFor(mv), 250);
     onPress(ri, tier.key);
   }
 
@@ -216,6 +213,73 @@ export default function DuelStage({
   const roundsJudged = phase === 'judge' ? ri + 1 : phase === 'resolve' || phase === 'result' ? CHANCE_COUNT : phase === 'clash' || phase === 'chance' ? ri : 0;
   const clashesDone =
     phase === 'clash' ? ri + (clashStep === 0 ? 0 : 1) : phase === 'chance' || phase === 'judge' ? ri + 1 : phase === 'resolve' || phase === 'result' ? CHANCE_COUNT : 0;
+
+  // 🔊 소리 (11/26 Jin "배틀할 때 소리가 안 나") — 큰 화면이 주인: 배틀 음악·치고받기·양쪽 필살기·승리.
+  //    아이 태블릿은 겹치면 시끄러워서 **내 것만** (내 필살기 · 이겼다/졌다).
+  const screen = !me;
+  const speciesOf = (side: 'a' | 'b') => (side === 'a' ? a : b)?.species;
+  useEffect(() => {
+    if (!screen) return;
+    if (phase === 'title') {
+      startBgm();
+      setBgmTrack('battle');
+      playSound('next');
+    }
+    if (phase === 'clash' && clashStep > 0) {
+      const attacker: 'a' | 'b' = clashStep === 1 ? (ri % 2 === 0 ? 'a' : 'b') : ri % 2 === 0 ? 'b' : 'a';
+      playSound(attackSoundFor(speciesOf(attacker)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, clashStep, ri, screen]);
+  // 큰 화면: 판정이 알려지는 대로 그 기술 소리 (두 선수 따로)
+  const playedSp = useRef(new Set<string>());
+  const tA = tiersOf('a')[ri];
+  const tB = tiersOf('b')[ri];
+  useEffect(() => {
+    if (!screen || (phase !== 'judge' && phase !== 'chance')) return;
+    (['a', 'b'] as const).forEach((side, k) => {
+      const t = side === 'a' ? tA : tB;
+      const key = `${startAt}:${ri}:${side}`;
+      if (!t || t === 'miss' || playedSp.current.has(key)) return;
+      playedSp.current.add(key);
+      const ins = side === 'a' ? a : b;
+      const moves = movesFor(ins?.species, ins?.level ?? 1);
+      const mv = moves[ri % moves.length];
+      if (mv) playSound(specialSoundFor(mv), k * 250);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tA, tB, phase, ri, screen, startAt]);
+  // 결과: 마지막 치고받기 → 승리 (큰 화면) / 이겼다·졌다 (아이)
+  useEffect(() => {
+    if (phase !== 'result' || !outcome) return;
+    if (screen && (resultStep === 1 || resultStep === 2)) playSound(attackSoundFor(speciesOf(resultStep === 1 ? 'a' : 'b')));
+    if (resultStep === 3) {
+      if (screen) {
+        playSound(attackSoundFor(speciesOf(outcome.winner)));
+        playSound('win', 450);
+      } else if (me) playSound(outcome.winner === me ? 'win' : 'lose', 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, resultStep, screen]);
+  // 🔊 소리 잠금 — 태블릿·노트북은 화면을 한 번 눌러야 소리가 난다 (QR 찍고 넘어오면 다시 잠김)
+  const [soundLocked, setSoundLocked] = useState(false);
+  useEffect(() => {
+    const check = () => setSoundLocked(audioContext()?.state !== 'running');
+    check();
+    const id = window.setInterval(check, 1000);
+    const unlock = () => {
+      unlockAudio(['next', 'win', 'lose', 'spAttack', 'spDefense', 'hitJaw', 'hitHorn', 'hitWing', 'hitMantis']);
+      if (screen) startBgm();
+      window.setTimeout(check, 200);
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [screen]);
 
   // HP — 치고받을 때마다 조금씩, 상대 필살기에 맞을 때마다 더 (결과 때 진 쪽 0, 이긴 쪽 남은 HP)
   const loser = outcome ? (outcome.winner === 'a' ? 'b' : 'a') : null;
@@ -398,6 +462,11 @@ export default function DuelStage({
       {phase === 'clash' && <p className="text-[2.8vmin] font-black text-slate-200">⚔️ 치고받는 중… 다음 칸은 {SLOT_POS[slots[ri]]}!</p>}
       {phase === 'resolve' && !outcome && <p className="text-[3.6vmin] font-black text-slate-200">🤔 누가 이겼을까…</p>}
 
+      {soundLocked && (
+        <p className="fixed bottom-[2vmin] left-1/2 -translate-x-1/2 z-50 rounded-full bg-amber-400 px-[3vmin] py-[1vmin] text-[2.6vmin] font-black text-slate-900 animate-pulse whitespace-nowrap pointer-events-none">
+          🔊 화면을 한 번 눌러줘! (소리 켜기)
+        </p>
+      )}
       {challenger && phase === 'wait' && (
         <div className="fixed inset-x-0 top-[10%] z-40 mx-auto w-fit flex flex-col items-center pointer-events-none challenger-banner rounded-3xl bg-black/75 px-[4vmin] py-[2vmin]">
           <p className="text-[7.5vmin] font-black italic text-white tracking-tight drop-shadow-[0_0_18px_rgba(239,68,68,0.95)] text-center leading-none">

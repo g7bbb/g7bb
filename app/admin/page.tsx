@@ -15,6 +15,7 @@ const MENU: { href: string; emoji: string; title: string; desc: string }[] = [
   // 🧪 (체험용) 11/25 — 큰 화면(노트북)에서 연다
   { href: '/together', emoji: '📺', title: '오늘 곤충 다같이 보기', desc: '(체험용) 큰 화면 · 아이가 쓴 프롬프트와 능력치 · 왜 이렇게 만들었는지 발표' },
   { href: '/tournament', emoji: '⚔️', title: '배틀 토너먼트', desc: '(체험용) 큰 화면 · 무작위 대진표 · 선수는 배틀 태블릿에서 QR · 결승 3판 2선승' },
+  { href: '/qr', emoji: '📱', title: '곤충 만들기 QR (큰 화면용)', desc: '(체험용) 아이들이 자기 폰으로 찍고 → 종이 QR → 곤충 만들기 → 내 카드' },
   { href: '/arena', emoji: '📲', title: '이 기기를 배틀 태블릿으로', desc: '(체험용) 배틀용 태블릿 2대에서 한 번씩 누르기 · 이 기기에서만 배틀이 돼요 (아이 폰은 응원만)' },
   { href: '/admin/tier', emoji: '💰', title: '참가권 올려주기', desc: '1만·10만원 · 30분 대기 풀기 · 종이 비밀번호 보기' },
   { href: '/admin/poster', emoji: '🖨️', title: '포스터 · 카드 출력', desc: '원본 그림 받기 · A3 포스터 · 셀피 카드' },

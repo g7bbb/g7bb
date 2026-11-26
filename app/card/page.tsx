@@ -180,10 +180,11 @@ function CardInner() {
                   signOut();
                   window.location.assign(isArenaDevice() ? '/duel' : '/');
                 }}
-                className="block w-full text-center bg-slate-700 text-white font-black text-lg py-4 rounded-2xl"
+                className="mx-auto block w-fit text-center bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-2xl"
               >
-                👋 다 만들었어! 다음 친구 차례
+                👋 다 만들었어! 다음 친구에게 넘기기 (태블릿)
               </button>
+              <p className="text-center text-xs text-slate-400">내 폰이면 안 눌러도 돼 — 이 화면이 내 곤충 카드야!</p>
             </div>
           )}
           {/* 여기서 할 일은 배틀 — 크게. 랭킹·뱃지는 아래 작게 */}
