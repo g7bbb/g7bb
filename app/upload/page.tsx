@@ -35,6 +35,8 @@ import { AgeStageKey, BodyPart, EnvironmentKey } from '@/lib/types';
 import HowTo from './how-to';
 import StatRadar from './stat-radar';
 import { BrandMark } from '@/app/brand-logo';
+import { useExperienceMode } from '@/lib/experience';
+import { isTestTicket } from '@/lib/ticket';
 
 /**
  * 한 장의 그림으로 AI 이미지를 만들 수 있는 최대 횟수입니다.
@@ -211,7 +213,11 @@ export default function UploadPage() {
     species === 'other' && customSpecies.trim() ? customSpecies.trim() : speciesLabel(species);
 
   const result = attempts[picked] ?? null;
-  const attemptsLeft = MAX_ATTEMPTS - attempts.length;
+  // 🧪 체험 모드: 다시 만들기 없음 — 한 번만 (11/26 Jin, AI 비용). 테스트 번호(900~)는 그대로 3번
+  const exp = useExperienceMode();
+  const oneShot = exp === true && !(player && isTestTicket(player.ticket_code));
+  const maxAttempts = oneShot ? 1 : MAX_ATTEMPTS;
+  const attemptsLeft = maxAttempts - attempts.length;
   // 아직 아무것도 안 만들었거나, 결과를 보다가 "설정 고치기"를 누른 상태
   const showForm = attempts.length === 0 || editing;
 
@@ -231,6 +237,11 @@ export default function UploadPage() {
     if (!selected) return;
     setFile(selected);
     // 그림이 바뀌면 지금까지 만든 결과는 다른 그림의 것이라 쓸모가 없습니다. 횟수도 새로 시작합니다.
+    // (체험 모드는 한 번만이라 이미 만들었으면 사진을 바꿔도 다시 안 만든다)
+    if (oneShot && attempts.length) {
+      setError('체험에서는 곤충을 한 번만 만들 수 있어! 아래 "저장" 을 눌러줘.');
+      return;
+    }
     setAttempts([]);
     setPicked(0);
     setEditing(false);
@@ -251,8 +262,8 @@ export default function UploadPage() {
       setError(BAD_WORD_MESSAGE);
       return;
     }
-    if (attempts.length >= MAX_ATTEMPTS) {
-      setError(`다시 만들기는 ${MAX_ATTEMPTS - 1}번까지야. 만든 것 중에서 골라줘!`);
+    if (attempts.length >= maxAttempts) {
+      setError(oneShot ? '체험에서는 곤충을 한 번만 만들 수 있어!' : `다시 만들기는 ${MAX_ATTEMPTS - 1}번까지야. 만든 것 중에서 골라줘!`);
       return;
     }
     setLoading(true);
@@ -777,7 +788,7 @@ export default function UploadPage() {
           {/* 한도를 다 쓴 뒤 설정만 고치러 들어오면 아무것도 못 하고 갇힙니다. 나가는 길을 알려줍니다. */}
           {attemptsLeft <= 0 && (
             <p className="text-xs text-slate-400 text-center">
-              다시 만들기를 다 썼어. 그림 사진을 다시 찍으면 또 만들 수 있어!
+              {oneShot ? '체험에서는 한 번만 만들 수 있어. 이름·설정만 고치고 저장해줘!' : '다시 만들기를 다 썼어. 그림 사진을 다시 찍으면 또 만들 수 있어!'}
             </p>
           )}
         </>
@@ -854,7 +865,7 @@ export default function UploadPage() {
             >
               {loading ? '새로 그리는 중... 🐝' : `🔄 마음에 안 들면 다시 만들기 (${attemptsLeft}번 남음)`}
             </button>
-          ) : (
+          ) : oneShot ? null : (
             <p className="text-xs text-slate-400 text-center">
               다시 만들기는 여기까지야. 위에서 제일 마음에 드는 걸 골라줘!
             </p>

@@ -17,6 +17,7 @@ import { effectiveVisit, frameUpgrade } from '@/lib/card';
 import { tierForPlayer } from '@/lib/tiers';
 import FrameUpPopup from '@/app/card/frame-up';
 import { useExperienceMode } from '@/lib/experience';
+import { isTestTicket } from '@/lib/ticket';
 
 // ─────────────────────────────────────────────────────────────
 // 다시 온 아이 (카드·종이의 QR 을 찍고 들어온 경우) — 2026-10-01 Jin 설계
@@ -154,13 +155,16 @@ export default function Returning({ player: initial, onNotMe }: { player: Player
       ) : (
         <div className="flex flex-col gap-3" style={{ wordBreak: 'keep-all' }}>
           <BigButton onClick={() => go('/card')}>🃏 내 곤충 카드 보기</BigButton>
-          <button
-            onClick={chooseNewInsect}
-            disabled={busy}
-            className="bg-slate-700 disabled:opacity-50 text-slate-100 font-bold py-3 rounded-xl"
-          >
-            🎨 새로 만들기
-          </button>
+          {/* 체험은 곤충 한 마리만 (11/26 Jin) — 테스트 번호(900~)만 새로 만들기 */}
+          {isTestTicket(player.ticket_code) && (
+            <button
+              onClick={chooseNewInsect}
+              disabled={busy}
+              className="bg-slate-700 disabled:opacity-50 text-slate-100 font-bold py-3 rounded-xl"
+            >
+              🎨 새로 만들기 (테스트 번호만)
+            </button>
+          )}
           <p className="text-center text-sm text-slate-400">⏳ 선생님이 배틀을 시작하면 대결장이 열려!</p>
         </div>
       );
