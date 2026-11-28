@@ -886,3 +886,28 @@ html, body { overflow-x: clip; }
 .howto-now {
   animation: howto-now 4000ms linear infinite;
 }
+
+/* ─── 🎮 필살기 미니게임 (2026-11-28 Jin, 부산) — app/battle/chance-games.tsx ───────────
+   🎵 리듬: 음표가 -10% → 105% 를 (내려오는 시간 × 1.25) 동안 일정한 속도로 → 0.8 지점(82%)이 판정선.
+      ⚠️ 판정선 위치(RHYTHM_LINE_PCT)·시간을 바꾸면 이 비율도 같이 맞출 것. 게임 진행에 필요해서 '움직임 줄이기' 에서도 끄지 않는다.
+   🍯 수액: 시간 막대 + 누를 때마다 쏙 들어가는 수액. */
+@keyframes rhythm-fall {
+  from { top: -10%; }
+  to { top: 105%; }
+}
+.rhythm-note {
+  animation-name: rhythm-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes sap-timer {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.sap-timer { animation: sap-timer linear both; }
+@keyframes sap-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.86); }
+  100% { transform: scale(1); }
+}
+.sap-bump { animation: sap-bump 0.16s ease-out; }

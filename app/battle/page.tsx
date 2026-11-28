@@ -45,6 +45,8 @@ import { BonusKey, bonusInfo, planLadderEvent, readBonus, rollBonus } from '@/li
 import { tierForPlayer } from '@/lib/tiers';
 import { LevelUpIntroPopup, LoseLevelPopup, levelTipSeen, levelUpUpsell, markLevelTipSeen } from '@/lib/levelup-tips';
 import BonusStage from './bonus-stage';
+import { RhythmGame, SapGame } from './chance-games';
+import { CHANCE_MISS_TEXT, ChanceKind, chanceKindFor } from '@/lib/chance-games';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -326,6 +328,11 @@ export default function BattlePage() {
   const [chanceMove, setChanceMove] = useState<SpecialMove | null>(null);
   /** 필살기 버튼 위에 띄울 안내 ("🎁 보너스! 필살기 한 번 더!", "🛡️ 상대가 공격해! 지금 막아!") */
   const [chanceNote, setChanceNote] = useState<string | null>(null);
+  // 🎮 이번 필살기 기회의 미니게임 — 타이밍 고리 / 리듬 게이지 / 수액 연타 (11/28 Jin, lib/chance-games.ts)
+  const [chanceKind, setChanceKind] = useState<ChanceKind>('ring');
+  const gameDoneRef = useRef<((tier: TimingTier | null) => void) | null>(null);
+  /** 게임마다 무작위 시작점 — 첫 판이 늘 같은 미니게임이면 지루하니까 */
+  const kindOffset = useRef(Math.floor(Math.random() * 3));
   /** 상대보다 레벨이 낮아서 크리티컬이 잘 터지는 배틀인지 (VS 화면 안내) */
   const [underdogNote, setUnderdogNote] = useState('');
   // 🏆 랭커 도전 규칙 (10/4 Jin): 이기면 그 자리 차지 · 3위 안은 더 강함 · 1.5만원은 2위 이상 못 이김
@@ -682,6 +689,21 @@ export default function BattlePage() {
     else playTap(tier.key === 'ok' ? 500 : 800);
   }
 
+  /** 🎵 리듬 · 🍯 수액 미니게임이 끝날 때까지 기다린다. 아무것도 안 누르면 null (= 고리를 안 누른 것과 같음) */
+  function waitForGame(): Promise<TimingTier | null> {
+    timingResult.current = null;
+    setTiming(null);
+    setChanceId((v) => v + 1); // 미니게임을 처음부터 다시
+    return new Promise((resolve) => {
+      gameDoneRef.current = (tier) => {
+        gameDoneRef.current = null;
+        setTiming(tier);
+        if (tier?.key === 'perfect') playPerfect();
+        resolve(tier);
+      };
+    });
+  }
+
   // ───────────────────────────────────────────────
   // 배틀 시작
   // ───────────────────────────────────────────────
@@ -887,12 +909,21 @@ export default function BattlePage() {
     /** 필살기 한 방이 HP 를 얼마나 깎는 것처럼 보일지 (보통 25 안팎, 크리 37 안팎) */
     const hitSize = (crit: boolean) => (crit ? 37 : 25);
 
-    /** 내가 누르는 필살기 버튼 한 번. 누르면 판정을 돌려준다. */
+    // 🎮 이번 판의 미니게임 순서 — 랭킹 도전은 판마다 한 칸씩 돌아서 1게임(3판)에 세 게임이 다 나오고,
+    //    한 판에 기회가 2번 이상이면 그 판 안에서도 서로 다르다 (lib/chance-games.ts chanceKindFor).
+    const ladderNowForKind = ladderRef.current;
+    const battleIdx =
+      !practiceRef.current && !bossRef.current && ladderNowForKind ? ladderNowForKind.used : Math.floor(Math.random() * 3);
+    let chanceNo = 0;
+
+    /** 내 필살기 기회 한 번 (고리 · 리듬 · 수액 중 하나). 누르면 판정을 돌려준다. */
     async function myChance(move: SpecialMove, note: string | null): Promise<TimingTier | null> {
+      const kind = chanceKindFor(battleIdx, chanceNo++, kindOffset.current);
+      setChanceKind(kind);
       setChanceNote(note);
       setChanceMove(move);
       setPhase('chance');
-      const tier = await waitForChance();
+      const tier = kind === 'ring' ? await waitForChance() : await waitForGame();
       // 타이밍 보너스는 **제일 잘 누른 것 하나만** 적용합니다 (두 번 다 곱하면 최대 1.8배가 되어 무너짐).
       if (tier && (!bestTier || tier.scoreMultiplier > bestTier.scoreMultiplier)) bestTier = tier;
       // 판정 글자(`퍼펙트!` 등)를 보여준 **뒤에** 화면을 넘깁니다.
@@ -913,6 +944,7 @@ export default function BattlePage() {
       counterLeft = false;
       counterMode.current = true;
       setCounterUi(true);
+      setChanceKind('ring'); // 🔄 되받아치기는 늘 빨간 고리
       setChanceNote('🔄 되받아치기 찬스!! 퍼펙트만 성공!');
       setChanceMove(move);
       setPhase('chance');
@@ -1602,7 +1634,54 @@ export default function BattlePage() {
         {/* 필살기 버튼 — 큰 고리가 줄어들다가 가운데 목표 고리와 겹치는 순간(2초)이 퍼펙트입니다.
             🔁 10/2 Jin: 아래에 붙어 있으면 태블릿에서 화면 밖으로 내려가 안 보였다 → **화면 한가운데**에 띄운다.
             body 로 옮겨(portal) 그린다: 맞을 때 화면 흔들림(transform)이 걸리면 fixed 가 같이 흔들리기 때문. */}
-        {phase === 'chance' && chanceMove && typeof document !== 'undefined' && createPortal(
+        {/* 🎮 리듬 게이지 · 수액 연타 (11/28 Jin) — 고리와 같은 자리(화면 한가운데, body 로 portal) */}
+        {phase === 'chance' && chanceMove && !counterUi && chanceKind !== 'ring' && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-[45] flex items-center justify-center px-4">
+            <div
+              className="w-full max-w-sm bg-slate-950/90 backdrop-blur-sm border-2 border-amber-400/70 rounded-3xl px-4 py-3 select-none shadow-2xl text-center"
+              style={{ wordBreak: 'keep-all' }}
+            >
+              {chanceNote && <p className="text-base font-black animate-pop text-amber-300">{chanceNote}</p>}
+              <p className={`text-sm font-bold ${chanceMove.textColor}`}>
+                {chanceMove.emoji} {chanceMove.name}
+                <span className="ml-1 text-[0.6875rem] text-slate-400">({chanceMove.kind === 'attack' ? '공격' : '수비'})</span>
+              </p>
+              <p className="text-base font-black text-white mb-2">
+                {chanceKind === 'rhythm'
+                  ? '🎵 음표가 노란 선에 닿을 때 그 줄을 눌러!'
+                  : chanceMove.kind === 'attack'
+                    ? '🍯 수액을 연타해서 상대 HP 를 깎아!'
+                    : '🍯 수액을 연타해서 내 HP 를 채워!'}
+              </p>
+              <div className="relative">
+                {chanceKind === 'rhythm' ? (
+                  <RhythmGame key={chanceId} emoji={chanceMove.emoji} onDone={(t) => gameDoneRef.current?.(t)} />
+                ) : (
+                  <SapGame key={chanceId} attack={chanceMove.kind === 'attack'} onDone={(t) => gameDoneRef.current?.(t)} />
+                )}
+                {timing && (
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 animate-judge-pop drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                    <FxText
+                      art={TIMING_ART[timing.key]}
+                      text={timing.key === 'ok' ? CHANCE_MISS_TEXT[chanceKind] : `${timing.emoji} ${timing.label}`}
+                      height={130}
+                      textClassName={
+                        timing.key === 'ok'
+                          ? `block w-[80vw] max-w-sm text-center text-[2rem] leading-tight font-black break-keep ${timing.textColor}`
+                          : `text-4xl font-black whitespace-nowrap ${timing.textColor}`
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-xs font-bold text-slate-200 min-h-[1rem]">
+                {timing ? (timing.scoreMultiplier > 1 ? `위력 +${Math.round((timing.scoreMultiplier - 1) * 100)}%!` : '그래도 필살기는 나가!') : ''}
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
+        {phase === 'chance' && chanceMove && (counterUi || chanceKind === 'ring') && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 z-[45] flex items-center justify-center px-4 pointer-events-none">
           <button
             onClick={pressSpecial}
@@ -1738,7 +1817,7 @@ export default function BattlePage() {
             )}
             {!usedSpecial && myMove && (
               <p className="text-xs text-amber-300">
-                이번엔 필살기({myMove.name})를 못 썼어. 다음엔 고리가 겹칠 때 눌러봐!
+                이번엔 필살기({myMove.name})를 못 썼어. 다음엔 화면이 뜨면 꼭 눌러봐!
               </p>
             )}
             {/* 랭킹 도전 중이면 다음 상대를, 끝났으면 성적표를 보여줍니다. */}
@@ -2032,8 +2111,12 @@ export default function BattlePage() {
           </p>
           {/* 11/20: 모양이 동그라미·세모·네모 무작위라 "동그라미" 설명이 틀려서 고침 + 한 줄로 */}
           <p className="text-sm text-amber-200/90 mt-3 leading-relaxed">
-            ⚡ 버튼이 뜨면 <b className="text-amber-300">모양이 딱 겹칠 때</b> 눌러! ✨퍼펙트!
+            ⚡ 필살기 미니게임이 판마다 바뀌어!
             {myMove.kind === 'defense' && ' (수비형은 상대가 공격할 때 떠!)'}
+          </p>
+          {/* 🎮 11/28 Jin: 고리 · 리듬 · 수액 — 무엇이 나올지 미리 알려준다 */}
+          <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+            ⏱ <b>모양이 딱 겹칠 때</b> 누르기 · 🎵 <b>음표가 선에 닿을 때</b> 누르기 · 🍯 <b>수액 마구 연타</b>
           </p>
         </div>
       )}
